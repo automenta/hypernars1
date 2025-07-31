@@ -5,14 +5,14 @@
 
 **Seed** - `prompt.md` - This is the original content used to start the process.  This can always be improved, requiring restarting the development process.
 
-**Code** - `hypernars.?.js` - the numbers are the version, derived directly from the previous.  it's possible that some data was lost between iterations.
+**Code** - `hypernars.?.js.md` - markdown files containing mostly JavaScript source code. the numbers are the version, derived directly from the previous.  it's possible that some data was lost between iterations.
 
 **Enhancements** - `enhance.?.md` - proposals for design enhancements, often with source code.  each file includes several proposals and a summary.  among the files, there is some overlap that should be clustered and synthesized.
 
 ## TODO
-- Apply the best enhance.?.md enhancements to hypergraph_nars.4.js
+- Apply the best `enhance.?.md` enhancements to `hypernars.4.js.md`
 - Develop comprehensive Unit Tests
-- Test the System
+- Test System
 - Develop API
 - Develop GUI
 - Formalize specification
