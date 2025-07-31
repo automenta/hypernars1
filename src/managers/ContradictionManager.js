@@ -155,9 +155,16 @@ export class ContradictionManager {
     _calculateEvidenceStrength(belief, sourceWeights = {}) {
         const source = this._getSource(belief);
         const sourceReliability = sourceWeights[source] || this.nar.metaReasoner?.getStrategyEffectiveness(`source:${source}`) || 0.5;
-        const recency = belief.timestamp ? Math.exp(-(Date.now() - belief.timestamp) / (1000 * 60 * 5)) : 0.8;
+        const recency = belief.timestamp ? Math.exp(-(Date.now() - belief.timestamp) / (1000 * 60 * 5)) : 0.8; // 5 minute half-life
+        const premiseSupport = belief.premises ? Math.log(1 + belief.premises.length) : 0;
 
-        return belief.budget.priority * belief.truth.confidence * sourceReliability * recency;
+        // Combine factors. Confidence and Priority are primary.
+        const baseStrength = belief.budget.priority * belief.truth.confidence;
+
+        // Modulate by other factors
+        const evidenceFactor = (sourceReliability * 0.4) + (recency * 0.4) + (premiseSupport * 0.2);
+
+        return baseStrength * evidenceFactor;
     }
 
     _getSource(belief) {

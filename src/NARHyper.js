@@ -139,7 +139,12 @@ export class NARHyper {
 
   citedBelief(statement, citation) {
     const beliefId = this.nal(statement);
+
     this._storeCitation(beliefId, citation);
+
+    if (citation.source) {
+        this.addHyperedge('hasSource', [beliefId, citation.source], { truth: TruthValue.certain() });
+    }
     return beliefId;
   }
 
@@ -163,6 +168,35 @@ export class NARHyper {
     });
 
     return { baseRule, exceptionRule };
+  }
+
+  probabilisticRule(premise, conclusion, frequency, confidence, options = {}) {
+    return this.implication(premise, conclusion, {
+      ...options,
+      truth: new TruthValue(frequency, confidence)
+    });
+  }
+
+  enrichedCompound(type, ...args) {
+    const options = (typeof args[args.length - 1] === 'object' && !Array.isArray(args[args.length - 1])) ?
+      args.pop() : {};
+
+    const compoundId = this.compound(type, ...args);
+
+    if (options.attributes) {
+      Object.entries(options.attributes).forEach(([attr, value]) => {
+        this.property(compoundId, `(${attr},${value})`, { truth: TruthValue.certain().scale(0.9) });
+      });
+    }
+
+    if (options.relationships) {
+      options.relationships.forEach(rel => {
+        this[rel.type](compoundId, rel.target, {
+          truth: rel.truth || TruthValue.certain().scale(0.8)
+        });
+      });
+    }
+    return compoundId;
   }
 
   _addTemporalContext(term, context, timestamp) {
@@ -484,7 +518,7 @@ export class NARHyper {
 
   /* ===== INTERNAL IMPLEMENTATION ===== */
 
-  addHyperedge(type, args, { truth, budget, priority } = {}) {
+  addHyperedge(type, args, { truth, budget, priority, premises = [] } = {}) {
     const termId = id(type, args);
     const hyperedge = this.hypergraph.get(termId) ?? new Hyperedge(termId, type, args);
 
@@ -496,7 +530,8 @@ export class NARHyper {
     const result = hyperedge.revise(
       truth || TruthValue.certain(),
       budget || Budget.full().scale(priority || 1.0),
-      this.config.beliefCapacity
+      this.config.beliefCapacity,
+      premises
     );
 
     this.propagate(termId, 1.0, hyperedge.getStrongestBelief().budget, 0, 0, []);
@@ -683,7 +718,7 @@ export class NARHyper {
     this.index.derivationCache.set(cacheKey, true);
 
     const truth = TruthValue.transitive(premise1.getTruth(), premise2.getTruth());
-    this.inheritance(subject, predicate, { truth, budget: budget.scale(0.7) });
+    this.inheritance(subject, predicate, { truth, budget: budget.scale(0.7), premises: [premise1.id, premise2.id] });
   }
 
   _deriveInduction(term1, term2, predicate, premise1, premise2, activation, budget, pathHash, pathLength, derivationPath) {
@@ -699,7 +734,7 @@ export class NARHyper {
     this.index.derivationCache.set(cacheKey, true);
 
     const truth = TruthValue.induction(premise1.getTruth(), premise2.getTruth());
-    this.similarity(term1, term2, { truth, budget: budget.scale(0.6) });
+    this.similarity(term1, term2, { truth, budget: budget.scale(0.6), premises: [premise1.id, premise2.id] });
   }
 
   _deriveSimilarity({ args: [term1, term2] }, event) {
@@ -729,7 +764,7 @@ export class NARHyper {
     this.memoization.set(key, pathLength);
 
     const truth = TruthValue.analogy(similarity.getTruth(), premise.getTruth());
-    this.inheritance(term2, predicate, { truth, budget: budget.scale(0.6) });
+    this.inheritance(term2, predicate, { truth, budget: budget.scale(0.6), premises: [similarity.id, premise.id] });
   }
 
   _deriveImplication({ args: [premise, conclusion] }, event) {

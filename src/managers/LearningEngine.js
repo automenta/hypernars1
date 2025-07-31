@@ -24,11 +24,16 @@ export class LearningEngine {
 
     recordExperience(event, outcome = {}) {
         const { success, accuracy } = outcome;
+        const hyperedge = this.nar.hypergraph.get(event.target);
+        const belief = hyperedge?.getStrongestBelief();
+
         const experience = {
             id: `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             timestamp: Date.now(),
             derivationPath: event.derivationPath,
             target: event.target,
+            premises: belief?.premises || [],
+            conclusion: event.target,
             budget: event.budget,
             success,
             accuracy
@@ -85,47 +90,47 @@ export class LearningEngine {
 
     _extractPatternCandidates() {
         return this.experienceBuffer
-            .filter(e => e.success && e.derivationPath && e.derivationPath.length > 1)
+            .filter(e => e.success && e.premises && e.premises.length > 0)
             .map(e => ({
-                derivationPath: e.derivationPath,
+                premises: e.premises,
+                conclusion: e.conclusion,
                 accuracy: e.accuracy,
                 success: e.success
             }));
     }
 
     _patternSignature(pattern) {
-        // Create a signature based on the rule types in the path
-        return pattern.derivationPath.map(step => (step.split('_')[0] || step)).slice(-3).join('>');
+        // Create a signature based on the structure of the rule
+        const premiseTypes = pattern.premises.map(p => this.nar.hypergraph.get(p)?.type || 'Term').sort().join(',');
+        const conclusionType = this.nar.hypergraph.get(pattern.conclusion)?.type || 'Term';
+        return `${premiseTypes}=>${conclusionType}`;
     }
 
     _createRulesFromPatterns() {
         for (const [signature, patternData] of this.patternMemory) {
             const successRate = patternData.successCount / patternData.totalCount;
-            if (successRate > 0.8 && patternData.totalCount > 10) {
+            if (successRate > 0.8 && patternData.totalCount > 5) {
                 const representativeInstance = patternData.instances[patternData.instances.length - 1];
-                this._createShortcutRule(representativeInstance.derivationPath, successRate);
+                this._createShortcutRule(representativeInstance.premises, representativeInstance.conclusion, successRate);
                 // Reset pattern to avoid re-creating the rule
                 this.patternMemory.delete(signature);
             }
         }
     }
 
-    _createShortcutRule(path, confidence) {
-        if (path.length < 2) return;
+    _createShortcutRule(premises, conclusionId, confidence) {
+        if (!premises || premises.length === 0) return;
 
-        const premiseEvent = this.nar.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(path[path.length - 2]));
-        const conclusionEvent = this.nar.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(path[path.length - 1]));
+        // For now, create a simple implication from the first premise.
+        // A more advanced version could create a conjunction of premises.
+        const premiseId = premises[0];
 
-        if (!premiseEvent || !conclusionEvent) return;
-
-        const premiseId = premiseEvent.target;
-        const conclusionId = conclusionEvent.target;
-
-        const shortcutId = id('ShortcutRule', [premiseId, conclusionId]);
+        const shortcutId = id('LearnedRule', [premiseId, conclusionId]);
         if (!this.nar.hypergraph.has(shortcutId)) {
             this.nar.implication(premiseId, conclusionId, {
                 truth: new TruthValue(0.9, confidence),
-                budget: this.nar.budget(0.9, 0.9, 0.9)
+                budget: this.nar.budget(0.9, 0.9, 0.9),
+                premises: [] // Learned rules are atomic
             });
             this.nar.notifyListeners('shortcut-created', { from: premiseId, to: conclusionId, confidence });
         }

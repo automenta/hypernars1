@@ -33,48 +33,22 @@ export class ExplanationSystem {
         const strongestBelief = hyperedge.getStrongestBelief();
         if (!strongestBelief) return;
 
-        // Find the most likely derivation rule and its premises
-        const derivation = this._findDerivationSources(hyperedge);
+        const premises = strongestBelief.premises || [];
+        const derivationRule = premises.length > 0 ? 'derived' : 'direct'; // Simplified rule
 
         path.unshift({
             id: hyperedge.id,
             type: hyperedge.type,
             args: hyperedge.args,
             truth: strongestBelief.truth,
-            derivationRule: derivation.rule,
-            premises: derivation.premises.map(p => p.id)
+            derivationRule: derivationRule,
+            premises: premises
         });
 
         // Recursively trace the premises
-        for (const premise of derivation.premises) {
-            this._traceDerivation(premise.id, path, depth - 1, visited);
+        for (const premiseId of premises) {
+            this._traceDerivation(premiseId, path, depth - 1, visited);
         }
-    }
-
-    _findDerivationSources(hyperedge) {
-        // Placeholder for a more sophisticated source-tracing mechanism.
-        // For now, we'll use a simple heuristic.
-        const sources = { rule: 'direct', premises: [] };
-
-        // This is a simplified mock-up. A full implementation would check derivation caches
-        // or event history to find the actual premises used in an inference step.
-        if (hyperedge.type === 'Inheritance') {
-            const [subject, predicate] = hyperedge.args;
-            // Look for a transitive path: S -> M, M -> P
-            for (const m_id of (this.nar.index.byArg.get(subject) || new Set())) {
-                 const middleHyperedge = this.nar.hypergraph.get(m_id);
-                 if (middleHyperedge?.type === 'Inheritance' && middleHyperedge.args[0] === subject) {
-                     const middleTerm = middleHyperedge.args[1];
-                     const final_id = id('Inheritance', [middleTerm, predicate]);
-                     if (this.nar.hypergraph.has(final_id)) {
-                         sources.rule = 'transitivity';
-                         sources.premises = [middleHyperedge, this.nar.hypergraph.get(final_id)];
-                         return sources;
-                     }
-                 }
-            }
-        }
-        return sources;
     }
 
     _formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives) {

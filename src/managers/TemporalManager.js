@@ -102,24 +102,67 @@ export class TemporalManager {
 
     // Allen's Interval Algebra composition table
     _composeTemporalRelations(rel1, rel2) {
+        const b = ['before'];
+        const m = ['meets'];
+        const o = ['overlaps'];
+        const s = ['starts'];
+        const d = ['during'];
+        const f = ['finishes'];
+        const e = ['equals'];
+        const a = ['after'];
+        const mb = ['metBy'];
+        const ob = ['overlappedBy'];
+        const sb = ['startedBy'];
+        const c = ['contains'];
+        const fb = ['finishedBy'];
+
+        const all = ['before', 'meets', 'overlaps', 'starts', 'during', 'finishes', 'equals', 'after', 'metBy', 'overlappedBy', 'startedBy', 'contains', 'finishedBy'];
+
         const table = {
-            'before': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['before'], 'starts': ['before'], 'during': ['before'], 'finishes': ['before'] },
-            'meets': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['before'], 'starts': ['before'], 'during': ['before'] },
-            'overlaps': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['before', 'meets', 'overlaps'], 'starts': ['overlaps', 'during'], 'during': ['overlaps', 'during'], 'finishes': ['overlaps', 'during', 'finishes'] },
-            'starts': { 'overlaps': ['overlaps'], 'starts': ['starts'], 'during': ['during'], 'finishes': ['finishes'] },
-            'during': { 'overlaps': ['overlaps'], 'during': ['during'], 'finishes': ['finishes'] },
-            'finishes': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['overlaps'], 'starts': ['finishes'], 'during': ['finishes'], 'finishes': ['finishes'] }
+            'before': {
+                'before': b, 'meets': b, 'overlaps': b, 'starts': b, 'during': b, 'finishes': b, 'equals': b,
+                'after': all, 'metBy': all, 'overlappedBy': all, 'startedBy': all, 'contains': all, 'finishedBy': all
+            },
+            'meets': {
+                'before': b, 'meets': b, 'overlaps': b, 'starts': b, 'during': b, 'finishes': m, 'equals': m,
+                'after': all, 'metBy': ['overlaps', 'during', 'finishes'], 'overlappedBy': ['overlaps', 'during', 'finishes'], 'startedBy': all, 'contains': all, 'finishedBy': all
+            },
+            'overlaps': {
+                'before': b, 'meets': b, 'overlaps': ['before', 'meets', 'overlaps'], 'starts': ['before', 'meets', 'overlaps'], 'during': ['before', 'meets', 'overlaps'], 'finishes': ['overlaps', 'during', 'finishes'], 'equals': ['overlaps', 'during', 'finishes'],
+                'after': all, 'metBy': ['starts', 'during', 'contains'], 'overlappedBy': ['starts', 'during', 'contains'], 'startedBy': all, 'contains': all, 'finishedBy': all
+            },
+            'starts': {
+                'before': b, 'meets': m, 'overlaps': o, 'starts': s, 'during': d, 'finishes': f, 'equals': e,
+                'after': a, 'metBy': mb, 'overlappedBy': ob, 'startedBy': sb, 'contains': c, 'finishedBy': fb
+            },
+            'during': {
+                'before': b, 'meets': m, 'overlaps': o, 'starts': s, 'during': d, 'finishes': d, 'equals': d,
+                'after': a, 'metBy': ob, 'overlappedBy': ob, 'startedBy': c, 'contains': c, 'finishedBy': c
+            },
+            'finishes': {
+                'before': b, 'meets': m, 'overlaps': o, 'starts': o, 'during': d, 'finishes': f, 'equals': f,
+                'after': a, 'metBy': ob, 'overlappedBy': ob, 'startedBy': c, 'contains': c, 'finishedBy': fb
+            },
+            'equals': {
+                'before': b, 'meets': m, 'overlaps': o, 'starts': s, 'during': d, 'finishes': f, 'equals': e,
+                'after': a, 'metBy': mb, 'overlappedBy': ob, 'startedBy': sb, 'contains': c, 'finishedBy': fb
+            },
         };
 
-        // Auto-populate with inverse relations
-        const relations = Object.keys(table);
-        for(const r1 of relations) {
-            for(const r2 of relations) {
-                if (table[r1] && table[r1][r2]) {
+        // Build out the full table using inverses to avoid manual entry for all 169 pairs
+        if (Object.keys(table).length < 13) {
+            const relations = ['before', 'meets', 'overlaps', 'starts', 'during', 'finishes', 'equals'];
+            for (const r1 of relations) {
+                const inv_r1 = this._getInverseTemporalRelation(r1);
+                if (inv_r1 && inv_r1 !== r1) {
+                    table[inv_r1] = {};
+                }
+            }
+             for (const r1 of relations) {
+                for (const r2 of relations) {
                     const inv_r1 = this._getInverseTemporalRelation(r1);
                     const inv_r2 = this._getInverseTemporalRelation(r2);
-                    if(inv_r1 && inv_r2) {
-                        if(!table[inv_r2]) table[inv_r2] = {};
+                    if (inv_r1 && inv_r2) {
                         const composed = table[r1][r2].map(r => this._getInverseTemporalRelation(r)).filter(r => r);
                         if (composed.length > 0) {
                            table[inv_r2][inv_r1] = composed;
@@ -138,7 +181,7 @@ export class TemporalManager {
 
         for (const constraint of constraints) {
             const { relation, minDuration, maxDuration } = constraint;
-            const match = relation.match(/(.+?)\\((.+?),(.+?)\\)/);
+            const match = relation.match(/(.+?)\((.+?),(.+?)\)/);
             if(!match) continue;
 
             const [_, op, term1, term2] = match;
@@ -193,8 +236,86 @@ export class TemporalManager {
     }
 
     // Predicts future events based on patterns
-    predict(event, pattern, horizon) {
-        // Placeholder for future implementation
-        return [];
+    predict(term, milliseconds, options = {}) {
+        const now = Date.now();
+        const future = now + milliseconds;
+        const results = [];
+
+        // Find all temporal relationships involving the term
+        // This requires iterating through intervals that involve the term.
+        this.temporalIntervals.forEach(interval => {
+            if (interval.id.includes(term)) {
+                const relation = interval.relations.values().next().value; // Simplified: gets first relation
+                const otherIntervalId = interval.relations.keys().next().value;
+                if (!otherIntervalId) return;
+
+                const otherInterval = this.temporalIntervals.get(otherIntervalId);
+                if(!otherInterval) return;
+
+                const eventTerm = otherInterval.id;
+
+                // Calculate if the event would be true at the future time
+                let isTrueAtFuture = false;
+                switch(relation) {
+                  case 'before':
+                    isTrueAtFuture = (interval.end) < future;
+                    break;
+                  case 'during':
+                    isTrueAtFuture = interval.start <= future && (interval.end) >= future;
+                    break;
+                  case 'after':
+                    isTrueAtFuture = interval.start > future;
+                    break;
+                  // Additional cases for all Allen relations...
+                }
+
+                if (isTrueAtFuture) {
+                  const hyperedge = this.nar.hypergraph.get(id('Term', [eventTerm]));
+                  if (hyperedge) {
+                    results.push({
+                      term: eventTerm,
+                      truth: hyperedge.getTruth(),
+                      confidence: this._calculateTemporalConfidence(relation, interval.start, future, interval.duration)
+                    });
+                  }
+                }
+            }
+        });
+
+        // Sort by confidence
+        return results.sort((a, b) => b.confidence - a.confidence);
+    }
+
+    _calculateTemporalConfidence(relation, timestamp, futureTime, duration) {
+        const timeDelta = Math.max(0, futureTime - timestamp) / 1000; // seconds
+        const decayFactor = Math.exp(-0.05 * timeDelta);
+        return (this.nar.config.baseTemporalConfidence || 0.8) * decayFactor;
+    }
+
+    queryTemporal(subject, constraints = {}) {
+        const results = [];
+        this.temporalIntervals.forEach(interval => {
+            if (interval.id.includes(subject)) {
+                let matches = true;
+
+                // Check temporal constraints
+                if (constraints.before && interval.end >= constraints.before) matches = false;
+                if (constraints.after && interval.start <= constraints.after) matches = false;
+                if (constraints.during) {
+                    const duringInterval = this.temporalIntervals.get(constraints.during);
+                    if (duringInterval && interval.relateTo(duringInterval) !== 'during') matches = false;
+                }
+
+                if (matches) {
+                    results.push({
+                        interval: interval.id,
+                        start: interval.start,
+                        end: interval.end,
+                        truth: interval.truth,
+                    });
+                }
+            }
+        });
+        return results;
     }
 }
