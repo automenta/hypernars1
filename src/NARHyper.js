@@ -4,9 +4,12 @@ import { LRUMap } from './support/LRUMap.js';
 import { PriorityQueue } from './support/PriorityQueue.js';
 import { ExpressionEvaluator } from './evaluator/ExpressionEvaluator.js';
 import { MemoryManager } from './managers/MemoryManager.js';
+import { SimpleMemoryManager } from './managers/SimpleMemoryManager.js';
 import { ContradictionManager } from './managers/ContradictionManager.js';
+import { SimpleContradictionManager } from './managers/SimpleContradictionManager.js';
 import { MetaReasoner } from './managers/MetaReasoner.js';
 import { LearningEngine } from './managers/LearningEngine.js';
+import { SimpleLearningEngine } from './managers/SimpleLearningEngine.js';
 import { ExplanationSystem } from './managers/ExplanationSystem.js';
 import { TemporalManager } from './managers/TemporalManager.js';
 import { Hyperedge } from './support/Hyperedge.js';
@@ -53,13 +56,26 @@ export class NARHyper {
     this.memoization = new Map();
     this.currentStep = 0;
 
-    // Enhanced systems
-    this.memoryManager = new MemoryManager(this);
-    this.contradictionManager = new ContradictionManager(this);
-    this.metaReasoner = new MetaReasoner(this);
-    this.learningEngine = new LearningEngine(this);
-    this.explanationSystem = new ExplanationSystem(this);
-    this.temporalManager = new TemporalManager(this);
+    // Define default manager implementations
+    const defaultManagers = {
+        MemoryManager,
+        ContradictionManager,
+        MetaReasoner,
+        LearningEngine,
+        ExplanationSystem,
+        TemporalManager,
+    };
+
+    // Allow overriding manager implementations via config
+    const managerImplementations = { ...defaultManagers, ...(config.managers || {}) };
+
+    // Instantiate manager systems
+    this.memoryManager = new managerImplementations.MemoryManager(this);
+    this.contradictionManager = new managerImplementations.ContradictionManager(this);
+    this.metaReasoner = new managerImplementations.MetaReasoner(this);
+    this.learningEngine = new managerImplementations.LearningEngine(this);
+    this.explanationSystem = new managerImplementations.ExplanationSystem(this);
+    this.temporalManager = new managerImplementations.TemporalManager(this);
 
     // Maintenance interval
     this.memoryMaintenanceInterval = config.memoryMaintenanceInterval || 100;

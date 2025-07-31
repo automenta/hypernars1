@@ -1,9 +1,10 @@
 import { Hyperedge } from '../support/Hyperedge.js';
 import { id } from '../support/utils.js';
+import { ContradictionManagerBase } from './ContradictionManagerBase.js';
 
-export class ContradictionManager {
+export class ContradictionManager extends ContradictionManagerBase {
     constructor(nar) {
-        this.nar = nar;
+        super(nar);
         this.contradictions = new Map(); // Maps hyperedge ID to contradiction records
         this.resolutionStrategies = {
             'evidence-weighted': this._evidenceWeightedResolution.bind(this),

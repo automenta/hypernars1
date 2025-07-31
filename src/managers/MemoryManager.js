@@ -1,6 +1,8 @@
-export class MemoryManager {
+import { MemoryManagerBase } from './MemoryManagerBase.js';
+
+export class MemoryManager extends MemoryManagerBase {
     constructor(nar) {
-        this.nar = nar;
+        super(nar);
         this.beliefRelevance = new Map(); // Tracks relevance of beliefs
         this.accessPatterns = new Map(); // Tracks access patterns for cache optimization
         this.forgettingThreshold = 0.2; // Minimum relevance to retain beliefs

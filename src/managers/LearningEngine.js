@@ -1,9 +1,10 @@
 import { id } from '../support/utils.js';
 import { TruthValue } from '../support/TruthValue.js';
+import { LearningEngineBase } from './LearningEngineBase.js';
 
-export class LearningEngine {
+export class LearningEngine extends LearningEngineBase {
     constructor(nar) {
-        this.nar = nar;
+        super(nar);
         this.experienceBuffer = [];
         this.patternMemory = new Map();
         this.learningRate = 0.1;
