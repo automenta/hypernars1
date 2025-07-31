@@ -1,0 +1,22 @@
+{
+  "name": "hypernars",
+  "version": "0.1.0",
+  "description": "A Non-Axiomatic Reasoning System based on Hypergraphs",
+  "main": "src/NARHyper.js",
+  "type": "module",
+  "scripts": {
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "start:example": "node example.js"
+  },
+  "keywords": [
+    "nars",
+    "reasoning",
+    "ai",
+    "hypergraph"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "jest": "^30.0.5"
+  }
+}
