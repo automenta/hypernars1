@@ -76,4 +76,9 @@ export class TruthValue {
   static unknown() {
     return new TruthValue(0.5, 0.1, 0.1);
   }
+
+  equivalent(other, threshold = 0.01) {
+    return Math.abs(this.frequency - other.frequency) < threshold &&
+           Math.abs(this.confidence - other.confidence) < threshold;
+  }
 }

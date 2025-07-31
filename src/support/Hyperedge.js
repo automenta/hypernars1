@@ -9,12 +9,12 @@ export class Hyperedge {
     this.beliefs = [];
   }
 
-  revise(truth, budget, beliefCapacity = 8, premises = []) {
+  revise(truth, budget, beliefCapacity = 8, premises = [], context = null) {
     // Find existing belief with equivalent budget
     const existing = this.beliefs.find(b => b.budget.equivalent(budget));
     const newBelief = existing
-      ? { truth: TruthValue.revise(existing.truth, truth), budget: budget.merge(existing.budget), premises: premises.length ? premises : (existing.premises || []), timestamp: Date.now() }
-      : { truth, budget, premises, timestamp: Date.now() };
+      ? { truth: TruthValue.revise(existing.truth, truth), budget: budget.merge(existing.budget), premises: premises.length ? premises : (existing.premises || []), context, timestamp: Date.now() }
+      : { truth, budget, premises, context, timestamp: Date.now() };
 
     // Check if this is a meaningful update
     const needsUpdate = !existing ||

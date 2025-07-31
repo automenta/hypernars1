@@ -3,10 +3,11 @@ import { TruthValue } from '../support/TruthValue.js';
 import { Budget } from '../support/Budget.js';
 import { Hyperedge } from '../support/Hyperedge.js';
 import { id, hash } from '../support/utils.js';
+import { TemporalManagerBase } from './TemporalManagerBase.js';
 
-export class TemporalManager {
+export class TemporalManager extends TemporalManagerBase {
     constructor(nar) {
-        this.nar = nar;
+        super(nar);
         this.temporalIntervals = new Map();
         this.temporalConstraints = new Map();
         // Ensure the temporalTerms index exists
@@ -23,7 +24,7 @@ export class TemporalManager {
         }
         const interval = new TimeInterval(intervalId, start, end, options);
         this.temporalIntervals.set(intervalId, interval);
-        this.nar.addToIndex(new Hyperedge(intervalId, 'TimeInterval', [term, start, end]));
+        this.nar.addHyperedge('TimeInterval', [term, start, end], options);
         return intervalId;
     }
 
@@ -39,29 +40,6 @@ export class TemporalManager {
         return constraintId;
     }
 
-    // Establishes a temporal relation between two intervals
-    temporalRelation(premise, conclusion, relation, options = {}) {
-        const { truth, budget } = options;
-        const relationId = id('TemporalRelation', [premise, conclusion, relation]);
-
-        const premiseInterval = this.temporalIntervals.get(premise);
-        const conclusionInterval = this.temporalIntervals.get(conclusion);
-
-        if (!premiseInterval || !conclusionInterval) {
-            // Silently fail if intervals don't exist, as they might be created later
-            return null;
-        }
-
-        premiseInterval.relations.set(conclusion, relation);
-        const inverseRelation = this._getInverseTemporalRelation(relation);
-        if (inverseRelation) {
-            conclusionInterval.relations.set(premise, inverseRelation);
-        }
-
-        const hyperedge = this.nar.addHyperedge('TemporalRelation', [premise, conclusion, relation], { truth, budget });
-        this._deriveTransitiveTemporalRelations(premiseInterval);
-        return hyperedge;
-    }
 
     // Retrieves the inverse of a temporal relation
     _getInverseTemporalRelation(relation) {
@@ -77,8 +55,45 @@ export class TemporalManager {
         return inverses[relation];
     }
 
+    // Establishes a temporal relation between two intervals
+    temporalRelation(premise, conclusion, relation, options = {}) {
+        const { truth, budget, derivationPath = [] } = options;
+        const relationId = id('TemporalRelation', [premise, conclusion, relation]);
+
+        // Cycle detection
+        if (derivationPath.includes(relationId)) {
+            return relationId;
+        }
+
+        // Guard against re-derivation
+        if (this.nar.hypergraph.has(relationId)) {
+            return relationId;
+        }
+
+        const premiseInterval = this.temporalIntervals.get(premise);
+        const conclusionInterval = this.temporalIntervals.get(conclusion);
+
+        if (!premiseInterval || !conclusionInterval) {
+            return null;
+        }
+
+        premiseInterval.relations.set(conclusion, relation);
+        const inverseRelation = this._getInverseTemporalRelation(relation);
+        if (inverseRelation) {
+            conclusionInterval.relations.set(premise, inverseRelation);
+        }
+
+        const hyperedge = this.nar.addHyperedge('TemporalRelation', [premise, conclusion, relation], { truth, budget });
+
+        const newPath = [...derivationPath, relationId];
+        this._deriveTransitiveTemporalRelations(premiseInterval, newPath);
+        this._deriveTransitiveTemporalRelations(conclusionInterval, newPath);
+
+        return hyperedge;
+    }
+
     // Derives new temporal relations through transitivity
-    _deriveTransitiveTemporalRelations(interval) {
+    _deriveTransitiveTemporalRelations(interval, derivationPath = []) {
         const premiseId = interval.id;
         for (const [conclusionId, relation1] of interval.relations) {
             const conclusionInterval = this.temporalIntervals.get(conclusionId);
@@ -92,7 +107,8 @@ export class TemporalManager {
                     for (const composed of composedRelations) {
                         this.temporalRelation(premiseId, finalId, composed, {
                             truth: TruthValue.certain().scale(0.7), // derived truth
-                            budget: Budget.full().scale(0.6)
+                            budget: Budget.full().scale(0.6),
+                            derivationPath: derivationPath,
                         });
                     }
                 }
@@ -150,26 +166,22 @@ export class TemporalManager {
         };
 
         // Build out the full table using inverses to avoid manual entry for all 169 pairs
-        if (Object.keys(table).length < 13) {
-            const relations = ['before', 'meets', 'overlaps', 'starts', 'during', 'finishes', 'equals'];
+        const relations = ['before', 'meets', 'overlaps', 'starts', 'during', 'finishes', 'equals', 'after', 'metBy', 'overlappedBy', 'startedBy', 'contains', 'finishedBy'];
+        if (!table.isComplete) {
             for (const r1 of relations) {
-                const inv_r1 = this._getInverseTemporalRelation(r1);
-                if (inv_r1 && inv_r1 !== r1) {
-                    table[inv_r1] = {};
-                }
-            }
-             for (const r1 of relations) {
                 for (const r2 of relations) {
+                    if (table[r1]?.[r2]) continue; // Skip already defined
+
                     const inv_r1 = this._getInverseTemporalRelation(r1);
                     const inv_r2 = this._getInverseTemporalRelation(r2);
-                    if (inv_r1 && inv_r2) {
-                        const composed = table[r1][r2].map(r => this._getInverseTemporalRelation(r)).filter(r => r);
-                        if (composed.length > 0) {
-                           table[inv_r2][inv_r1] = composed;
-                        }
+
+                    if (table[inv_r2]?.[inv_r1]) {
+                        if (!table[r1]) table[r1] = {};
+                        table[r1][r2] = table[inv_r2][inv_r1].map(r => this._getInverseTemporalRelation(r)).filter(r => r);
                     }
                 }
             }
+            table.isComplete = true;
         }
         return table[rel1]?.[rel2];
     }
@@ -238,52 +250,51 @@ export class TemporalManager {
     // Predicts future events based on patterns
     predict(term, milliseconds, options = {}) {
         const now = Date.now();
-        const future = now + milliseconds;
-        const results = [];
+        const futureTime = now + milliseconds;
+        const predictions = [];
 
-        // Find all temporal relationships involving the term
-        // This requires iterating through intervals that involve the term.
-        this.temporalIntervals.forEach(interval => {
-            if (interval.id.includes(term)) {
-                const relation = interval.relations.values().next().value; // Simplified: gets first relation
-                const otherIntervalId = interval.relations.keys().next().value;
-                if (!otherIntervalId) return;
+        // Find all intervals involving the term directly
+        const termIntervals = Array.from(this.temporalIntervals.values()).filter(i => i.id.includes(term));
 
-                const otherInterval = this.temporalIntervals.get(otherIntervalId);
-                if(!otherInterval) return;
+        for (const interval of termIntervals) {
+            // Project the interval itself
+            const projectedTruth = interval.project(futureTime, this.nar.config.temporalDecayRate || 0.05);
+            if (projectedTruth.confidence > (this.nar.config.predictionThreshold || 0.2)) {
+                predictions.push({
+                    term: interval.id,
+                    truth: projectedTruth,
+                    type: 'projection'
+                });
+            }
 
-                const eventTerm = otherInterval.id;
+            // Find relations and predict consequential events
+            for (const [relatedIntervalId, relation] of interval.relations) {
+                const relatedInterval = this.temporalIntervals.get(relatedIntervalId);
+                if (!relatedInterval) continue;
 
-                // Calculate if the event would be true at the future time
-                let isTrueAtFuture = false;
-                switch(relation) {
-                  case 'before':
-                    isTrueAtFuture = (interval.end) < future;
-                    break;
-                  case 'during':
-                    isTrueAtFuture = interval.start <= future && (interval.end) >= future;
-                    break;
-                  case 'after':
-                    isTrueAtFuture = interval.start > future;
-                    break;
-                  // Additional cases for all Allen relations...
+                let predictedTime = null;
+                if (relation === 'before' || relation === 'meets') {
+                    predictedTime = interval.end + (relatedInterval.start - interval.end); // Predicts based on typical duration
+                } else if (relation === 'after' || relation === 'metBy') {
+                    predictedTime = interval.start - (interval.start - relatedInterval.end);
                 }
 
-                if (isTrueAtFuture) {
-                  const hyperedge = this.nar.hypergraph.get(id('Term', [eventTerm]));
-                  if (hyperedge) {
-                    results.push({
-                      term: eventTerm,
-                      truth: hyperedge.getTruth(),
-                      confidence: this._calculateTemporalConfidence(relation, interval.start, future, interval.duration)
-                    });
-                  }
+                if (predictedTime && Math.abs(predictedTime - futureTime) < (milliseconds * 0.5)) {
+                    const confidence = this._calculateTemporalConfidence(relation, interval.start, futureTime, interval.duration);
+                    const hyperedge = this.nar.hypergraph.get(relatedInterval.id);
+                    if (hyperedge && confidence > (this.nar.config.predictionThreshold || 0.2)) {
+                        predictions.push({
+                            term: relatedInterval.id,
+                            truth: hyperedge.getTruth(),
+                            confidence: confidence,
+                            type: 'consequence'
+                        });
+                    }
                 }
             }
-        });
+        }
 
-        // Sort by confidence
-        return results.sort((a, b) => b.confidence - a.confidence);
+        return predictions.sort((a, b) => (b.truth.confidence || b.confidence) - (a.truth.confidence || a.confidence));
     }
 
     _calculateTemporalConfidence(relation, timestamp, futureTime, duration) {
@@ -317,5 +328,31 @@ export class TemporalManager {
             }
         });
         return results;
+    }
+
+    /**
+     * Adjusts the temporal horizon dynamically based on system state.
+     */
+    adjustTemporalHorizon() {
+        const now = Date.now();
+        const recentWindow = 60000; // 1 minute
+        let recentActivity = 0;
+
+        this.temporalIntervals.forEach(interval => {
+            if (now - interval.start < recentWindow || now - interval.end < recentWindow) {
+                recentActivity++;
+            }
+        });
+
+        const baseHorizon = this.nar.config.baseTemporalHorizon || 3;
+        const maxHorizon = this.nar.config.maxTemporalHorizon || 20;
+
+        // Reduce horizon with high recent activity, increase when idle
+        const adjustmentFactor = 1 - Math.min(0.8, recentActivity / 50); // scales up to 50 recent events
+        let newHorizon = baseHorizon * adjustmentFactor;
+        newHorizon = Math.min(maxHorizon, newHorizon); // Cap at max
+        newHorizon = Math.max(1, newHorizon); // Ensure minimum of 1
+
+        this.nar.config.temporalHorizon = newHorizon;
     }
 }

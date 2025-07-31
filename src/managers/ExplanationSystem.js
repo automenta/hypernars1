@@ -34,7 +34,7 @@ export class ExplanationSystem {
         if (!strongestBelief) return;
 
         const premises = strongestBelief.premises || [];
-        const derivationRule = premises.length > 0 ? 'derived' : 'direct'; // Simplified rule
+        const derivationRule = this._identifyDerivationRule(hyperedge, premises);
 
         path.unshift({
             id: hyperedge.id,
@@ -110,6 +110,42 @@ export class ExplanationSystem {
     _formatHyperedge(hyperedge) {
         if (!hyperedge) return "unknown step";
         return `${hyperedge.type}(${hyperedge.args.join(', ')})`;
+    }
+
+    _identifyDerivationRule(conclusion, premiseIds) {
+        if (premiseIds.length === 0) return 'assertion';
+
+        const premises = premiseIds.map(id => this.nar.hypergraph.get(id)).filter(p => p);
+        if (premises.length !== premiseIds.length) return 'derived'; // Premise not found
+
+        // Rule: Transitive Inheritance: (A->B) & (B->C) => (A->C)
+        if (conclusion.type === 'Inheritance' && premises.length === 2) {
+            const [p1, p2] = premises;
+            if (p1.type === 'Inheritance' && p2.type === 'Inheritance') {
+                // A->B and B->C
+                if (p1.args[1] === p2.args[0] && conclusion.args[0] === p1.args[0] && conclusion.args[1] === p2.args[1]) {
+                    return 'transitivity';
+                }
+                // C->B and B->A
+                if (p1.args[0] === p2.args[1] && conclusion.args[0] === p2.args[0] && conclusion.args[1] === p1.args[1]) {
+                    return 'transitivity';
+                }
+            }
+        }
+
+        // Rule: Analogy: (A<->B) & (A->C) => (B->C)
+        if (conclusion.type === 'Inheritance' && premises.length === 2) {
+            const sim = premises.find(p => p.type === 'Similarity');
+            const inh = premises.find(p => p.type === 'Inheritance');
+            if (sim && inh) {
+                // (A<->B) and (A->C)
+                if (sim.args.includes(inh.args[0]) && conclusion.args[1] === inh.args[1]) {
+                    return 'analogy';
+                }
+            }
+        }
+
+        return 'derived';
     }
 
     _formatTermForStory(step) {

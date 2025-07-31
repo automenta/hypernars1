@@ -5,6 +5,7 @@ import { PriorityQueue } from './support/PriorityQueue.js';
 import { ExpressionEvaluator } from './evaluator/ExpressionEvaluator.js';
 import { MemoryManager } from './managers/MemoryManager.js';
 import { SimpleMemoryManager } from './managers/SimpleMemoryManager.js';
+import { AdvancedMemoryManager } from './managers/AdvancedMemoryManager.js';
 import { ContradictionManager } from './managers/ContradictionManager.js';
 import { SimpleContradictionManager } from './managers/SimpleContradictionManager.js';
 import { MetaReasoner } from './managers/MetaReasoner.js';
@@ -12,6 +13,7 @@ import { LearningEngine } from './managers/LearningEngine.js';
 import { SimpleLearningEngine } from './managers/SimpleLearningEngine.js';
 import { ExplanationSystem } from './managers/ExplanationSystem.js';
 import { TemporalManager } from './managers/TemporalManager.js';
+import { SimpleTemporalManager } from './managers/SimpleTemporalManager.js';
 import { Hyperedge } from './support/Hyperedge.js';
 import { TruthValue } from './support/TruthValue.js';
 import { Budget } from './support/Budget.js';
@@ -56,26 +58,9 @@ export class NARHyper {
     this.memoization = new Map();
     this.currentStep = 0;
 
-    // Define default manager implementations
-    const defaultManagers = {
-        MemoryManager,
-        ContradictionManager,
-        MetaReasoner,
-        LearningEngine,
-        ExplanationSystem,
-        TemporalManager,
-    };
-
-    // Allow overriding manager implementations via config
-    const managerImplementations = { ...defaultManagers, ...(config.managers || {}) };
-
-    // Instantiate manager systems
-    this.memoryManager = new managerImplementations.MemoryManager(this);
-    this.contradictionManager = new managerImplementations.ContradictionManager(this);
-    this.metaReasoner = new managerImplementations.MetaReasoner(this);
-    this.learningEngine = new managerImplementations.LearningEngine(this);
-    this.explanationSystem = new managerImplementations.ExplanationSystem(this);
-    this.temporalManager = new managerImplementations.TemporalManager(this);
+    // Initialize manager systems
+    const managers = this._initializeManagers(config);
+    Object.assign(this, managers);
 
     // Maintenance interval
     this.memoryMaintenanceInterval = config.memoryMaintenanceInterval || 100;
@@ -317,10 +302,9 @@ export class NARHyper {
   }
 
   conjunction(...terms) {
+    // Simplified to always use a default truth, making it robust to string ID inputs
     return this.addHyperedge('Conjunction', terms, {
-      truth: terms.every(t => t.truth?.frequency > 0.5)
-        ? TruthValue.certain().scale(0.9)
-        : new TruthValue(0.5, 0.5)
+        truth: new TruthValue(0.9, 0.9)
     });
   }
 
@@ -360,7 +344,28 @@ export class NARHyper {
   }
 
   query(pattern, options = { limit: 10 }) {
-    return this.expressionEvaluator.query(pattern, options);
+    if (!pattern.includes('*')) {
+        return this.expressionEvaluator.query(pattern, options);
+    }
+
+    // Simple wildcard handling
+    const results = [];
+    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
+
+    for (const [id, hyperedge] of this.hypergraph.entries()) {
+        if (regex.test(id)) {
+            results.push({
+                id,
+                type: hyperedge.type,
+                args: hyperedge.args,
+                truth: hyperedge.getTruth(),
+            });
+        }
+        if (results.length >= options.limit) {
+            break;
+        }
+    }
+    return results;
   }
 
   revise(hyperedgeId, newTruth, newBudget) {
@@ -534,7 +539,8 @@ export class NARHyper {
 
   /* ===== INTERNAL IMPLEMENTATION ===== */
 
-  addHyperedge(type, args, { truth, budget, priority, premises = [] } = {}) {
+  addHyperedge(type, args, options = {}) {
+    const { truth, budget, priority, premises = [], context = null } = options;
     const termId = id(type, args);
     const hyperedge = this.hypergraph.get(termId) ?? new Hyperedge(termId, type, args);
 
@@ -547,7 +553,8 @@ export class NARHyper {
       truth || TruthValue.certain(),
       budget || Budget.full().scale(priority || 1.0),
       this.config.beliefCapacity,
-      premises
+      premises,
+      context
     );
 
     this.propagate(termId, 1.0, hyperedge.getStrongestBelief().budget, 0, 0, []);
@@ -659,20 +666,29 @@ export class NARHyper {
     const hyperedge = this.hypergraph.get(target);
     if (!hyperedge || activation <= this.config.inferenceThreshold || pathLength > this.config.maxDerivationDepth) return;
 
-    const rules = {
-      'Inheritance': () => this._deriveInheritance(hyperedge, event),
-      'Similarity': () => this._deriveSimilarity(hyperedge, event),
-      'Implication': () => this._deriveImplication(hyperedge, event),
-      'Equivalence': () => this._deriveEquivalence(hyperedge, event),
-      'Conjunction': () => this._deriveConjunction(hyperedge, event),
-      'Disjunction': () => this._deriveDisjunction(hyperedge, event),
-      'Product': () => this._deriveProduct(hyperedge, event),
-      'ImageExt': () => this._deriveImageExt(hyperedge, event),
-      'ImageInt': () => this._deriveImageInt(hyperedge, event),
-      'Term': () => this._deriveTerm(hyperedge, event)
-    }[hyperedge.type];
+    const allRules = {
+        'Inheritance': () => this._deriveInheritance(hyperedge, event),
+        'Similarity': () => this._deriveSimilarity(hyperedge, event),
+        'Implication': () => this._deriveImplication(hyperedge, event),
+        'Equivalence': () => this._deriveEquivalence(hyperedge, event),
+        'Conjunction': () => this._deriveConjunction(hyperedge, event),
+        'Disjunction': () => this._deriveDisjunction(hyperedge, event),
+        'Product': () => this._deriveProduct(hyperedge, event),
+        'ImageExt': () => this._deriveImageExt(hyperedge, event),
+        'ImageInt': () => this._deriveImageInt(hyperedge, event),
+        'Term': () => this._deriveTerm(hyperedge, event)
+    };
 
-    rules && rules();
+    // If a priority list is set by the MetaReasoner, use it. Otherwise, use default order.
+    const rulePriority = this.config.derivationPriority || Object.keys(allRules);
+
+    // Find the highest-priority rule that applies to the current hyperedge type
+    for (const ruleName of rulePriority) {
+        if (ruleName === hyperedge.type && allRules[ruleName]) {
+            allRules[ruleName]();
+            break; // Apply only the highest-priority matching rule
+        }
+    }
   }
 
   _getArgId(arg) {
@@ -922,5 +938,28 @@ export class NARHyper {
     this.contradictionManager.resolveContradictions();
     this.metaReasoner.optimizeResources();
     this.learningEngine.applyLearning();
+    this.temporalManager.adjustTemporalHorizon?.(); // Use optional chaining for compatibility
+  }
+
+  _initializeManagers(config) {
+    const defaultManagerClasses = {
+        MemoryManager: MemoryManager,
+        ContradictionManager: ContradictionManager,
+        MetaReasoner: MetaReasoner,
+        LearningEngine: LearningEngine,
+        ExplanationSystem: ExplanationSystem,
+        TemporalManager: TemporalManager,
+    };
+
+    const managerClasses = { ...defaultManagerClasses, ...(config.managers || {}) };
+
+    return {
+        memoryManager: new managerClasses.MemoryManager(this),
+        contradictionManager: new managerClasses.ContradictionManager(this),
+        metaReasoner: new managerClasses.MetaReasoner(this),
+        learningEngine: new managerClasses.LearningEngine(this),
+        explanationSystem: new managerClasses.ExplanationSystem(this),
+        temporalManager: new managerClasses.TemporalManager(this),
+    };
   }
 }

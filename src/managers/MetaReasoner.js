@@ -10,6 +10,27 @@ export class MetaReasoner {
         this.strategyEffectiveness.set('source:internal', { successes: 10, attempts: 12 }); // Assume internal is mostly reliable
     }
 
+/**
+ * Records the source of a belief, allowing the system to track source reliability.
+ * @param {string} hyperedgeId The ID of the belief.
+ * @param {string} source The source identifier (e.g., 'user_input', 'sensor_A').
+ */
+recordSource(hyperedgeId, source) {
+    const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+    if (!hyperedge) return;
+
+    // Find the primary belief to attach the source to
+    const belief = hyperedge.getStrongestBelief();
+    if (belief) {
+        belief.source = source;
+    }
+
+    // Initialize source effectiveness if not already tracked
+    if (!this.strategyEffectiveness.has(`source:${source}`)) {
+        this.strategyEffectiveness.set(`source:${source}`, { successes: 5, attempts: 10, lastUpdated: Date.now() }); // Start with neutral effectiveness
+    }
+}
+
     optimizeResources() {
         this._updatePerformanceMetrics();
         this._adjustReasoningFocus();

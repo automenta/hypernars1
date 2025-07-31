@@ -122,18 +122,17 @@ export class LearningEngine extends LearningEngineBase {
     _createShortcutRule(premises, conclusionId, confidence) {
         if (!premises || premises.length === 0) return;
 
-        // For now, create a simple implication from the first premise.
-        // A more advanced version could create a conjunction of premises.
-        const premiseId = premises[0];
+        // Create a conjunction of all premises for a more accurate rule
+        const premiseConjunctionId = this.nar.conjunction(...premises);
 
-        const shortcutId = id('LearnedRule', [premiseId, conclusionId]);
+        const shortcutId = id('LearnedRule', [premiseConjunctionId, conclusionId]);
         if (!this.nar.hypergraph.has(shortcutId)) {
-            this.nar.implication(premiseId, conclusionId, {
+            this.nar.addHyperedge('Implication', [premiseConjunctionId, conclusionId], {
                 truth: new TruthValue(0.9, confidence),
                 budget: this.nar.budget(0.9, 0.9, 0.9),
                 premises: [] // Learned rules are atomic
             });
-            this.nar.notifyListeners('shortcut-created', { from: premiseId, to: conclusionId, confidence });
+            this.nar.notifyListeners('shortcut-created', { from: premiseConjunctionId, to: conclusionId, confidence });
         }
     }
 
