@@ -7,8 +7,7 @@
 
 **Code** - `hypernars.?.js` - the numbers are the version, derived directly from the previous.  it's possible that some data was lost between iterations.
 
-**Enhancements** - `enhance.?.md` - each of these have several different proposals, as code blocks, followed by a summary.  Qwen3 generated them with the prompt below.
-
+**Enhancements** - `enhance.?.md` - proposals for design enhancements, often with source code.  each file includes several proposals and a summary.  among the files, there is some overlap that should be clustered and synthesized.
 
 ## TODO
 - Apply the best enhance.?.md enhancements to hypergraph_nars.4.js
@@ -39,4 +38,4 @@ Input `prompt.md` to initialize the specification.
 ```
 Revise the implementation, adding missing or helpful functionality.
 ```
-Repeated to generate more ideas - 
+Repeating in Qwen3 generated more ideas, and more are possible, ex: `enhance.z.md`
