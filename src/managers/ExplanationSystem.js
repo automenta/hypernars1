@@ -6,82 +6,136 @@ export class ExplanationSystem {
     }
 
     explain(hyperedgeId, options = {}) {
-        const { depth = 3, format = 'detailed' } = options;
+        const { depth = 3, format = 'detailed', includeConfidence = true, maxAlternatives = 2 } = options;
         const path = [];
-        this._traceDerivation(hyperedgeId, path, depth);
+        this._traceDerivation(hyperedgeId, path, depth, new Set());
 
-        if (format === 'json') {
-            return JSON.stringify(path, null, 2);
+        switch (format) {
+            case 'json':
+                return JSON.stringify(path, null, 2);
+            case 'story':
+                return this._generateStoryExplanation(hyperedgeId, path);
+            case 'concise':
+                return this._formatConciseExplanation(path);
+            case 'detailed':
+            default:
+                return this._formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives);
         }
-        if (format === 'story') {
-            return this._generateStoryExplanation(path);
-        }
-        return this._formatDetailedExplanation(path);
     }
 
-    _traceDerivation(hyperedgeId, path, depth) {
-        if (depth <= 0) return;
+    _traceDerivation(hyperedgeId, path, depth, visited) {
+        if (depth <= 0 || visited.has(hyperedgeId)) return;
+        visited.add(hyperedgeId);
 
         const hyperedge = this.nar.hypergraph.get(hyperedgeId);
         if (!hyperedge) return;
 
-        path.push({
+        const strongestBelief = hyperedge.getStrongestBelief();
+        if (!strongestBelief) return;
+
+        // Find the most likely derivation rule and its premises
+        const derivation = this._findDerivationSources(hyperedge);
+
+        path.unshift({
             id: hyperedge.id,
             type: hyperedge.type,
             args: hyperedge.args,
-            truth: hyperedge.getTruth()
+            truth: strongestBelief.truth,
+            derivationRule: derivation.rule,
+            premises: derivation.premises.map(p => p.id)
         });
 
-        // Find potential derivation sources
-        if (hyperedge.type === 'Inheritance') {
-            const [subject, predicate] = hyperedge.args;
-
-            // Check for transitive derivation
-            (this.nar.index.byArg.get(predicate) || new Set()).forEach(id => {
-                const middle = this.nar.hypergraph.get(id);
-                if (middle?.type === 'Inheritance' && middle.args[1] === subject) {
-                    this._traceDerivation(middle.id, path, depth - 1);
-                    return;
-                }
-            });
-
-            // Check for similarity conversion
-            if (this.nar.hypergraph.has(id('Similarity', [predicate, subject]))) {
-                this._traceDerivation(id('Similarity', [predicate, subject]), path, depth - 1);
-            }
-
-            // Check for induction source
-            (this.nar.index.byArg.get(predicate) || new Set()).forEach(id => {
-                const other = this.nar.hypergraph.get(id);
-                if (other?.type === 'Inheritance' && other.args[1] === predicate && other.args[0] !== subject) {
-                    this._traceDerivation(other.id, path, depth - 1);
-                    return;
-                }
-            });
+        // Recursively trace the premises
+        for (const premise of derivation.premises) {
+            this._traceDerivation(premise.id, path, depth - 1, visited);
         }
     }
 
-    _formatDetailedExplanation(path) {
-        if (!path || path.length === 0) return "No derivation path found.";
-        return path.map((step, i) =>
-          `${'  '.repeat(i)}-> ${step.type}(${step.args.join(',')}) [f:${step.truth.frequency.toFixed(2)}, c:${step.truth.confidence.toFixed(2)}]`
-        ).join('\\n');
+    _findDerivationSources(hyperedge) {
+        // Placeholder for a more sophisticated source-tracing mechanism.
+        // For now, we'll use a simple heuristic.
+        const sources = { rule: 'direct', premises: [] };
+
+        // This is a simplified mock-up. A full implementation would check derivation caches
+        // or event history to find the actual premises used in an inference step.
+        if (hyperedge.type === 'Inheritance') {
+            const [subject, predicate] = hyperedge.args;
+            // Look for a transitive path: S -> M, M -> P
+            for (const m_id of (this.nar.index.byArg.get(subject) || new Set())) {
+                 const middleHyperedge = this.nar.hypergraph.get(m_id);
+                 if (middleHyperedge?.type === 'Inheritance' && middleHyperedge.args[0] === subject) {
+                     const middleTerm = middleHyperedge.args[1];
+                     const final_id = id('Inheritance', [middleTerm, predicate]);
+                     if (this.nar.hypergraph.has(final_id)) {
+                         sources.rule = 'transitivity';
+                         sources.premises = [middleHyperedge, this.nar.hypergraph.get(final_id)];
+                         return sources;
+                     }
+                 }
+            }
+        }
+        return sources;
     }
 
-    _generateStoryExplanation(path) {
-        if (!path || path.length === 0) return "I don't have a story for that.";
+    _formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives) {
+        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        if (!hyperedge) return "Hyperedge not found";
 
-        const conclusion = this._formatTermForStory(path[0]);
+        let explanation = `CONCLUSION: ${this._formatHyperedge(hyperedge)}\n`;
+        if (includeConfidence) {
+            const truth = hyperedge.getTruth();
+            explanation += `Confidence: ${truth.expectation().toFixed(2)} (f: ${truth.frequency.toFixed(2)}, c: ${truth.confidence.toFixed(2)})\n\n`;
+        }
+
+        explanation += "PRIMARY REASONING PATH:\n";
+        path.forEach((step, i) => {
+            explanation += `${i + 1}. [${step.derivationRule}] ${this._formatHyperedge(step)}\n`;
+        });
+
+        if (hyperedge.beliefs && hyperedge.beliefs.length > 1) {
+            const alternatives = hyperedge.beliefs.slice(1, maxAlternatives + 1);
+            if (alternatives.length > 0) {
+                explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1} total):\n`;
+                alternatives.forEach((alt, i) => {
+                    explanation += `${i + 1}. A belief with confidence ${alt.truth.expectation().toFixed(2)} also exists.\n`;
+                });
+            }
+        }
+
+        const temporalContext = this.nar.temporalManager?.getContext?.();
+        if (temporalContext?.currentPeriod) {
+            explanation += `\nTEMPORAL CONTEXT: ${temporalContext.currentPeriod}`;
+        }
+
+        return explanation;
+    }
+
+    _formatConciseExplanation(path) {
+        if (!path || path.length === 0) return "No explanation available.";
+        return path.map(step => `${this._formatHyperedge(step)}`).join(' -> ');
+    }
+
+    _generateStoryExplanation(hyperedgeId, path) {
+        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        if (!hyperedge) return "I don't have a story for that.";
+
+        const conclusion = this._formatTermForStory(hyperedge);
         let story = `Let me tell you how I came to believe that ${conclusion}. `;
 
         if (path.length > 1) {
-            story += "It's based on a few things. ";
-            const premises = path.slice(1).map(p => this._formatTermForStory(p)).join(', and ');
-            story += `I know that ${premises}. `;
+            const premises = path.slice(0, -1).map(p => this._formatTermForStory(p));
+            if (premises.length > 0) {
+                story += `It's based on a few things I know. For instance, I know that ${premises.join(' and that ')}. `;
+            }
         }
 
-        story += `Therefore, it is reasonable to conclude that ${conclusion}.`;
+        story += `From this, it is reasonable to conclude that ${conclusion}.`;
         return story;
+    }
+
+    _formatHyperedge(hyperedge) {
+        if (!hyperedge) return "unknown step";
+        return `${hyperedge.type}(${hyperedge.args.join(', ')})`;
     }
 
     _formatTermForStory(step) {
@@ -94,7 +148,7 @@ export class ExplanationSystem {
             case 'Implication':
                 return `if ${step.args[0]}, then ${step.args[1]}`;
             default:
-                return `${step.type} of ${step.args.join(' and ')}`;
+                return `the concept of ${step.type} involving ${step.args.join(' and ')}`;
         }
     }
 }

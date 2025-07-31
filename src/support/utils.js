@@ -16,7 +16,15 @@ export function clamp(number, lower, upper) {
  * @returns {string} The unique ID.
  */
 export function id(type, args) {
-  return `${type}(${args.join(',')})`;
+  const stringify = (arg) => {
+      if (typeof arg === 'string') return arg;
+      if (arg && arg.type && arg.args) return id(arg.type, arg.args);
+      // Handle cases where arg might be a simple object from parsing, e.g. { type: 'Term', args: ['name'] }
+      if (arg && arg.type === 'Term' && arg.args.length === 1) return arg.args[0];
+      return String(arg); // fallback for [object Object]
+  };
+  const stringArgs = args.map(stringify);
+  return `${type}(${stringArgs.join(',')})`;
 }
 
 /**

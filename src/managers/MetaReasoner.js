@@ -1,82 +1,141 @@
 export class MetaReasoner {
     constructor(nar) {
         this.nar = nar;
-        this.stats = {
-            successfulInferences: 0,
-            failedInferences: 0,
-            questionSuccessCount: 0,
-            questionTotalCount: 0,
-            recentPerformance: [],
-        };
-        this.resourcePolicy = {
-            budgetThreshold: nar.config.budgetThreshold,
-            maxPathLength: nar.config.maxPathLength,
-            inferenceThreshold: nar.config.inferenceThreshold,
-        };
+        this.performanceHistory = [];
+        this.strategyEffectiveness = new Map();
+        this.currentFocus = 'default';
+        this.focusHistory = [];
 
-        this.nar.on('question-answer', () => this.stats.questionSuccessCount++);
-        this.nar.on('question-timeout', () => this.stats.questionTotalCount++); // Assuming a timeout event
-        this.nar.on('belief-added', () => this.stats.successfulInferences++);
+        // Default effectiveness for sources
+        this.strategyEffectiveness.set('source:internal', { successes: 10, attempts: 12 }); // Assume internal is mostly reliable
     }
 
     optimizeResources() {
-        const performance = this._analyzeReasoningPerformance();
-        this._adaptResourcePolicies(performance);
+        this._updatePerformanceMetrics();
+        this._adjustReasoningFocus();
+        this._adjustResourceAllocation();
+        this._selectOptimalStrategies();
     }
 
-    _analyzeReasoningPerformance() {
-        const questionSuccessRate = this.stats.questionTotalCount > 0
-            ? this.stats.questionSuccessCount / this.stats.questionTotalCount
-            : 0.5;
+    trackOutcome(strategyName, outcome, metrics = {}) {
+        if (!this.strategyEffectiveness.has(strategyName)) {
+            this.strategyEffectiveness.set(strategyName, {
+                successes: 0,
+                attempts: 0,
+                lastUpdated: Date.now(),
+                metrics: {}
+            });
+        }
 
-        const totalInferences = this.stats.successfulInferences + this.stats.failedInferences;
-        const inferenceEffectiveness = totalInferences > 0
-            ? this.stats.successfulInferences / totalInferences
-            : 0.5;
+        const record = this.strategyEffectiveness.get(strategyName);
+        record.attempts++;
+        if (outcome === 'success') {
+            record.successes++;
+        }
+        record.lastUpdated = Date.now();
+    }
 
+    getStrategyEffectiveness(strategyName) {
+        const record = this.strategyEffectiveness.get(strategyName);
+        if (!record || record.attempts === 0) return 0.5; // Default effectiveness
+
+        const successRate = record.successes / record.attempts;
+        const recencyFactor = Math.exp(-(Date.now() - record.lastUpdated) / (1000 * 60 * 10)); // 10 minute decay
+
+        return successRate * 0.8 + recencyFactor * 0.2;
+    }
+
+    _updatePerformanceMetrics() {
         const queueSize = this.nar.eventQueue.heap.length;
-        const resourcePressure = Math.min(1.0, queueSize / 2000); // Normalize pressure
+        const activeConcepts = this.nar.activations.size;
+        const resourcePressure = Math.min(1.0, queueSize / (activeConcepts * 10 + 1));
 
-        const performance = { questionSuccessRate, inferenceEffectiveness, resourcePressure };
-        this.stats.recentPerformance.push({ timestamp: Date.now(), ...performance });
-        if (this.stats.recentPerformance.length > 100) {
-            this.stats.recentPerformance.shift();
+        const performance = {
+            timestamp: Date.now(),
+            queueSize,
+            activeConcepts,
+            resourcePressure,
+            questionSuccessRate: this._getQuestionSuccessRate()
+        };
+
+        this.performanceHistory.push(performance);
+        if (this.performanceHistory.length > 200) {
+            this.performanceHistory.shift();
         }
-
-        // Reset counters for next cycle
-        this.stats.questionSuccessCount = 0;
-        this.stats.questionTotalCount = 0;
-        this.stats.successfulInferences = 0;
-
-        return performance;
     }
 
-    _adaptResourcePolicies(performance) {
-        const policy = this.resourcePolicy;
-        const adaptationRate = 0.05; // Slow adaptation
-
-        // If questions are failing, be less strict with budgets
-        if (performance.questionSuccessRate < 0.5) {
-            policy.budgetThreshold = Math.max(0.01, policy.budgetThreshold * (1 - adaptationRate));
-        } else {
-            policy.budgetThreshold = Math.min(0.2, policy.budgetThreshold * (1 + adaptationRate));
-        }
-
-        // If under high pressure, shorten reasoning paths
-        if (performance.resourcePressure > 0.8) {
-            policy.maxPathLength = Math.max(5, Math.floor(policy.maxPathLength * (1 - adaptationRate)));
-        } else if (performance.resourcePressure < 0.2) {
-            policy.maxPathLength = Math.min(25, policy.maxPathLength + 1);
-        }
-
-        // Apply policies to the main NAR config
-        this.nar.config.budgetThreshold = policy.budgetThreshold;
-        this.nar.config.maxPathLength = policy.maxPathLength;
-
-        this.nar.notifyListeners('meta-reasoning', {
-            performance,
-            policies: { ...this.resourcePolicy },
-            timestamp: Date.now()
+    _getQuestionSuccessRate() {
+        let successes = 0;
+        let total = 0;
+        // This is a simplified proxy. A real implementation would need to track question outcomes.
+        this.nar.questionPromises.forEach(promise => {
+            if (promise.resolved) successes++;
+            total++;
         });
+
+        if (total === 0) return 0.75; // Assume good performance if no questions asked
+        return successes / total;
+    }
+
+    _adjustReasoningFocus() {
+        let newFocus = 'default';
+
+        if (this.nar.questionPromises.size > 2) {
+            newFocus = 'question-answering';
+        } else if (this.nar.contradictionManager.contradictions.size > 5) {
+            newFocus = 'contradiction-resolution';
+        }
+
+        if (newFocus !== this.currentFocus) {
+            this.focusHistory.push({ from: this.currentFocus, to: newFocus, timestamp: Date.now() });
+            if (this.focusHistory.length > 20) this.focusHistory.shift();
+            this.currentFocus = newFocus;
+            this.nar.notifyListeners('focus-changed', { newFocus });
+        }
+    }
+
+    _adjustResourceAllocation() {
+        const lastPerf = this.performanceHistory[this.performanceHistory.length - 1];
+        if (!lastPerf) return;
+
+        const { resourcePressure, questionSuccessRate } = lastPerf;
+        const policy = this.nar.config;
+        const adaptationRate = 0.05;
+
+        // If success rate is low, be more generous with resources
+        if (questionSuccessRate < 0.6) {
+            policy.budgetThreshold = Math.max(0.01, policy.budgetThreshold * (1 - adaptationRate));
+            policy.maxPathLength = Math.min(20, policy.maxPathLength + 1);
+        }
+
+        // If pressure is high, be more strict
+        if (resourcePressure > 0.7) {
+            policy.budgetThreshold = Math.min(0.2, policy.budgetThreshold * (1 + adaptationRate));
+            policy.maxPathLength = Math.max(8, Math.floor(policy.maxPathLength * (1 - adaptationRate)));
+        }
+
+        // Adapt based on focus
+        if (this.currentFocus === 'question-answering') {
+            policy.inferenceThreshold *= 0.9; // Be more eager to infer
+        } else {
+            policy.inferenceThreshold = 0.3; // Reset to default
+        }
+    }
+
+    _selectOptimalStrategies() {
+        // Example: prioritize derivation rules based on effectiveness
+        const ruleEffectiveness = {};
+        const ruleNames = ['Inheritance', 'Similarity', 'Implication']; // Example rules
+
+        ruleNames.forEach(rule => {
+            ruleEffectiveness[rule] = this.getStrategyEffectiveness(`derive_${rule}`);
+        });
+
+        const sortedRules = Object.entries(ruleEffectiveness)
+            .sort((a, b) => b[1] - a[1])
+            .map(([rule]) => rule);
+
+        // This can be used by the derivation system to prioritize rules
+        this.nar.config.derivationPriority = sortedRules;
     }
 }

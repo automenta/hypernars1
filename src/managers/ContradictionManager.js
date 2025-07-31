@@ -5,6 +5,13 @@ export class ContradictionManager {
     constructor(nar) {
         this.nar = nar;
         this.contradictions = new Map(); // Maps hyperedge ID to contradiction records
+        this.resolutionStrategies = {
+            'evidence-weighted': this._evidenceWeightedResolution.bind(this),
+            'recency-biased': this._recencyBiasedResolution.bind(this),
+            'source-reliability': this._sourceReliabilityResolution.bind(this),
+            'contextual-split': this._contextualSplitResolution.bind(this),
+            'default': this._defaultResolution.bind(this)
+        };
     }
 
     detectContradictions(hyperedgeId) {
@@ -46,53 +53,122 @@ export class ContradictionManager {
     resolveContradictions() {
         this.contradictions.forEach((contradiction, id) => {
             if (!contradiction.resolved) {
-                this._resolveContradiction(contradiction);
+                const strategy = this._selectResolutionStrategy(contradiction);
+                const resolution = this.resolutionStrategies[strategy](contradiction);
+
+                if (resolution) {
+                    contradiction.resolved = true;
+                    contradiction.resolutionStrategy = strategy;
+
+                    if (resolution.action === 'revise') {
+                        contradiction.resolvedValue = resolution.truth;
+                        this.nar.revise(contradiction.hyperedgeId, resolution.truth, resolution.budget);
+                    } else if (resolution.action === 'split') {
+                        contradiction.resolvedValue = resolution.newConceptId;
+                    }
+
+                    this.nar.notifyListeners('contradiction-resolved', {
+                        id: contradiction.id,
+                        hyperedgeId: contradiction.hyperedgeId,
+                        strategy,
+                        resolution
+                    });
+                }
             }
         });
     }
 
-    _resolveContradiction(contradiction) {
-        const { hyperedgeId, beliefs } = contradiction;
-        const [belief1, belief2] = beliefs;
+    _selectResolutionStrategy(contradiction) {
+        const { severity } = contradiction;
+        const hyperedge = this.nar.hypergraph.get(contradiction.hyperedgeId);
 
-        const evidence1 = this._calculateEvidenceStrength(belief1);
-        const evidence2 = this._calculateEvidenceStrength(belief2);
+        if (!hyperedge) return 'default';
 
-        if (Math.abs(evidence1 - evidence2) > 0.3) {
-            const stronger = evidence1 > evidence2 ? belief1 : belief2;
-            const weaker = evidence1 > evidence2 ? belief2 : belief1;
+        if (severity > 0.8) return 'evidence-weighted';
 
-            const hyperedge = this.nar.hypergraph.get(hyperedgeId);
-            if (hyperedge) {
-                const newBeliefs = hyperedge.beliefs.filter(b => b !== weaker);
-                const weakenedBelief = {
-                    ...weaker,
-                    truth: weaker.truth.scale(0.5),
-                    budget: weaker.budget.scale(0.5)
-                };
-                hyperedge.beliefs = [...newBeliefs, weakenedBelief];
-            }
-            contradiction.resolved = true;
-            this.nar.notifyListeners('contradiction-resolved', { id: contradiction.id, resolution: 'superseded', winner: stronger, loser: weaker });
-        }
-        else {
-            const newConceptId = this._createContextualSpecialization(hyperedgeId, belief1, belief2);
-            if (newConceptId) {
-                contradiction.resolved = true;
-                this.nar.notifyListeners('contradiction-resolved', { id: contradiction.id, resolution: 'specialized', newConcept: newConceptId });
-            }
-        }
+        const beliefContexts = new Set(hyperedge.beliefs.map(b => b.context || 'general'));
+        if (beliefContexts.size > 1) return 'contextual-split';
+
+        const sources = new Set(hyperedge.beliefs.map(b => this._getSource(b)));
+        if (sources.size > 1 && this.nar.metaReasoner?.getStrategyEffectiveness) return 'source-reliability';
+
+        if (this.nar.metaReasoner?.currentFocus === 'temporal-reasoning') return 'recency-biased';
+
+        return 'default';
     }
 
-    _calculateEvidenceStrength(belief) {
-        return belief.budget.priority * belief.truth.confidence;
+    _evidenceWeightedResolution(contradiction) {
+        let totalWeight = 0;
+        let weightedFrequency = 0;
+        let weightedConfidence = 0;
+        let totalPriority = 0;
+
+        contradiction.beliefs.forEach(belief => {
+            const weight = this._calculateEvidenceStrength(belief);
+            weightedFrequency += belief.truth.frequency * weight;
+            weightedConfidence += belief.truth.confidence * weight;
+            totalPriority += belief.budget.priority;
+            totalWeight += weight;
+        });
+
+        if (totalWeight > 0) {
+            const newTruth = new this.nar.truth(
+                weightedFrequency / totalWeight,
+                weightedConfidence / totalWeight
+            );
+            const newBudget = this.nar.budget(
+                totalPriority / contradiction.beliefs.length,
+                0.8,
+                Math.min(1, totalWeight / contradiction.beliefs.length)
+            );
+            return { action: 'revise', truth: newTruth, budget: newBudget };
+        }
+        return null;
+    }
+
+    _recencyBiasedResolution(contradiction) {
+        const mostRecent = [...contradiction.beliefs].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+        return { action: 'revise', truth: mostRecent.truth, budget: mostRecent.budget.scale(0.95) };
+    }
+
+    _sourceReliabilityResolution(contradiction) {
+        const sourceWeights = {};
+        contradiction.beliefs.forEach(belief => {
+            const source = this._getSource(belief);
+            sourceWeights[source] = this.nar.metaReasoner?.getStrategyEffectiveness(`source:${source}`) || 0.5;
+        });
+
+        return this._evidenceWeightedResolution(contradiction, sourceWeights);
+    }
+
+    _contextualSplitResolution(contradiction) {
+        const [belief1, belief2] = contradiction.beliefs;
+        const newConceptId = this._createContextualSpecialization(contradiction.hyperedgeId, belief1, belief2);
+        return { action: 'split', newConceptId };
+    }
+
+    _defaultResolution(contradiction) {
+        const strongest = [...contradiction.beliefs].sort((a, b) => this._calculateEvidenceStrength(b) - this._calculateEvidenceStrength(a))[0];
+        return { action: 'revise', truth: strongest.truth, budget: strongest.budget };
+    }
+
+    _calculateEvidenceStrength(belief, sourceWeights = {}) {
+        const source = this._getSource(belief);
+        const sourceReliability = sourceWeights[source] || this.nar.metaReasoner?.getStrategyEffectiveness(`source:${source}`) || 0.5;
+        const recency = belief.timestamp ? Math.exp(-(Date.now() - belief.timestamp) / (1000 * 60 * 5)) : 0.8;
+
+        return belief.budget.priority * belief.truth.confidence * sourceReliability * recency;
+    }
+
+    _getSource(belief) {
+        return belief.source || 'internal';
     }
 
     _createContextualSpecialization(originalId, belief1, belief2) {
         const original = this.nar.hypergraph.get(originalId);
         if (!original) return null;
 
-        const context = `context_for_${originalId.replace(/[(),]/g, '_')}`;
+        const context = belief2.context || `context_for_${originalId.replace(/[(),]/g, '_')}`;
         const newId = `${originalId}|${context}`;
 
         if (this.nar.hypergraph.has(newId)) return newId;

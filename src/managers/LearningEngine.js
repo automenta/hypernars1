@@ -1,105 +1,175 @@
 import { id } from '../support/utils.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 export class LearningEngine {
     constructor(nar) {
         this.nar = nar;
         this.experienceBuffer = [];
-        this.ruleEffectiveness = new Map();
         this.patternMemory = new Map();
         this.learningRate = 0.1;
     }
 
+    applyLearning() {
+        if (this.experienceBuffer.length === 0) return;
+
+        this._processRecentExperiences();
+        this._discoverPatterns();
+        this._createRulesFromPatterns();
+
+        // Clear buffer periodically
+        if (this.experienceBuffer.length > 500) {
+            this.experienceBuffer = this.experienceBuffer.slice(-250);
+        }
+    }
+
     recordExperience(event, outcome = {}) {
+        const { success, accuracy } = outcome;
         const experience = {
             id: `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             timestamp: Date.now(),
             derivationPath: event.derivationPath,
             target: event.target,
             budget: event.budget,
-            outcome: outcome
+            success,
+            accuracy
         };
 
         this.experienceBuffer.push(experience);
         if (this.experienceBuffer.length > 1000) {
             this.experienceBuffer.shift();
         }
+
+        // Immediately process significant experiences
+        if (success === false || (accuracy !== undefined && Math.abs(accuracy) < 0.3)) {
+            this._analyzeFailure(experience);
+        } else if (success === true && accuracy > 0.8) {
+            this._reinforceSuccess(experience);
+        }
     }
 
-    applyLearning() {
-        this._updateRuleEffectiveness();
-        this._discoverAndCreateRules();
-    }
+    _processRecentExperiences() {
+        const recent = this.experienceBuffer.slice(-100);
+        if (recent.length === 0) return;
 
-    _updateRuleEffectiveness() {
-        if (this.experienceBuffer.length < 50) return;
-
-        const recentExperiences = this.experienceBuffer.slice(-200);
-        const ruleStats = new Map();
-
-        recentExperiences.forEach(exp => {
-            if (!exp.derivationPath || exp.derivationPath.length === 0) return;
-            const rule = exp.derivationPath[exp.derivationPath.length - 1];
-            if (!ruleStats.has(rule)) {
-                ruleStats.set(rule, { successes: 0, attempts: 0 });
-            }
-            const stats = ruleStats.get(rule);
-            stats.attempts++;
-            if (exp.budget.priority > 0.7) {
-                stats.successes++;
-            }
-        });
-
-        ruleStats.forEach((stats, rule) => {
-            const currentEffectiveness = this.ruleEffectiveness.get(rule) || { successes: 0, attempts: 0 };
-            currentEffectiveness.successes += stats.successes;
-            currentEffectiveness.attempts += stats.attempts;
-            this.ruleEffectiveness.set(rule, currentEffectiveness);
-        });
-
-        this.experienceBuffer = this.experienceBuffer.slice(-100);
-    }
-
-    getRulePriority(ruleName) {
-        const stats = this.ruleEffectiveness.get(ruleName);
-        if (!stats || stats.attempts < 10) return 0.5;
-        return stats.successes / stats.attempts;
-    }
-
-    _discoverAndCreateRules() {
-        const pathCounts = new Map();
-        this.experienceBuffer.forEach(exp => {
-            if(exp.derivationPath && exp.budget.priority > 0.8) {
+        // Update strategy effectiveness in MetaReasoner
+        recent.forEach(exp => {
+            if (exp.derivationPath && exp.derivationPath.length > 0) {
                 const pathKey = exp.derivationPath.join('->');
-                pathCounts.set(pathKey, (pathCounts.get(pathKey) || 0) + 1);
-            }
-        });
-
-        pathCounts.forEach((count, pathKey) => {
-            if(count > 5) {
-                const path = pathKey.split('->');
-                this._createShortcutRule(path);
+                this.nar.metaReasoner.trackOutcome(
+                    `path:${pathKey}`,
+                    exp.success ? 'success' : 'failure',
+                    { accuracy: exp.accuracy }
+                );
             }
         });
     }
 
-    _createShortcutRule(path) {
-        if (path.length < 3) return;
+    _discoverPatterns() {
+        const patternCandidates = this._extractPatternCandidates();
 
-        const premiseId = path[0];
-        const conclusionId = path[path.length-1];
+        patternCandidates.forEach(candidate => {
+            const signature = this._patternSignature(candidate);
+            if (!this.patternMemory.has(signature)) {
+                this.patternMemory.set(signature, { instances: [], successCount: 0, totalCount: 0, averageAccuracy: 0 });
+            }
 
-        const premiseHyperedge = this.nar.hypergraph.get(premiseId);
-        const conclusionHyperedge = this.nar.hypergraph.get(conclusionId);
+            const pattern = this.patternMemory.get(signature);
+            pattern.instances.push(candidate);
+            pattern.totalCount++;
+            if (candidate.success) pattern.successCount++;
+            pattern.averageAccuracy = (pattern.averageAccuracy * (pattern.totalCount - 1) + (candidate.accuracy || 0.5)) / pattern.totalCount;
 
-        if(premiseHyperedge && conclusionHyperedge) {
-            const shortcutId = id('ShortcutRule', [premiseId, conclusionId]);
-            if (!this.nar.hypergraph.has(shortcutId)) {
-                this.nar.implication(premiseId, conclusionId, {
-                    truth: this.nar.truth(0.9, 0.8),
-                    budget: this.nar.budget(0.9, 0.9, 0.9)
-                });
-                this.nar.notifyListeners('shortcut-created', { from: premiseId, to: conclusionId });
+            if (pattern.instances.length > 50) pattern.instances.shift();
+        });
+    }
+
+    _extractPatternCandidates() {
+        return this.experienceBuffer
+            .filter(e => e.success && e.derivationPath && e.derivationPath.length > 1)
+            .map(e => ({
+                derivationPath: e.derivationPath,
+                accuracy: e.accuracy,
+                success: e.success
+            }));
+    }
+
+    _patternSignature(pattern) {
+        // Create a signature based on the rule types in the path
+        return pattern.derivationPath.map(step => (step.split('_')[0] || step)).slice(-3).join('>');
+    }
+
+    _createRulesFromPatterns() {
+        for (const [signature, patternData] of this.patternMemory) {
+            const successRate = patternData.successCount / patternData.totalCount;
+            if (successRate > 0.8 && patternData.totalCount > 10) {
+                const representativeInstance = patternData.instances[patternData.instances.length - 1];
+                this._createShortcutRule(representativeInstance.derivationPath, successRate);
+                // Reset pattern to avoid re-creating the rule
+                this.patternMemory.delete(signature);
             }
         }
+    }
+
+    _createShortcutRule(path, confidence) {
+        if (path.length < 2) return;
+
+        const premiseEvent = this.nar.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(path[path.length - 2]));
+        const conclusionEvent = this.nar.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(path[path.length - 1]));
+
+        if (!premiseEvent || !conclusionEvent) return;
+
+        const premiseId = premiseEvent.target;
+        const conclusionId = conclusionEvent.target;
+
+        const shortcutId = id('ShortcutRule', [premiseId, conclusionId]);
+        if (!this.nar.hypergraph.has(shortcutId)) {
+            this.nar.implication(premiseId, conclusionId, {
+                truth: new TruthValue(0.9, confidence),
+                budget: this.nar.budget(0.9, 0.9, 0.9)
+            });
+            this.nar.notifyListeners('shortcut-created', { from: premiseId, to: conclusionId, confidence });
+        }
+    }
+
+    _analyzeFailure(experience) {
+        if (!experience.derivationPath) return;
+
+        // Weaken the beliefs along the derivation path that led to failure
+        experience.derivationPath.forEach((stepKey, index) => {
+            const event = this.nar.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(stepKey));
+            if (!event) return;
+
+            const hyperedge = this.nar.hypergraph.get(event.target);
+            if (hyperedge) {
+                const learningFactor = this.learningRate * Math.pow(0.8, experience.derivationPath.length - 1 - index);
+                const currentTruth = hyperedge.getTruth();
+                const newTruth = new TruthValue(
+                    currentTruth.frequency,
+                    currentTruth.confidence * (1 - learningFactor) // Reduce confidence
+                );
+                this.nar.revise(event.target, newTruth, hyperedge.getStrongestBelief().budget.scale(0.9));
+            }
+        });
+    }
+
+    _reinforceSuccess(experience) {
+        if (!experience.derivationPath) return;
+
+        // Strengthen the beliefs along the derivation path that led to success
+        experience.derivationPath.forEach((stepKey, index) => {
+            const event = this.nar.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(stepKey));
+            if (!event) return;
+
+            const hyperedge = this.nar.hypergraph.get(event.target);
+            if (hyperedge) {
+                const learningFactor = this.learningRate * Math.pow(0.9, index);
+                const currentTruth = hyperedge.getTruth();
+                const newTruth = new TruthValue(
+                    currentTruth.frequency,
+                    Math.min(0.99, currentTruth.confidence * (1 + learningFactor)) // Increase confidence
+                );
+                this.nar.revise(event.target, newTruth, hyperedge.getStrongestBelief().budget.scale(1.05));
+            }
+        });
     }
 }

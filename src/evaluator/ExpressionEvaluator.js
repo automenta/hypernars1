@@ -67,49 +67,113 @@ export class ExpressionEvaluator {
   }
 
   _parseNALExpression(expression) {
+    // Handle truth value annotations with multiple formats
     let truth = TruthValue.certain();
     let priority = 1.0;
     let content = expression.trim();
 
-    const truthMatch = content.match(/%([\d.]+);([\d.]+)%/);
+    // Match various truth value formats: %f;c%, %f;c;p%, #priority#
+    const truthMatch = content.match(/%([\d.]+);([\d.]+)(?:;([\d.]+))?%|#[\d.]+#/);
     if (truthMatch) {
-        truth = new TruthValue(parseFloat(truthMatch[1]), parseFloat(truthMatch[2]));
-        content = content.replace(truthMatch[0], '').trim();
+      if (truthMatch[0].startsWith('%')) {
+        truth = new TruthValue(
+          parseFloat(truthMatch[1]),
+          parseFloat(truthMatch[2]),
+          truthMatch[3] ? parseFloat(truthMatch[3]) : 1.0
+        );
+      } else {
+        priority = parseFloat(truthMatch[0].slice(1, -1));
+      }
+      content = content.replace(truthMatch[0], '').trim();
     }
 
-    if (content.startsWith('<') && content.endsWith('>.')) {
-        content = content.slice(1, -2);
-    } else if (content.startsWith('<') && content.endsWith('>')) {
-        content = content.slice(1, -1);
+    // Handle negation properly
+    if (content.startsWith('!')) {
+      return {
+        type: 'Negation',
+        args: [this._parseNALExpression(content.substring(1))],
+        truth,
+        priority
+      };
     }
 
-
+    // Handle complex nested expressions with proper precedence
     const operators = [
-        { symbol: '<=>', type: 'Equivalence', precedence: 4 },
-        { symbol: '==>', type: 'Implication', precedence: 3 },
-        { symbol: '<->', type: 'Similarity', precedence: 2 },
-        { symbol: '-->', type: 'Inheritance', precedence: 1 }
+      { symbol: '==>', precedence: 1, type: 'Implication' },
+      { symbol: '<=>', precedence: 1, type: 'Equivalence' },
+      { symbol: '&&', precedence: 2, type: 'Conjunction' },
+      { symbol: '||', precedence: 2, type: 'Disjunction' },
+      { symbol: '-->', precedence: 3, type: 'Inheritance' },
+      { symbol: '<->', precedence: 3, type: 'Similarity' }
     ];
 
-    for (const op of operators) {
-        const index = content.indexOf(op.symbol);
-        if (index !== -1) {
-            const left = content.substring(0, index).trim();
-            const right = content.substring(index + op.symbol.length).trim();
-            return {
-                type: op.type,
-                args: [left, right],
-                truth,
-                priority
-            };
+    // Find operator with lowest precedence (highest number) for recursive parsing
+    let bestOp = null;
+    let depth = 0;
+    let inQuotes = false;
+
+    for (let i = 0; i < content.length; i++) {
+      if (content[i] === '(' || content[i] === '[' || content[i] === '{') depth++;
+      else if (content[i] === ')' || content[i] === ']' || content[i] === '}') depth--;
+      else if (content[i] === '"' || content[i] === "'") inQuotes = !inQuotes;
+
+      if (depth === 0 && !inQuotes) {
+        for (const op of operators) {
+          if (i > 0 && i + op.symbol.length <= content.length - 1 &&
+              content.substring(i, i + op.symbol.length) === op.symbol) {
+            if (!bestOp || op.precedence > bestOp.precedence) {
+              bestOp = { ...op, position: i };
+            }
+          }
         }
+      }
     }
 
+    if (bestOp) {
+      const left = content.substring(0, bestOp.position).trim();
+      const right = content.substring(bestOp.position + bestOp.symbol.length).trim();
+      return {
+        type: bestOp.type,
+        args: [
+          this._parseNALExpression(left),
+          this._parseNALExpression(right)
+        ],
+        truth,
+        priority
+      };
+    }
+
+    // Handle product terms with proper argument extraction
     if (content.startsWith('(') && content.includes('*') && content.endsWith(')')) {
-        const terms = content.slice(1, -1).split('*').map(t => t.trim()).filter(t => t);
-        return { type: 'Product', args: terms, truth, priority };
+      const terms = content.slice(1, -1)
+        .split('*')
+        .map(t => t.trim())
+        .filter(t => t);
+      return { type: 'Product', args: terms, truth, priority };
     }
 
+    // Handle image terms with position specification
+    const imageMatch = content.match(/\((\/|\*)\s*,\s*([^,]+)\s*,\s*([^)]+)\)/);
+    if (imageMatch) {
+      const isExtensional = imageMatch[1] === '/';
+      return {
+        type: isExtensional ? 'ImageExt' : 'ImageInt',
+        args: [
+          imageMatch[2],
+          imageMatch[3],
+          isExtensional ? '1' : '1' // Default position
+        ],
+        truth,
+        priority
+      };
+    }
+
+    // Handle variables and simple terms
+    if (content.startsWith('$') || content.startsWith('?')) {
+      return { type: 'Variable', args: [content], truth, priority };
+    }
+
+    // Default to Term
     return { type: 'Term', args: [content], truth, priority };
   }
 }

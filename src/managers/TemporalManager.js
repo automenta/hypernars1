@@ -9,19 +9,25 @@ export class TemporalManager {
         this.nar = nar;
         this.temporalIntervals = new Map();
         this.temporalConstraints = new Map();
+        // Ensure the temporalTerms index exists
         if (!this.nar.index.temporalTerms) {
             this.nar.index.temporalTerms = new Map();
         }
     }
 
+    // Creates a new time interval for a term
     interval(term, start, end, options = {}) {
         const intervalId = id('TimeInterval', [term, start, end]);
+        if (this.temporalIntervals.has(intervalId)) {
+            return intervalId;
+        }
         const interval = new TimeInterval(intervalId, start, end, options);
         this.temporalIntervals.set(intervalId, interval);
         this.nar.addToIndex(new Hyperedge(intervalId, 'TimeInterval', [term, start, end]));
         return intervalId;
     }
 
+    // Creates a temporal constraint
     constraint(relation, minDuration, maxDuration) {
         const constraintId = id('TemporalConstraint', [relation, minDuration, maxDuration]);
         this.temporalConstraints.set(constraintId, {
@@ -33,14 +39,16 @@ export class TemporalManager {
         return constraintId;
     }
 
+    // Establishes a temporal relation between two intervals
     temporalRelation(premise, conclusion, relation, options = {}) {
         const { truth, budget } = options;
         const relationId = id('TemporalRelation', [premise, conclusion, relation]);
 
         const premiseInterval = this.temporalIntervals.get(premise);
         const conclusionInterval = this.temporalIntervals.get(conclusion);
+
         if (!premiseInterval || !conclusionInterval) {
-            // console.warn("Cannot create temporal relation for non-existent intervals.");
+            // Silently fail if intervals don't exist, as they might be created later
             return null;
         }
 
@@ -55,6 +63,7 @@ export class TemporalManager {
         return hyperedge;
     }
 
+    // Retrieves the inverse of a temporal relation
     _getInverseTemporalRelation(relation) {
         const inverses = {
             'before': 'after', 'after': 'before',
@@ -68,6 +77,7 @@ export class TemporalManager {
         return inverses[relation];
     }
 
+    // Derives new temporal relations through transitivity
     _deriveTransitiveTemporalRelations(interval) {
         const premiseId = interval.id;
         for (const [conclusionId, relation1] of interval.relations) {
@@ -90,6 +100,7 @@ export class TemporalManager {
         }
     }
 
+    // Allen's Interval Algebra composition table
     _composeTemporalRelations(rel1, rel2) {
         const table = {
             'before': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['before'], 'starts': ['before'], 'during': ['before'], 'finishes': ['before'] },
@@ -99,7 +110,8 @@ export class TemporalManager {
             'during': { 'overlaps': ['overlaps'], 'during': ['during'], 'finishes': ['finishes'] },
             'finishes': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['overlaps'], 'starts': ['finishes'], 'during': ['finishes'], 'finishes': ['finishes'] }
         };
-        // Add inverse relations to table
+
+        // Auto-populate with inverse relations
         const relations = Object.keys(table);
         for(const r1 of relations) {
             for(const r2 of relations) {
@@ -108,7 +120,10 @@ export class TemporalManager {
                     const inv_r2 = this._getInverseTemporalRelation(r2);
                     if(inv_r1 && inv_r2) {
                         if(!table[inv_r2]) table[inv_r2] = {};
-                        table[inv_r2][inv_r1] = table[r1][r2].map(r => this._getInverseTemporalRelation(r));
+                        const composed = table[r1][r2].map(r => this._getInverseTemporalRelation(r)).filter(r => r);
+                        if (composed.length > 0) {
+                           table[inv_r2][inv_r1] = composed;
+                        }
                     }
                 }
             }
@@ -116,18 +131,21 @@ export class TemporalManager {
         return table[rel1]?.[rel2];
     }
 
+    // Processes temporal constraints during the reasoning cycle
     processTemporalConstraints(target, activation, budget, pathHash, pathLength, derivationPath) {
         const constraints = Array.from(this.temporalConstraints.values()).filter(c =>
             c.relation.includes(target) || c.relation.includes('*'));
 
         for (const constraint of constraints) {
-            const [relation, minDur, maxDur] = [constraint.relation, constraint.minDuration, constraint.maxDuration];
-            const match = relation.match(/(.+?)\((.+?),(.+?)\)/);
+            const { relation, minDuration, maxDuration } = constraint;
+            const match = relation.match(/(.+?)\\((.+?),(.+?)\\)/);
             if(!match) continue;
+
             const [_, op, term1, term2] = match;
 
-            if (this._hasTemporalEvidence(term1, term2, minDur, maxDur)) {
-              const constraintActivation = activation * (1 - Math.min(1, Math.abs(this._temporalDistance(term1, term2) - (minDur+maxDur)/2) / maxDur));
+            if (this._hasTemporalEvidence(term1, term2, minDuration, maxDuration)) {
+              const distance = this._temporalDistance(term1, term2);
+              const constraintActivation = activation * (1 - Math.min(1, Math.abs(distance - (minDuration + maxDuration) / 2) / maxDuration));
               this.nar.propagate(term2, constraintActivation, budget.scale(0.7),
                 pathHash ^ hash(`constraint:${relation}`), pathLength + 1,
                 [...derivationPath, 'temporal_constraint']);
@@ -135,8 +153,10 @@ export class TemporalManager {
         }
     }
 
+    // Checks if there is temporal evidence satisfying a constraint
     _hasTemporalEvidence(term1, term2, minDur, maxDur) {
         const now = Date.now();
+        // This assumes temporal links are stored in nar.temporalLinks, which needs to be ensured.
         const links = Array.from(this.nar.temporalLinks.values()).filter(link =>
             (link.premise === term1 && link.conclusion === term2) ||
             (link.premise === term2 && link.conclusion === term1));
@@ -147,14 +167,34 @@ export class TemporalManager {
         });
     }
 
+    // Calculates the temporal distance between two terms
     _temporalDistance(term1, term2) {
         const now = Date.now();
         const links = Array.from(this.nar.temporalLinks.values()).filter(link =>
             (link.premise === term1 && link.conclusion === term2) ||
             (link.premise === term2 && link.conclusion === term1));
         if(links.length > 0) {
-            return Math.abs(links[0].timestamp - now);
+            // Return average distance if multiple links exist
+            const avgTimestamp = links.reduce((sum, link) => sum + link.timestamp, 0) / links.length;
+            return Math.abs(avgTimestamp - now);
         }
         return Infinity;
+    }
+
+    // Provides the current temporal context
+    getContext() {
+        const now = Date.now();
+        let currentPeriod = 'present';
+        // This is a placeholder. A real implementation would have more sophisticated context detection.
+        return {
+            timestamp: now,
+            currentPeriod
+        };
+    }
+
+    // Predicts future events based on patterns
+    predict(event, pattern, horizon) {
+        // Placeholder for future implementation
+        return [];
     }
 }

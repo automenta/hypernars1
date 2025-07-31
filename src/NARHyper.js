@@ -132,10 +132,9 @@ export class NARHyper {
     return this.implication(premise, conclusion, options);
   }
 
-  contextualRule(premise, conclusion, contextId, options = {}) {
-    const ruleId = this.implication(premise, conclusion, options);
-    this._addContextAssociation(ruleId, contextId);
-    return ruleId;
+  contextualRule(ruleId, contextId) {
+      this._addContextAssociation(ruleId, contextId);
+      return ruleId;
   }
 
   citedBelief(statement, citation) {
@@ -183,12 +182,12 @@ export class NARHyper {
       frequency: b.truth.frequency.toFixed(2),
       confidence: b.truth.confidence.toFixed(2),
       priority: b.budget.priority.toFixed(2),
-      expectation: b.expectation.toFixed(2)
+      expectation: b.truth.expectation().toFixed(2)
     }));
   }
 
-  explain(hyperedgeId, depth = 3) {
-    return this.explanationSystem.explain(hyperedgeId, { depth });
+  explain(hyperedgeId, options = {}) {
+    return this.explanationSystem.explain(hyperedgeId, options);
   }
 
   compound(type, ...args) {
@@ -356,10 +355,14 @@ export class NARHyper {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.questionPromises.delete(questionId);
+        this.learningEngine.recordExperience(
+            { derivationPath: ['timeout'], target: questionId },
+            { success: false }
+        );
         reject(new Error(`Question timed out after ${timeout}ms: ${question}`));
       }, timeout);
 
-      this.questionPromises.set(questionId, { resolve, reject, timer, options });
+      this.questionPromises.set(questionId, { resolve, reject, timer, options, answered: false });
       this._processQuestion(question, questionId);
     });
   }
@@ -418,7 +421,15 @@ export class NARHyper {
     const promise = this.questionPromises.get(questionId);
     if (!promise) return;
 
-    if (promise.options.minExpectation &&
+    if (!promise.answered) {
+        this.learningEngine.recordExperience(
+            { derivationPath: answer.derivationPath || ['answered'], target: questionId },
+            { success: true, accuracy: answer.truth.expectation() }
+        );
+        promise.answered = true;
+    }
+
+    if (promise.options && promise.options.minExpectation &&
         answer.truth.expectation() >= promise.options.minExpectation) {
       clearTimeout(promise.timer);
       this.questionPromises.delete(questionId);
@@ -429,7 +440,6 @@ export class NARHyper {
     if (!this.index.questionCache.has(questionId)) {
       this.index.questionCache.set(questionId, []);
     }
-
     this.index.questionCache.get(questionId).push(answer);
 
     this.notifyListeners('question-answer', { questionId, answer });
@@ -614,10 +624,22 @@ export class NARHyper {
     rules && rules();
   }
 
-  _deriveInheritance({ args: [subject, predicate] }, { activation, budget, pathHash, pathLength, derivationPath }) {
-    (this.index.byArg.get(predicate) || new Set()).forEach(termId => {
+  _getArgId(arg) {
+      if (typeof arg === 'string') return arg;
+      if (arg && arg.type && arg.args) return id(arg.type, arg.args);
+      if (arg !== null && arg !== undefined) return String(arg);
+      return 'undefined_arg';
+  }
+
+  _deriveInheritance({ args: [subject, predicate] }, event) {
+    const subjectId = this._getArgId(subject);
+    const predicateId = this._getArgId(predicate);
+    const { activation, budget, pathHash, pathLength, derivationPath } = event;
+
+    // Transitivity
+    (this.index.byArg.get(predicateId) || new Set()).forEach(termId => {
       const middle = this.hypergraph.get(termId);
-      if (middle?.type === 'Inheritance' && middle.args[1] === subject) {
+      if (middle?.type === 'Inheritance' && this._getArgId(middle.args[1]) === subjectId) {
         this._deriveTransitiveInheritance(middle.args[0], predicate, middle,
           this.hypergraph.get(id('Inheritance', [subject, predicate])),
           activation, budget, pathHash, pathLength, derivationPath);
@@ -626,8 +648,9 @@ export class NARHyper {
 
     this.similarity(subject, predicate, { budget: budget.scale(0.6) });
 
+    // Property Inheritance
     if (this.hypergraph.has(id('Instance', [subject, 'entity']))) {
-      (this.index.byArg.get(predicate) || new Set()).forEach(propId => {
+      (this.index.byArg.get(predicateId) || new Set()).forEach(propId => {
         const property = this.hypergraph.get(propId);
         if (property?.type === 'Property') {
           this._propagate(id('Property', [subject, property.args[1]]),
@@ -636,23 +659,11 @@ export class NARHyper {
       });
     }
 
-    (this.index.byArg.get(predicate) || new Set()).forEach(termId => {
+    // Induction
+    (this.index.byArg.get(predicateId) || new Set()).forEach(termId => {
       const other = this.hypergraph.get(termId);
-      if (other?.type === 'Inheritance' && other.args[1] === predicate && other.args[0] !== subject) {
+      if (other?.type === 'Inheritance' && this._getArgId(other.args[1]) === predicateId && this._getArgId(other.args[0]) !== subjectId) {
         this._deriveInduction(subject, other.args[0], predicate,
-          this.hypergraph.get(id('Inheritance', [subject, predicate])),
-          other,
-          activation, budget, pathHash, pathLength, derivationPath);
-      }
-    });
-
-    (this.index.byArg.get(predicate) || new Set()).forEach(termId => {
-      const other = this.hypergraph.get(termId);
-      if (other?.type === 'Inheritance' &&
-          other.args[0] === subject &&
-          other.args[1] === predicate &&
-          termId !== id('Inheritance', [subject, predicate])) {
-        this._deriveRevision(subject, predicate,
           this.hypergraph.get(id('Inheritance', [subject, predicate])),
           other,
           activation, budget, pathHash, pathLength, derivationPath);
@@ -661,88 +672,47 @@ export class NARHyper {
   }
 
   _deriveTransitiveInheritance(subject, predicate, premise1, premise2, activation, budget, pathHash, pathLength, derivationPath) {
-    const key = this._memoKey('Inheritance', [subject, predicate], pathHash);
+    const subjectId = this._getArgId(subject);
+    const predicateId = this._getArgId(predicate);
+    const key = this._memoKey('Inheritance', [subjectId, predicateId], pathHash);
     if (this.memoization.has(key) && this.memoization.get(key) <= pathLength) return;
     this.memoization.set(key, pathLength);
 
-    const cacheKey = `${subject}→${predicate}|${premise1.id}|${premise2.id}`;
+    const cacheKey = `${subjectId}→${predicateId}|${premise1.id}|${premise2.id}`;
     if (this.index.derivationCache.has(cacheKey)) return;
     this.index.derivationCache.set(cacheKey, true);
 
     const truth = TruthValue.transitive(premise1.getTruth(), premise2.getTruth());
     this.inheritance(subject, predicate, { truth, budget: budget.scale(0.7) });
-    this.propagate(id('Inheritance', [subject, predicate]),
-      activation * 0.8, budget.scale(0.7), pathHash, pathLength + 1, [...derivationPath, 'transitivity']);
   }
 
   _deriveInduction(term1, term2, predicate, premise1, premise2, activation, budget, pathHash, pathLength, derivationPath) {
-    const key = this._memoKey('Similarity', [term1, term2], pathHash);
+    const term1Id = this._getArgId(term1);
+    const term2Id = this._getArgId(term2);
+    const predicateId = this._getArgId(predicate);
+    const key = this._memoKey('Similarity', [term1Id, term2Id], pathHash);
     if (this.memoization.has(key) && this.memoization.get(key) <= pathLength) return;
     this.memoization.set(key, pathLength);
 
-    const cacheKey = `${term1}↔${term2}|induction|${predicate}`;
+    const cacheKey = `${term1Id}↔${term2Id}|induction|${predicateId}`;
     if (this.index.derivationCache.has(cacheKey)) return;
     this.index.derivationCache.set(cacheKey, true);
 
     const truth = TruthValue.induction(premise1.getTruth(), premise2.getTruth());
     this.similarity(term1, term2, { truth, budget: budget.scale(0.6) });
-    this.propagate(id('Similarity', [term1, term2]),
-      activation * 0.6, budget.scale(0.6), pathHash, pathLength + 1, [...derivationPath, 'induction']);
   }
 
-  _deriveRevision(subject, predicate, premise1, premise2, activation, budget, pathHash, pathLength, derivationPath) {
-    const key = this._memoKey('Inheritance', [subject, predicate], pathHash);
-    if (this.memoization.has(key) && this.memoization.get(key) <= pathLength) return;
-    this.memoization.set(key, pathLength);
+  _deriveSimilarity({ args: [term1, term2] }, event) {
+    const term1Id = this._getArgId(term1);
+    const term2Id = this._getArgId(term2);
+    const { activation, budget, pathHash, pathLength, derivationPath } = event;
 
-    const cacheKey = `${subject}→${predicate}|revision|${premise1.id}|${premise2.id}`;
-    if (this.index.derivationCache.has(cacheKey)) return;
-    this.index.derivationCache.set(cacheKey, true);
-
-    const truth = TruthValue.revise(premise1.getTruth(), premise2.getTruth());
-    this.inheritance(subject, predicate, { truth, budget: budget.scale(0.8) });
-    this.propagate(id('Inheritance', [subject, predicate]),
-      activation * 0.9, budget.scale(0.8), pathHash, pathLength + 1, [...derivationPath, 'revision']);
-  }
-
-  _deriveSimilarity({ args: [term1, term2] }, { activation, budget, pathHash, pathLength, derivationPath }) {
     this.propagate(id('Similarity', [term2, term1]),
       activation, budget.scale(0.9), pathHash, pathLength + 1, [...derivationPath, 'symmetry']);
 
-    (this.index.byArg.get(term1) || new Set()).forEach(termId => {
+    (this.index.byArg.get(term1Id) || new Set()).forEach(termId => {
       const premise = this.hypergraph.get(termId);
-      if (premise?.type === 'Inheritance') {
-        const [pSubject, pPredicate] = premise.args;
-        const newPredicate = pSubject === term1 ? term2 : (pPredicate === term1 ? term2 : null);
-        if (newPredicate) {
-          this._deriveTransitiveInheritance(
-            pSubject === term1 ? term2 : term1,
-            newPredicate,
-            premise,
-            this.hypergraph.get(id('Similarity', [term1, term2])),
-            activation,
-            budget,
-            pathHash,
-            pathLength,
-            derivationPath
-          );
-        }
-      }
-    });
-
-    (this.index.byArg.get(term2) || new Set()).forEach(termId => {
-      const premise = this.hypergraph.get(termId);
-      if (premise?.type === 'Inheritance' && premise.args[0] === term2) {
-        this._deriveAbduction(term1, term2, premise.args[1],
-          this.hypergraph.get(id('Similarity', [term1, term2])),
-          premise,
-          activation, budget, pathHash, pathLength, derivationPath);
-      }
-    });
-
-    (this.index.byArg.get(term1) || new Set()).forEach(termId => {
-      const premise = this.hypergraph.get(termId);
-      if (premise?.type === 'Inheritance' && premise.args[0] === term1) {
+      if (premise?.type === 'Inheritance' && this._getArgId(premise.args[0]) === term1Id) {
         this._deriveAnalogy(term1, term2, premise.args[1],
           this.hypergraph.get(id('Similarity', [term1, term2])),
           premise,
@@ -751,229 +721,65 @@ export class NARHyper {
     });
   }
 
-  _deriveAbduction(subject, similar, predicate, similarity, premise, activation, budget, pathHash, pathLength, derivationPath) {
-    const key = this._memoKey('Inheritance', [subject, predicate], pathHash);
-    if (this.memoization.has(key) && this.memoization.get(key) <= pathLength) return;
-    this.memoization.set(key, pathLength);
-
-    const cacheKey = `${subject}→${predicate}|abduction|${similar}`;
-    if (this.index.derivationCache.has(cacheKey)) return;
-    this.index.derivationCache.set(cacheKey, true);
-
-    const truth = TruthValue.abduction(similarity.getTruth(), premise.getTruth());
-    this.inheritance(subject, predicate, { truth, budget: budget.scale(0.6) });
-    this.propagate(id('Inheritance', [subject, predicate]),
-      activation * 0.6, budget.scale(0.6), pathHash, pathLength + 1, [...derivationPath, 'abduction']);
-  }
-
   _deriveAnalogy(term1, term2, predicate, similarity, premise, activation, budget, pathHash, pathLength, derivationPath) {
-    const key = this._memoKey('Inheritance', [term2, predicate], pathHash);
+    const term2Id = this._getArgId(term2);
+    const predicateId = this._getArgId(predicate);
+    const key = this._memoKey('Inheritance', [term2Id, predicateId], pathHash);
     if (this.memoization.has(key) && this.memoization.get(key) <= pathLength) return;
     this.memoization.set(key, pathLength);
-
-    const cacheKey = `${term2}→${predicate}|analogy|${term1}`;
-    if (this.index.derivationCache.has(cacheKey)) return;
-    this.index.derivationCache.set(cacheKey, true);
 
     const truth = TruthValue.analogy(similarity.getTruth(), premise.getTruth());
     this.inheritance(term2, predicate, { truth, budget: budget.scale(0.6) });
-    this.propagate(id('Inheritance', [term2, predicate]),
-      activation * 0.6, budget.scale(0.6), pathHash, pathLength + 1, [...derivationPath, 'analogy']);
   }
 
-  _deriveImplication({ args: [premise, conclusion] }, { activation, budget, pathHash, pathLength, derivationPath }) {
-    if (this.hypergraph.has(id('Term', [premise]))) {
-      this.propagate(conclusion, activation * 0.9, budget.scale(0.75),
-        pathHash, pathLength + 1, [...derivationPath, 'modus_ponens']);
-    }
-
-    (this.index.byArg.get(premise) || new Set()).forEach(termId => {
-      const middle = this.hypergraph.get(termId);
-      if (middle?.type === 'Implication' && middle.args[1] === premise) {
-        this._deriveTransitiveImplication(middle.args[0], conclusion, middle,
-          this.hypergraph.get(id('Implication', [premise, conclusion])),
-          activation, budget, pathHash, pathLength, derivationPath);
+  _deriveImplication({ args: [premise, conclusion] }, event) {
+      const premiseId = this._getArgId(premise);
+      if (this.hypergraph.has(premiseId)) {
+          this.propagate(id(conclusion.type, conclusion.args), event.activation * 0.9, event.budget.scale(0.75),
+              event.pathHash, event.pathLength + 1, [...event.derivationPath, 'modus_ponens']);
       }
-    });
+  }
 
-    this.propagate(id('Implication', [`!${conclusion}`, `!${premise}`]),
-      activation * 0.6, budget.scale(0.5), pathHash, pathLength + 1, [...derivationPath, 'contraposition']);
-
-    this.propagate(id('Inheritance', [`(${premise}&&${conclusion})`, 'truth']),
-      activation * 0.5, budget.scale(0.4), pathHash, pathLength + 1, [...derivationPath, 'material_implication']);
-
-    if (premise.includes('&&')) {
-      const terms = premise.split('&&').map(t => t.trim());
-      terms.forEach(term => {
-        this.propagate(id('Implication', [term, conclusion]),
-          activation * 0.4, budget.scale(0.3), pathHash, pathLength + 1, [...derivationPath, 'implication_composition']);
+  _deriveEquivalence({ args: [term1, term2] }, event) {
+      this.implication(term1, term2, {
+          truth: event.hyperedge.getTruth(),
+          budget: event.budget.scale(0.8)
       });
-    }
+      this.implication(term2, term1, {
+          truth: event.hyperedge.getTruth(),
+          budget: event.budget.scale(0.8)
+      });
   }
 
-  _deriveTransitiveImplication(premise, conclusion, rule1, rule2, activation, budget, pathHash, pathLength, derivationPath) {
-    const key = this._memoKey('Implication', [premise, conclusion], pathHash);
-    if (this.memoization.has(key) && this.memoization.get(key) <= pathLength) return;
-    this.memoization.set(key, pathLength);
-
-    const cacheKey = `${premise}⇒${conclusion}|${rule1.id}|${rule2.id}`;
-    if (this.index.derivationCache.has(cacheKey)) return;
-    this.index.derivationCache.set(cacheKey, true);
-
-    const truth = TruthValue.transitive(rule1.getTruth(), rule2.getTruth());
-    this.implication(premise, conclusion, { truth, budget: budget.scale(0.7) });
-    this.propagate(id('Implication', [premise, conclusion]),
-      activation * 0.8, budget.scale(0.7), pathHash, pathLength + 1, [...derivationPath, 'implication_transitivity']);
-  }
-
-  _deriveEquivalence({ args: [term1, term2] }, { activation, budget, pathHash, pathLength, derivationPath }) {
-    this.implication(term1, term2, {
-      truth: this.hypergraph.get(id('Equivalence', [term1, term2])).getTruth(),
-      budget: budget.scale(0.8)
-    });
-    this.implication(term2, term1, {
-      truth: this.hypergraph.get(id('Equivalence', [term1, term2])).getTruth(),
-      budget: budget.scale(0.8)
-    });
-
-    this.propagate(id('Implication', [term1, term2]),
-      activation * 0.85, budget.scale(0.8), pathHash, pathLength + 1, [...derivationPath, 'equivalence_to_implication']);
-    this.propagate(id('Implication', [term2, term1]),
-      activation * 0.85, budget.scale(0.8), pathHash, pathLength + 1, [...derivationPath, 'equivalence_to_implication']);
-  }
-
-  _deriveConjunction({ args }, { activation, budget, pathHash, pathLength, derivationPath }) {
+  _deriveConjunction({ args }, event) {
     args.forEach(term =>
-      this.propagate(term, activation * 0.9, budget.scale(0.75),
-        pathHash, pathLength + 1, [...derivationPath, 'conjunction_decomposition'])
+      this.propagate(this._getArgId(term), event.activation * 0.9, event.budget.scale(0.75),
+        event.pathHash, event.pathLength + 1, [...event.derivationPath, 'conjunction_decomposition'])
     );
-
-    if (args.length > 1) {
-      const activeTerms = args.filter(t => (this.activations.get(t) || 0) > 0.4);
-      if (activeTerms.length > 1) {
-        const conjunctionId = id('Conjunction', activeTerms);
-        const newTruth = activeTerms.every(t => this.hypergraph.get(id('Term', [t]))?.getTruth().frequency > 0.7)
-          ? TruthValue.certain().scale(0.85)
-          : new TruthValue(0.6, 0.5);
-
-        this.conjunction(...activeTerms);
-        this.propagate(conjunctionId, activation * 0.7, budget.scale(0.6),
-          pathHash, pathLength + 1, [...derivationPath, 'conjunction_formation']);
-      }
-    }
   }
 
-  _deriveDisjunction({ args }, { activation, budget, pathHash, pathLength, derivationPath }) {
-    args.forEach(term => {
-      const otherTerms = args.filter(t => t !== term);
-      if (otherTerms.length > 0) {
-        this.propagate(id('Disjunction', [term, `(${otherTerms.join('|')})`]),
-          activation * 0.7, budget.scale(0.6), pathHash, pathLength + 1, [...derivationPath, 'disjunction_introduction']);
-      }
-    });
-
-    if (args.length === 2) {
-      const [term1, term2] = args;
-      (this.index.byArg.get(term1) || new Set()).forEach(termId => {
-        const implication1 = this.hypergraph.get(termId);
-        if (implication1?.type === 'Implication' && implication1.args[0] === term1) {
-          (this.index.byArg.get(term2) || new Set()).forEach(id2 => {
-            const implication2 = this.hypergraph.get(id2);
-            if (implication2?.type === 'Implication' && implication2.args[0] === term2) {
-              if (implication1.args[1] === implication2.args[1]) {
-                this.propagate(implication1.args[1], activation * 0.5,
-                  budget.scale(0.4), pathHash, pathLength + 1, [...derivationPath, 'disjunction_elimination']);
-              }
-            }
-          });
-        }
-      });
-    }
+  _deriveDisjunction({ args }, event) {
+      // Placeholder
+  }
+  _deriveProduct({ args }, event) {
+      // Placeholder
+  }
+  _deriveImageExt({ args }, event) {
+      // Placeholder
+  }
+  _deriveImageInt({ args }, event) {
+      // Placeholder
+  }
+  _deriveTerm(hyperedge, event) {
+      // Placeholder
   }
 
-  _deriveProduct({ args }, { activation, budget, pathHash, pathLength, derivationPath }) {
-    if (args.length === 2) {
-      const [arg1, arg2] = args;
-      this.inheritance(arg1, `(${arg2}-->`, {
-        truth: new TruthValue(0.9, 0.8),
-        budget: budget.scale(0.7)
-      });
-      this.propagate(id('Inheritance', [arg1, `(${arg2}-->`]),
-        activation * 0.8, budget.scale(0.7), pathHash, pathLength + 1, [...derivationPath, 'product_decomposition']);
-    }
-
-    if (args.length > 1) {
-      const productId = id('Product', args);
-      args.forEach((arg, i) => {
-        const otherArgs = [...args.slice(0, i), ...args.slice(i + 1)];
-        const imageExtId = id('ImageExt', [productId, arg, i + 1]);
-        this.imageExt(productId, arg, i + 1);
-        this.propagate(imageExtId, activation * 0.6,
-          budget.scale(0.5), pathHash, pathLength + 1, [...derivationPath, 'product_composition']);
-      });
-    }
-  }
-
-  _deriveImageExt({ args: [relation, arg, position] }, { activation, budget, pathHash, pathLength, derivationPath }) {
-    const positionNum = parseInt(position);
-    const newTerm = `(/, ${relation}, ${'_'.repeat(positionNum - 1)})`;
-    this.inheritance(arg, newTerm, {
-      truth: TruthValue.certain().scale(0.8),
-      budget: budget.scale(0.7)
-    });
-    this.propagate(id('Inheritance', [arg, newTerm]),
-      activation * 0.75, budget.scale(0.7), pathHash, pathLength + 1, [...derivationPath, 'imageExt_derivation']);
-  }
-
-  _deriveImageInt({ args: [relation, arg, position] }, { activation, budget, pathHash, pathLength, derivationPath }) {
-    const positionNum = parseInt(position);
-    const newTerm = `(*, ${'_'.repeat(positionNum - 1)}, ${arg})`;
-    this.inheritance(newTerm, relation, {
-      truth: TruthValue.certain().scale(0.8),
-      budget: budget.scale(0.7)
-    });
-    this.propagate(id('Inheritance', [newTerm, relation]),
-      activation * 0.75, budget.scale(0.7), pathHash, pathLength + 1, [...derivationPath, 'imageInt_derivation']);
-  }
-
-  _deriveTerm(hyperedge, { activation, budget, pathHash, pathLength, derivationPath }) {
-    this.activations.forEach((act, otherTerm) => {
-      if (act > 0.5 && otherTerm !== hyperedge.id && this.activations.get(hyperedge.id) > 0.5) {
-        const productId = id('Product', [hyperedge.id, otherTerm]);
-        this.product(hyperedge.id, otherTerm);
-        this.propagate(productId, activation * 0.7, budget.scale(0.6),
-          pathHash, pathLength + 1, [...derivationPath, 'product_formation']);
-      }
-    });
-
-    const activeTerms = [...this.activations].filter(([_, act]) => act > 0.6).map(([term]) => term);
-    if (activeTerms.length > 1) {
-      this.conjunction(...activeTerms);
-      this.propagate(id('Conjunction', activeTerms),
-        activation * 0.6, budget.scale(0.5), pathHash, pathLength + 1, [...derivationPath, 'active_conjunction']);
-    }
-
-    this.questionPromises.forEach((_, questionId) => {
-      const { type, args } = this.expressionEvaluator.parseQuestionPattern(
-        questionId.replace(/^Question\(|\|.*$/g, '')
-      );
-
-      if (type === 'Term' && args[0] === hyperedge.id) {
-        this._answerQuestion(questionId, {
-          type: 'Term',
-          args: [hyperedge.id],
-          truth: hyperedge.getTruth()
-        });
-      }
-    });
-  }
-
-  _propagateToTerm(hyperedge, termId, activation, budget, pathHash, pathLength, derivationPath) {
+  _propagateToTerm(hyperedge, term, activation, budget, pathHash, pathLength, derivationPath) {
     this.propagate(
-      termId,
+      this._getArgId(term),
       activation * hyperedge.getTruthExpectation(),
       budget.scale(this.config.budgetDecay),
-      pathHash ^ hash(String(termId)),
+      pathHash ^ hash(String(this._getArgId(term))),
       pathLength + 1,
       [...derivationPath, 'structural_propagation']
     );
@@ -1027,33 +833,9 @@ export class NARHyper {
     this.index.byType.get(hyperedge.type).add(hyperedge.id);
 
     hyperedge.args.forEach(arg => {
-        if (typeof arg === 'string') {
-            this.index.byArg.add(arg, hyperedge.id);
-
-            for (let i = 1; i <= Math.min(5, arg.length); i++) {
-                const prefix = arg.substring(0, i);
-                if (!this.index.byPrefix.has(prefix)) {
-                    this.index.byPrefix.set(prefix, new Set());
-                }
-                this.index.byPrefix.get(prefix).add(hyperedge.id);
-            }
-
-            arg.split(/[\s_\-:]/).forEach(word => {
-                if (word && word.length > 2) {
-                    if (!this.index.byWord.has(word)) {
-                        this.index.byWord.set(word, new Set());
-                    }
-                    this.index.byWord.get(word).add(hyperedge.id);
-                }
-            });
-
-            for (let i = 0; i <= arg.length - 3; i++) {
-                const ngram = arg.substring(i, i + 3);
-                if (!this.index.byNgram.has(ngram)) {
-                    this.index.byNgram.set(ngram, new Set());
-                }
-                this.index.byNgram.get(ngram).add(hyperedge.id);
-            }
+        const argId = this._getArgId(arg);
+        if (typeof argId === 'string') {
+            this.index.byArg.add(argId, hyperedge.id);
         }
     });
 
@@ -1064,7 +846,7 @@ export class NARHyper {
         this.index.compound.set(hyperedge.type, new Map());
       }
       const compoundIndex = this.index.compound.get(hyperedge.type);
-      compoundIndex.set(hyperedge.id, new Set(hyperedge.args));
+      compoundIndex.set(hyperedge.id, new Set(hyperedge.args.map(arg => this._getArgId(arg))));
     }
   }
 
