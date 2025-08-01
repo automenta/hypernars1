@@ -8,43 +8,43 @@ describe('AdvancedExpressionEvaluator', () => {
         nar = new NARHyper();
     });
 
-    it('should parse a simple negated term and invert the truth frequency', () => {
-        const result = nar.expressionEvaluator.parse('¬term1 %0.8;0.9%');
-
-        expect(result.type).toBe('Term');
-        expect(result.args[0]).toBe('term1');
-        expect(result.truth.frequency).toBeCloseTo(0.2); // 1.0 - 0.8
-        expect(result.truth.confidence).toBe(0.9);
+    it('should parse a simple negated term', () => {
+        const result = nar.expressionEvaluator.parse('!term1 %0.8;0.9%');
+        expect(result.type).toBe('Negation');
+        expect(result.args[0].type).toBe('Term');
+        expect(result.args[0].args[0]).toBe('term1');
+        expect(result.truth.frequency).toBe(0.8);
     });
 
     it('should parse a negated inheritance statement', () => {
-        const result = nar.expressionEvaluator.parse('¬(a --> b) %0.7;0.8%');
-
-        expect(result.type).toBe('Inheritance');
-        expect(result.args[0].type).toBe('Term');
-        expect(result.args[0].args[0]).toBe('a');
-        expect(result.args[1].type).toBe('Term');
-        expect(result.args[1].args[0]).toBe('b');
-
-        expect(result.truth.frequency).toBeCloseTo(0.3); // 1.0 - 0.7
+        const result = nar.expressionEvaluator.parse('!(a --> b) %0.7;0.8%');
+        expect(result.type).toBe('Negation');
+        const inner = result.args[0];
+        expect(inner.type).toBe('Inheritance');
+        expect(inner.args[0].type).toBe('Term');
+        expect(inner.args[0].args[0]).toBe('a');
+        expect(inner.args[1].type).toBe('Term');
+        expect(inner.args[1].args[0]).toBe('b');
+        expect(result.truth.frequency).toBe(0.7);
         expect(result.truth.confidence).toBe(0.8);
     });
 
     it('should handle nested negations', () => {
-        const result = nar.expressionEvaluator.parse('¬¬(a --> b) %0.9;0.9%');
-
-        expect(result.type).toBe('Inheritance');
-        expect(result.truth.frequency).toBeCloseTo(0.9); // 1.0 - (1.0 - 0.9)
-        expect(result.truth.confidence).toBe(0.9);
+        const result = nar.expressionEvaluator.parse('!!(a --> b) %0.9;0.9%');
+        expect(result.type).toBe('Negation');
+        expect(result.args[0].type).toBe('Negation');
+        const inner = result.args[0].args[0];
+        expect(inner.type).toBe('Inheritance');
+        expect(inner.truth.frequency).toBe(0.9);
+        expect(inner.truth.confidence).toBe(0.9);
     });
 
     it('should handle negation with default truth value', () => {
-        const result = nar.expressionEvaluator.parse('¬term2');
-
-        expect(result.type).toBe('Term');
-        expect(result.args[0]).toBe('term2');
-        // Default truth is f=1.0, c=0.9
-        expect(result.truth.frequency).toBeCloseTo(0.0); // 1.0 - 1.0
+        const result = nar.expressionEvaluator.parse('!term2');
+        expect(result.type).toBe('Negation');
+        expect(result.args[0].type).toBe('Term');
+        expect(result.args[0].args[0]).toBe('term2');
+        expect(result.truth.frequency).toBe(1.0);
         expect(result.truth.confidence).toBe(0.9);
     });
 
@@ -105,11 +105,12 @@ describe('AdvancedExpressionEvaluator', () => {
             expect(result.args[0].args[0].args[0]).toBe('$x');
         });
 
-        it('should not parse angle-bracket syntax', () => {
+        it('should correctly parse content inside angle-brackets', () => {
             const result = nar.expressionEvaluator.parse('<a --> b>');
-            // The parser should now treat the whole thing as a single term because it doesn't recognize the brackets.
-            expect(result.type).toBe('Term');
-            expect(result.args[0]).toBe('<a --> b>');
+            // The new parser strips the outer brackets and parses the content.
+            expect(result.type).toBe('Inheritance');
+            expect(result.args[0].args[0]).toBe('a');
+            expect(result.args[1].args[0]).toBe('b');
         });
     });
 });

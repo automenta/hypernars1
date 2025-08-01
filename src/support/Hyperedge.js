@@ -20,6 +20,7 @@ export class Hyperedge {
     } = options;
 
     const newBelief = {
+        id: `Belief_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         truth,
         budget,
         premises: premises || [],

@@ -15,11 +15,11 @@ describe('AdvancedLearningEngine', () => {
 
     test('should reinforce premises of a successful outcome', () => {
         const premiseId = nar.api.inheritance('A', 'B', { truth: new TruthValue(0.8, 0.8) });
-        const conclusionId = nar.api.inheritance('A', 'C', { premises: [premiseId] });
+        const actionId = nar.api.inheritance('A', 'C', { premises: [premiseId] });
 
         const initialConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
 
-        learningEngine.recordExperience(conclusionId, { success: true });
+        learningEngine.recordExperience(actionId, { success: true });
 
         const finalConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
         expect(finalConfidence).toBeGreaterThan(initialConfidence);
@@ -27,11 +27,11 @@ describe('AdvancedLearningEngine', () => {
 
     test('should weaken premises of a failed outcome', () => {
         const premiseId = nar.api.inheritance('X', 'Y', { truth: new TruthValue(0.8, 0.8) });
-        const conclusionId = nar.api.inheritance('X', 'Z', { premises: [premiseId] });
+        const actionId = nar.api.inheritance('X', 'Z', { premises: [premiseId] });
 
         const initialConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
 
-        learningEngine.recordExperience(conclusionId, { success: false });
+        learningEngine.recordExperience(actionId, { success: false });
 
         const finalConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
         expect(finalConfidence).toBeLessThan(initialConfidence);
@@ -40,10 +40,10 @@ describe('AdvancedLearningEngine', () => {
     test('should update rule productivity stats', () => {
         // Setup a derivation
         const premiseId = nar.api.inheritance('bird', 'animal', { derivedBy: 'direct_assertion' });
-        const conclusionId = nar.api.inheritance('tweety', 'animal', { premises: [premiseId], derivedBy: 'transitivity' });
+        const actionId = nar.api.inheritance('tweety', 'animal', { premises: [premiseId], derivedBy: 'transitivity' });
 
         // Record a successful outcome
-        learningEngine.recordExperience(conclusionId, { success: true });
+        learningEngine.recordExperience(actionId, { success: true });
 
         const transitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
         expect(transitivityStats).toBeDefined();
@@ -51,8 +51,8 @@ describe('AdvancedLearningEngine', () => {
         expect(transitivityStats.attempts).toBe(1);
 
         // Record a failed outcome
-        const conclusion2Id = nar.api.inheritance('penguin', 'flyer', { premises: [premiseId], derivedBy: 'transitivity' });
-        learningEngine.recordExperience(conclusion2Id, { success: false });
+        const action2Id = nar.api.inheritance('penguin', 'flyer', { premises: [premiseId], derivedBy: 'transitivity' });
+        learningEngine.recordExperience(action2Id, { success: false });
 
         const updatedTransitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
         expect(updatedTransitivityStats.successes).toBe(1);
@@ -87,5 +87,19 @@ describe('AdvancedLearningEngine', () => {
         expect(shortcutRule).toBeDefined();
         expect(shortcutRule.type).toBe('Implication');
         expect(shortcutRule.getTruth().confidence).toBeGreaterThan(0.8);
+    });
+
+    test('should create an ActionConsequence mapping from an outcome', () => {
+        const actionId = nar.api.term('press_button');
+        const consequenceId = nar.api.term('light_turns_on');
+
+        learningEngine.recordExperience(actionId, { success: true, consequence: consequenceId });
+
+        const mappingId = id('ActionConsequence', [actionId, consequenceId]);
+        const mappingHyperedge = nar.state.hypergraph.get(mappingId);
+
+        expect(mappingHyperedge).toBeDefined();
+        expect(mappingHyperedge.type).toBe('ActionConsequence');
+        expect(mappingHyperedge.getTruth().frequency).toBeGreaterThan(0.7);
     });
 });

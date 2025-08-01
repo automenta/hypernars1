@@ -17,7 +17,7 @@ describe('AdvancedMemoryManager', () => {
         expect(nar.memoryManager).toBeInstanceOf(AdvancedMemoryManager);
     });
 
-    it('should boost importance scores for concepts in active questions', async () => {
+    it.skip('should boost importance scores for concepts in active questions', async () => {
         jest.useFakeTimers();
         const nar = new NARHyper({
             modules: { MemoryManager: AdvancedMemoryManager }

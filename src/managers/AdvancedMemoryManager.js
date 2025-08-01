@@ -167,18 +167,31 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
 
         // Boost scores for terms involved in active questions
         const importantTerms = new Set();
-        this.nar.state.questionPromises.forEach((promise, questionId) => {
-            // Extract terms from the question ID. This is a simplification.
-            const termsInQuestion = questionId.match(/([a-zA-Z0-9_]+\.?)/g) || [];
-            termsInQuestion.forEach(term => {
-                // This is still not perfect, as it won't match complex hyperedge IDs,
-                // but it will match the simple term IDs used in the tests.
-                this.nar.state.hypergraph.forEach((hyperedge, termId) => {
-                    if (termId.includes(term)) {
-                        importantTerms.add(termId);
+        const extractTerms = (parsed) => {
+            if (!parsed) return;
+            if (parsed.type === 'Term') {
+                importantTerms.add(id(parsed.type, parsed.args));
+            }
+            if (parsed.args) {
+                parsed.args.forEach(arg => {
+                    if (typeof arg === 'object' && arg !== null) {
+                        extractTerms(arg);
                     }
                 });
-            });
+            }
+        };
+
+        this.nar.state.questionPromises.forEach((promise, questionId) => {
+            try {
+                const match = questionId.match(/^Question\((.*)\)$/);
+                if (match) {
+                    const questionContent = match[1];
+                    const parsedQuestion = this.nar.expressionEvaluator.parse(questionContent);
+                    extractTerms(parsedQuestion);
+                }
+            } catch (e) {
+                // Ignore parsing errors for this purpose
+            }
         });
 
         importantTerms.forEach(termId => {
@@ -245,6 +258,12 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
             case 'critical-event': basePriority = 0.95; break;
             case 'derivation': basePriority = 0.6; break;
             case 'revision': basePriority = 0.7; break;
+        }
+
+        // Factor in meta-reasoner's resource allocation policy
+        const metaAlloc = this.nar.metaReasoner.resourceAllocation;
+        if (task.type === 'derivation' && metaAlloc.derivation) {
+            basePriority *= (0.5 + metaAlloc.derivation); // Scale by allocation
         }
 
         if (context.urgency) {

@@ -22,7 +22,7 @@ export class LearningEngineBase {
      * @param {object} event - The event or experience to record.
      * @param {object} [outcome={}] - The outcome of the event.
      */
-    recordExperience(event, outcome = {}) {
+    recordExperience(action, outcome = {}) {
         throw new Error("Method 'recordExperience()' must be implemented.");
     }
 }

@@ -36,6 +36,8 @@ export class ExplanationSystem {
         switch (format) {
             case 'json':
                 return JSON.stringify(path, null, 2);
+            case 'visual':
+                return this._formatVisualExplanation(path);
             case 'story':
                 return this._generateStoryExplanation(path);
             case 'concise':
@@ -46,6 +48,28 @@ export class ExplanationSystem {
             default:
                 return this._formatDetailedExplanation(hyperedgeId, path, options);
         }
+    }
+
+    _formatVisualExplanation(path) {
+        const nodes = path.map((step, i) => ({
+            id: step.id,
+            label: `${step.type}(${step.args.slice(0, 2).join(',')}${step.args.length > 2 ? ',...' : ''})`,
+            level: i,
+            truth: step.truth
+        }));
+
+        const edges = [];
+        path.forEach(step => {
+            if (step.premises) {
+                step.premises.forEach(premiseId => {
+                    if (path.some(p => p.id === premiseId)) { // Only draw edges to nodes in the current path
+                        edges.push({ from: premiseId, to: step.id, label: step.derivationRule });
+                    }
+                });
+            }
+        });
+
+        return { nodes, edges };
     }
 
     // --- Private Helper Methods ---
@@ -107,13 +131,43 @@ export class ExplanationSystem {
             explanation += `${i + 1}. ${formattedStep}\n`;
         });
 
-        // Add contradiction info
+        // Add alternative perspectives / contradictions
+        if (hyperedge.beliefs.length > 1) {
+            const alternatives = hyperedge.beliefs
+                .slice(1, maxAlternatives + 1)
+                .map(belief => ({
+                    truth: belief.truth,
+                    path: this._findAlternativePath(hyperedgeId, belief) // Placeholder
+                }));
+
+            if (alternatives.length > 0) {
+                explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1} total):\n`;
+                alternatives.forEach((alt, i) => {
+                    explanation += `${i + 1}. A belief with confidence ${this._formatConfidence(alt.truth.confidence)} also exists.\n`;
+                    if (alt.path && alt.path.length > 0) {
+                        explanation += `   Reasoning: ${alt.path.map(s => this._formatHyperedge(s)).join(' → ')}\n`;
+                    }
+                });
+            }
+        }
+
         const contradiction = this.nar.contradictionManager.contradictions.get(hyperedgeId);
         if (contradiction && contradiction.resolved) {
             explanation += `\nNOTE: This belief was part of a contradiction that was resolved using the '${contradiction.resolutionStrategy}' strategy.\n`;
         }
 
         return explanation;
+    }
+
+    _findAlternativePath(hyperedgeId, belief) {
+        // Placeholder implementation for finding an alternative derivation path.
+        // A real implementation would require a more sophisticated tracing mechanism.
+        if (belief.premises && belief.premises.length > 0) {
+            const path = [];
+            this._traceDerivation(belief.premises[0], path, 2, new Set());
+            return path;
+        }
+        return [];
     }
 
     _formatTechnicalExplanation(path) {

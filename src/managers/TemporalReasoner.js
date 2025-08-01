@@ -25,7 +25,7 @@ export class TemporalReasoner extends TemporalManagerBase {
             },
             'meets': {
                 'before': 'before', 'meets': 'before', 'overlaps': 'before', 'finishedBy': 'before', 'contains': 'before',
-                'starts': 'meets', 'equals': 'meets', 'startedBy': 'meets', 'during': ['overlaps', 'starts', 'during'],
+        'starts': 'overlaps', 'equals': 'meets', 'startedBy': 'meets', 'during': ['overlaps', 'starts', 'during'],
                 'finishes': ['overlaps', 'starts', 'during'], 'overlappedBy': ['overlaps', 'starts', 'during'],
                 'metBy': ['finishedBy', 'equals', 'finishes'], 'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
             },
@@ -155,7 +155,20 @@ export class TemporalReasoner extends TemporalManagerBase {
      * Creates a symbolic relationship between two existing temporal intervals.
      * This is a helper method for compatibility with tests.
      */
-    relate(intervalId1, intervalId2, options = {}) {
+    relate(term1, term2, relation, options = {}) {
+        // This is a more user-friendly version of relate, which was in AdvancedTemporalManager
+        const interval1 = Array.from(this.intervals.values()).find(i => i.term === term1);
+        const interval2 = Array.from(this.intervals.values()).find(i => i.term === term2);
+
+        if (interval1 && interval2) {
+            return this.addConstraint(interval1.id, interval2.id, relation, options);
+        }
+        // If intervals don't exist, we can't relate them.
+        // A more advanced implementation might create them on the fly.
+        return null;
+    }
+
+    relateById(intervalId1, intervalId2, options = {}) {
         const interval1 = this.intervals.get(intervalId1);
         const interval2 = this.intervals.get(intervalId2);
 
@@ -356,6 +369,48 @@ export class TemporalReasoner extends TemporalManagerBase {
         return inverses[relation] || 'unknown';
     }
 
+    during(eventTerm, start, end, options = {}) {
+        const intervalTerm = `interval_${start}_${end}`;
+        const intervalId = this.interval(intervalTerm, start, end, options);
+        return this.addConstraint(eventTerm, intervalId, 'during', options);
+    }
+
+    getContext() {
+        const now = new Date();
+        const hour = now.getHours();
+        let currentPeriod = 'night';
+        if (hour >= 5 && hour < 12) currentPeriod = 'morning';
+        else if (hour >= 12 && hour < 17) currentPeriod = 'afternoon';
+        else if (hour >= 17 && hour < 21) currentPeriod = 'evening';
+
+        const seasons = ['winter', 'spring', 'summer', 'fall'];
+        const season = seasons[Math.floor((now.getMonth() / 12) * 4) % 4];
+
+        return {
+            timestamp: now.getTime(),
+            currentPeriod,
+            season
+        };
+    }
+
+    queryTimeWindow(start, end, options = {}) {
+        const { minConfidence = 0.5 } = options;
+        const results = [];
+
+        for (const interval of this.intervals.values()) {
+            if (interval.overlapsWith(start, end) && interval.truth.confidence >= minConfidence) {
+                results.push({
+                    id: interval.id,
+                    term: interval.term,
+                    start: interval.start,
+                    end: interval.end,
+                    truth: interval.truth
+                });
+            }
+        }
+        return results;
+    }
+
     _wouldCreateContradiction(event1, event2, newRelation) {
         const existing = this.inferRelationship(event1, event2);
         if (!existing || !existing.relation || existing.relation === 'ambiguous') {
@@ -363,20 +418,19 @@ export class TemporalReasoner extends TemporalManagerBase {
         }
 
         const existingRelations = Array.isArray(existing.relation) ? existing.relation : [existing.relation];
+        const newRelations = Array.isArray(newRelation) ? newRelation : [newRelation];
 
-        // The new state would be the intersection of the existing possibilities and the new relation.
-        // If the intersection is empty, it's a contradiction.
-        // Since we are only adding a single new relation, we just check if it's in the existing set.
-        if (existingRelations.includes(newRelation)) {
-            return false; // It's redundant, but not a contradiction.
+        // Check for direct opposition (e.g., 'before' vs 'after')
+        for (const er of existingRelations) {
+            for (const nr of newRelations) {
+                if (this._getInverseTemporalRelation(er) === nr) {
+                    return true;
+                }
+            }
         }
 
-        // A more robust check: the composition of the existing relation and the inverse of the
-        // new relation must be possible (i.e., not an empty set). If it's empty, it's a contradiction.
-        // This is a basic path-consistency check for the link between event1 and event2.
+        // Check if the intersection of possible relations is empty
         const composed = this._composeRelationships(existing.relation, this._getInverseTemporalRelation(newRelation));
-
-        // If the composition results in an empty set of possible relations, it's a contradiction.
         return composed === null;
     }
 

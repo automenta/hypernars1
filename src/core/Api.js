@@ -215,7 +215,14 @@ export class Api {
 
     if (revisionResult.needsUpdate) {
         this.nar.notifyListeners('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });
-        this.nar.propagation.propagate(termId, 1.0, finalBudget, 0, 0, []);
+        this.nar.propagation.propagate({
+            target: termId,
+            activation: 1.0,
+            budget: finalBudget,
+            pathHash: 0,
+            pathLength: 0,
+            derivationPath: []
+        });
         this.nar.questionHandler.checkQuestionAnswers(termId, hyperedge.getStrongestBelief());
     }
 
@@ -296,7 +303,26 @@ export class Api {
     if (revisionResult.needsUpdate) {
         this.nar.contradictionManager.detectContradiction(hyperedgeId);
         this.nar.notifyListeners('revision', { hyperedgeId, newTruth: finalTruth, newBudget: finalBudget });
-        this.nar.propagation.propagate(hyperedgeId, 1.0, finalBudget, 0, 0, []);
+        this.nar.propagation.propagate({
+            target: hyperedgeId,
+            activation: 1.0,
+            budget: finalBudget,
+            pathHash: 0,
+            pathLength: 0,
+            derivationPath: []
+        });
     }
+  }
+
+  removeHyperedge(hyperedgeId) {
+    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+    if (hyperedge) {
+        this.nar.state.hypergraph.delete(hyperedgeId);
+        this.nar.state.index.removeFromIndex(hyperedge);
+        this.nar.state.activations.delete(hyperedgeId);
+        this.nar.notifyListeners('knowledge-pruned', { hyperedgeId, type: hyperedge.type });
+        return true;
+    }
+    return false;
   }
 }

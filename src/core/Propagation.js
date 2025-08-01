@@ -5,56 +5,48 @@ export class Propagation {
     this.nar = nar;
   }
 
-  propagateWave({ target, activation, budget, pathHash, pathLength, derivationPath }) {
-    const hyperedge = this.nar.state.hypergraph.get(target);
+  propagateWave(event) {
+    const hyperedge = this.nar.state.hypergraph.get(event.target);
 
     if (hyperedge) {
-      hyperedge.args.forEach(arg =>
-        this._propagateToTerm(hyperedge, arg, activation, budget, pathHash, pathLength, derivationPath)
-      );
-    } else {
-      if (typeof target === 'string') {
-        (this.nar.state.index.byArg.get(target) || new Set()).forEach(id =>
-            this._propagateToHyperedge(id, activation, budget, pathHash, pathLength, derivationPath)
+        hyperedge.args.forEach(arg => this._propagateToTerm(hyperedge, arg, event));
+    } else if (typeof event.target === 'string') {
+        (this.nar.state.index.byArg.get(event.target) || new Set()).forEach(id =>
+            this._propagateToHyperedge(id, event)
         );
-      }
     }
   }
 
-  _propagateToTerm(hyperedge, term, activation, budget, pathHash, pathLength, derivationPath) {
-    this.propagate(
-      getArgId(term),
-      activation * hyperedge.getTruthExpectation(),
-      budget.scale(this.nar.config.budgetDecay),
-      pathHash ^ hash(String(getArgId(term))),
-      pathLength + 1,
-      [...derivationPath, 'structural_propagation']
-    );
+  _propagateToTerm(hyperedge, term, originalEvent) {
+    this.propagate({
+        target: getArgId(term),
+        activation: originalEvent.activation * hyperedge.getTruthExpectation(),
+        budget: originalEvent.budget.scale(this.nar.config.budgetDecay),
+        pathHash: originalEvent.pathHash ^ hash(String(getArgId(term))),
+        pathLength: originalEvent.pathLength + 1,
+        derivationPath: [...originalEvent.derivationPath, 'structural_propagation']
+    });
   }
 
-  _propagateToHyperedge(hyperedgeId, activation, budget, pathHash, pathLength, derivationPath) {
-    this.propagate(
-      hyperedgeId,
-      activation,
-      budget.scale(this.nar.config.budgetDecay),
-      pathHash ^ hash(String(hyperedgeId)),
-      pathLength + 1,
-      [...derivationPath, 'procedural_propagation']
-    );
+  _propagateToHyperedge(hyperedgeId, originalEvent) {
+    this.propagate({
+        target: hyperedgeId,
+        activation: originalEvent.activation,
+        budget: originalEvent.budget.scale(this.nar.config.budgetDecay),
+        pathHash: originalEvent.pathHash ^ hash(String(hyperedgeId)),
+        pathLength: originalEvent.pathLength + 1,
+        derivationPath: [...originalEvent.derivationPath, 'procedural_propagation']
+    });
   }
 
-  propagate(target, activation, budget, pathHash, pathLength, derivationPath) {
-    if (budget.priority < this.nar.config.budgetThreshold ||
-        pathLength > this.nar.config.maxPathLength ||
-        this._hasLoop(target, pathHash)) return;
+  propagate(event) {
+    if (event.budget.priority < this.nar.config.budgetThreshold ||
+        event.pathLength > this.nar.config.maxPathLength ||
+        this._hasLoop(event.target, event.pathHash)) return;
 
     this.nar.state.eventQueue.push({
-      target,
-      activation: Math.min(activation, 1.0),
-      budget,
-      pathHash,
-      pathLength,
-      derivationPath
+        ...event,
+        activation: Math.min(event.activation, 1.0)
     });
   }
 

@@ -171,9 +171,14 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
       const middle = this.nar.state.hypergraph.get(termId);
       if (middle?.type === 'Inheritance' && getArgId(middle.args[1]) === subjectId) {
-        this._deriveTransitiveInheritance(middle.args[0], predicate, middle,
-          this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate])),
-          activation, budget, pathHash, pathLength, derivationPath, ruleName);
+        const context = {
+          subject: middle.args[0],
+          predicate,
+          premise1: middle,
+          premise2: this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate])),
+          ruleName
+        };
+        this._deriveTransitiveInheritance(context, event);
       }
     });
 
@@ -184,8 +189,14 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
       (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(propId => {
         const property = this.nar.state.hypergraph.get(propId);
         if (property?.type === 'Property') {
-          this.nar.propagation.propagate(id('Property', [subject, property.args[1]]),
-            activation * 0.6, budget.scale(0.5), pathHash, pathLength + 1, [...derivationPath, 'property_derivation']);
+          this.nar.propagation.propagate({
+            target: id('Property', [subject, property.args[1]]),
+            activation: activation * 0.6,
+            budget: budget.scale(0.5),
+            pathHash: pathHash,
+            pathLength: pathLength + 1,
+            derivationPath: [...derivationPath, 'property_derivation']
+          });
         }
       });
     }
@@ -194,15 +205,23 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
       const other = this.nar.state.hypergraph.get(termId);
       if (other?.type === 'Inheritance' && getArgId(other.args[1]) === predicateId && getArgId(other.args[0]) !== subjectId) {
-        this._deriveInduction(subject, other.args[0], predicate,
-          this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate])),
-          other,
-          activation, budget, pathHash, pathLength, derivationPath, ruleName);
+        const context = {
+          term1: subject,
+          term2: other.args[0],
+          predicate,
+          premise1: this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate])),
+          premise2: other,
+          ruleName
+        };
+        this._deriveInduction(context, event);
       }
     });
   }
 
-  _deriveTransitiveInheritance(subject, predicate, premise1, premise2, activation, budget, pathHash, pathLength, derivationPath, ruleName) {
+  _deriveTransitiveInheritance(context, event) {
+    const { subject, predicate, premise1, premise2, ruleName } = context;
+    const { budget, pathHash, pathLength } = event;
+
     const subjectId = getArgId(subject);
     const predicateId = getArgId(predicate);
     const key = this._memoKey('Inheritance', [subjectId, predicateId], pathHash);
@@ -217,7 +236,10 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     this.nar.api.inheritance(subject, predicate, { truth, budget: budget.scale(0.7), premises: [premise1.id, premise2.id], derivedBy: 'transitivity' });
   }
 
-  _deriveInduction(term1, term2, predicate, premise1, premise2, activation, budget, pathHash, pathLength, derivationPath, ruleName) {
+  _deriveInduction(context, event) {
+    const { term1, term2, predicate, premise1, premise2, ruleName } = context;
+    const { budget, pathHash, pathLength } = event;
+
     const term1Id = getArgId(term1);
     const term2Id = getArgId(term2);
     const predicateId = getArgId(predicate);
@@ -244,15 +266,23 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     (this.nar.state.index.byArg.get(term1Id) || new Set()).forEach(termId => {
       const premise = this.nar.state.hypergraph.get(termId);
       if (premise?.type === 'Inheritance' && getArgId(premise.args[0]) === term1Id) {
-        this._deriveAnalogy(term1, term2, premise.args[1],
-          this.nar.state.hypergraph.get(id('Similarity', [term1, term2])),
+        const context = {
+          term1,
+          term2,
+          predicate: premise.args[1],
+          similarity: this.nar.state.hypergraph.get(id('Similarity', [term1, term2])),
           premise,
-          activation, budget, pathHash, pathLength, derivationPath, ruleName);
+          ruleName
+        };
+        this._deriveAnalogy(context, event);
       }
     });
   }
 
-  _deriveAnalogy(term1, term2, predicate, similarity, premise, activation, budget, pathHash, pathLength, derivationPath, ruleName) {
+  _deriveAnalogy(context, event) {
+    const { term1, term2, predicate, similarity, premise, ruleName } = context;
+    const { budget, pathHash, pathLength } = event;
+
     const term2Id = getArgId(term2);
     const predicateId = getArgId(predicate);
     const key = this._memoKey('Inheritance', [term2Id, predicateId], pathHash);
@@ -266,8 +296,14 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   _deriveImplication({ args: [premise, conclusion] }, event, ruleName) {
       const premiseId = getArgId(premise);
       if (this.nar.state.hypergraph.has(premiseId)) {
-          this.nar.propagation.propagate(id(conclusion.type, conclusion.args), event.activation * 0.9, event.budget.scale(0.75),
-              event.pathHash, event.pathLength + 1, [...event.derivationPath, ruleName]);
+          this.nar.propagation.propagate({
+              target: id(conclusion.type, conclusion.args),
+              activation: event.activation * 0.9,
+              budget: event.budget.scale(0.75),
+              pathHash: event.pathHash,
+              pathLength: event.pathLength + 1,
+              derivationPath: [...event.derivationPath, ruleName]
+          });
       }
   }
 
@@ -286,8 +322,14 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
   _deriveConjunction({ args }, event, ruleName) {
     args.forEach(term =>
-      this.nar.propagation.propagate(getArgId(term), event.activation * 0.9, event.budget.scale(0.75),
-        event.pathHash, event.pathLength + 1, [...event.derivationPath, ruleName])
+      this.nar.propagation.propagate({
+        target: getArgId(term),
+        activation: event.activation * 0.9,
+        budget: event.budget.scale(0.75),
+        pathHash: event.pathHash,
+        pathLength: event.pathLength + 1,
+        derivationPath: [...event.derivationPath, ruleName]
+      })
     );
   }
 

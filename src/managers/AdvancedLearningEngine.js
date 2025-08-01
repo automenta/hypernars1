@@ -19,18 +19,20 @@ export class AdvancedLearningEngine extends LearningEngineBase {
      * @param {Object} outcome - Details about the outcome.
      * @param {boolean} outcome.success - Whether the outcome was successful.
      */
-    recordExperience(conclusionId, outcome) {
-        const conclusionHyperedge = this.nar.state.hypergraph.get(conclusionId);
+    recordExperience(action, outcome) {
+        const { success, consequence, context } = outcome;
+        const conclusionHyperedge = this.nar.state.hypergraph.get(action);
         const belief = conclusionHyperedge?.getStrongestBelief();
-        if (!belief) return;
 
         const experience = {
             id: `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             timestamp: Date.now(),
-            conclusion: conclusionId,
-            premises: belief.premises || [],
-            derivedBy: belief.derivedBy,
-            success: outcome.success,
+            action: action,
+            success: success,
+            consequence: consequence,
+            context: context,
+            premises: belief?.premises || [],
+            derivedBy: belief?.derivedBy,
         };
 
         this.experienceBuffer.push(experience);
@@ -38,22 +40,42 @@ export class AdvancedLearningEngine extends LearningEngineBase {
             this.experienceBuffer.shift();
         }
 
-        // Adjust truth values and rule productivity based on the outcome
-        const adjustmentFactor = outcome.success ? 1 + this.learningRate : 1 - this.learningRate;
-
-        // Recursively adjust the premises that led to this conclusion
-        this._adjustPremiseConfidence(conclusionId, adjustmentFactor, outcome.success);
+        this._processLearningFromOutcome(experience);
     }
 
     /**
      * Adjusts the confidence of a belief and its premises based on an outcome.
-     * It also provides feedback to the MetaReasoner about rule effectiveness.
-     * @param {string} hyperedgeId - The ID of the hyperedge to start from.
-     * @param {number} adjustmentFactor - The factor to multiply confidence by.
-     * @param {boolean} wasSuccessful - Whether the outcome was a success.
-     * @param {number} [depth=0] - Current recursion depth.
-     * @param {Set<string>} [visited=new Set()] - Tracks visited nodes to prevent loops.
+     * It also provides feedback to the MetaReasoner about rule effectiveness and
+     * learns action-consequence mappings.
+     * @param {Object} experience - The experience object to learn from.
      */
+    _processLearningFromOutcome(experience) {
+        const { action, success, consequence, premises } = experience;
+
+        // Adjust truth values and rule productivity based on the outcome
+        const adjustmentFactor = success ? 1 + this.learningRate : 1 - this.learningRate;
+
+        // Recursively adjust the premises that led to this conclusion
+        if (premises.length > 0) {
+            this._adjustPremiseConfidence(action, adjustmentFactor, success);
+        }
+
+        // Learn action-consequence mappings
+        if (consequence) {
+            const consequenceMappingId = id('ActionConsequence', [action, consequence]);
+            const existingMapping = this.nar.state.hypergraph.get(consequenceMappingId);
+
+            const newTruth = existingMapping
+                ? TruthValue.revise(existingMapping.getTruth(), new TruthValue(success ? 1.0 : 0.0, 0.7))
+                : new TruthValue(success ? 0.8 : 0.2, 0.7);
+
+            this.nar.api.addHyperedge('ActionConsequence', [action, consequence], {
+                truth: newTruth,
+                budget: new Budget({ priority: 0.7, durability: 0.8, quality: 0.8 })
+            });
+        }
+    }
+
     _adjustPremiseConfidence(hyperedgeId, adjustmentFactor, wasSuccessful, depth = 0, visited = new Set()) {
         if (depth > 5 || visited.has(hyperedgeId)) return;
         visited.add(hyperedgeId);
@@ -147,10 +169,18 @@ export class AdvancedLearningEngine extends LearningEngineBase {
     _createShortcutRule(premises, conclusionId, confidence) {
         if (!premises || premises.length === 0) return;
 
-        const premiseConjunctionId = this.nar.api.addHyperedge('Conjunction', premises, { truth: new TruthValue(1.0, 0.9) });
-        const shortcutId = id('LearnedImplication', [premiseConjunctionId, conclusionId]);
+        // Create a stable ID for the premise conjunction
+        const premiseConjunctionId = id('Conjunction', premises.sort());
+        const conclusion = this.nar.state.hypergraph.get(conclusionId);
+        if (!conclusion) return;
+
+        // The ID of the potential implication rule
+        const shortcutId = id('Implication', [premiseConjunctionId, conclusionId]);
 
         if (!this.nar.state.hypergraph.has(shortcutId)) {
+            // First, ensure the conjunction exists as a concept
+            this.nar.api.addHyperedge('Conjunction', premises.sort(), { truth: new TruthValue(1.0, 0.9) });
+
             this.nar.api.implication(premiseConjunctionId, conclusionId, {
                 truth: new TruthValue(0.9, confidence),
                 budget: new Budget({ priority: 0.9, durability: 0.9, quality: 0.9 }),

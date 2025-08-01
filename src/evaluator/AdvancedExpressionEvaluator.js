@@ -29,23 +29,32 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     parseQuestion(question, options = {}) {
-        const questionId = id('Question', [question]);
+        const cleanQuestion = question.endsWith('?') ? question.slice(0, -1) : question;
+        const questionId = id('Question', [cleanQuestion]);
+
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
                 this.nar.state.questionPromises.delete(questionId);
-                reject(new Error(`Question timed out: ${question}`));
+                reject(new Error(`Question timed out: ${cleanQuestion}`));
             }, this.nar.config.questionTimeout || 5000);
 
             this.nar.state.questionPromises.set(questionId, { resolve, reject, timer, options });
 
-            const parsed = this.parse(question.replace('?', ''));
+            const parsed = this.parse(cleanQuestion);
             if (!parsed || !parsed.type || !parsed.args) return;
 
             const task = { type: 'question', hyperedgeType: parsed.type, args: parsed.args };
-            const budget = this.nar.memoryManager.dynamicBudgetAllocation(task, { importance: 1.0, urgency: 1.0 });
+            const budget = this.nar.memoryManager.allocateResources(task, { importance: 1.0, urgency: 1.0 });
             const hyperedgeId = this._getParsedStructureId(parsed);
-            if(hyperedgeId) {
-                this.nar.propagation.propagate(hyperedgeId, 1.0, budget, 0, 0, []);
+            if (hyperedgeId) {
+                this.nar.propagation.propagate({
+                    target: hyperedgeId,
+                    activation: 1.0,
+                    budget: budget,
+                    pathHash: 0,
+                    pathLength: 0,
+                    derivationPath: []
+                });
             }
         });
     }
@@ -86,10 +95,26 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         let priority = 1.0;
         let content = expression.trim();
 
-        const truthMatch = content.match(/%([\d.]+);([\d.]+)%$/);
+        // Match various truth value formats: %f;c%, %f;c;p%, #priority#
+        const truthMatch = content.match(/(?:%([\d.]+);([\d.]+)(?:;([\d.]+))?%|#([\d.]+)#)$/);
         if (truthMatch) {
-            truth = new TruthValue(parseFloat(truthMatch[1]), parseFloat(truthMatch[2]));
+            if (truthMatch[0].startsWith('%')) {
+                truth = new TruthValue(
+                    parseFloat(truthMatch[1]),
+                    parseFloat(truthMatch[2]),
+                );
+                if (truthMatch[3]) {
+                    priority = parseFloat(truthMatch[3]);
+                }
+            } else {
+                priority = parseFloat(truthMatch[4]);
+            }
             content = content.replace(truthMatch[0], '').trim();
+        }
+
+        // Strip outer angle brackets for parsing, e.g., <bird --> flyer>
+        if (content.startsWith('<') && content.endsWith('>')) {
+            content = content.slice(1, -1).trim();
         }
 
         return this._parseRecursive(content, truth, priority);
@@ -98,55 +123,53 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     _parseRecursive(content, truth, priority) {
         content = content.trim();
 
-        // Explicitly treat angle-bracketed content as a single term.
-        if (content.startsWith('<') && content.endsWith('>')) {
-            return this._parseTerm(content, truth, priority);
-        }
-
-        if (content.startsWith('¬')) {
+        if (content.startsWith('!')) {
             const negatedContent = content.substring(1).trim();
-            const parsed = this._parseRecursive(negatedContent, truth, priority);
-            if (parsed) {
-                // Invert the frequency for negation
-                const newTruth = new TruthValue(1.0 - parsed.truth.frequency, parsed.truth.confidence);
-                return { ...parsed, truth: newTruth };
-            }
-            return parsed;
+            return {
+                type: 'Negation',
+                args: [this._parseRecursive(negatedContent, truth, priority)],
+                truth,
+                priority
+            };
         }
 
-        // Handle parenthesis stripping and check for balanced parentheses
+        // Check for balanced parentheses
+        let balance = 0;
+        for (const char of content) {
+            if (char === '(') balance++;
+            else if (char === ')') balance--;
+        }
+        if (balance !== 0) {
+            throw new Error(`Mismatched parentheses in expression: ${content}`);
+        }
+
+        // Handle parenthesis stripping
         if (content.startsWith('(') && content.endsWith(')')) {
             let balance = 0;
-            let a = 0;
-            for (const i in content) {
-                if (content[i] == '(') {
-                    balance++;
-                } else if (content[i] == ')') {
-                    balance--;
-                }
-
-                if (balance == 0 && i < content.length - 1) {
-                    a = 1;
+            let isPaired = true;
+            for (let i = 0; i < content.length; i++) {
+                if (content[i] === '(') balance++;
+                else if (content[i] === ')') balance--;
+                if (balance === 0 && i < content.length - 1) {
+                    isPaired = false;
                     break;
                 }
             }
-            if (a == 0) {
+            if (isPaired) {
                 content = content.slice(1, -1).trim();
             }
         }
 
         let bestOp = null;
         let depth = 0;
+        let inQuotes = false;
 
         for (let i = 0; i < content.length; i++) {
-            if (content[i] === '(') {
-                depth++;
-            } else if (content[i] === ')') {
-                depth--;
-            }
+            if (content[i] === '(') depth++;
+            else if (content[i] === ')') depth--;
+            else if (content[i] === '"' || content[i] === "'") inQuotes = !inQuotes;
 
-            if (depth === 0) {
-                // Find the operator with the lowest precedence (highest number)
+            if (depth === 0 && !inQuotes) {
                 for (const op of this.operators) {
                     if (content.substring(i, i + op.symbol.length) === op.symbol) {
                         if (!bestOp || op.precedence >= bestOp.precedence) {
@@ -171,14 +194,33 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             };
         }
 
-        // Base case: no operators, just a term or variable
         return this._parseTerm(content, truth, priority);
     }
 
     _parseTerm(content, truth, priority) {
+        // Handle product terms: (*, a, b, c)
+        if (content.startsWith('(*') && content.endsWith(')')) {
+            const terms = content.slice(2, -1).split(',').map(t => t.trim()).filter(t => t);
+            return { type: 'Product', args: terms, truth, priority };
+        }
+
+        // Handle image terms: (/, a, b) or (*, a, b, c)
+        const imageMatch = content.match(/^\((\/|\*)\s*,\s*([^,]+)\s*,\s*([^)]+)\)/);
+        if (imageMatch) {
+            const isExtensional = imageMatch[1] === '/';
+            return {
+                type: isExtensional ? 'ImageExt' : 'ImageInt',
+                args: [imageMatch[2].trim(), imageMatch[3].trim()],
+                truth,
+                priority
+            };
+        }
+
         if (content.startsWith('$') || content.startsWith('?')) {
             return { type: 'Variable', args: [content], truth, priority };
         }
+
+        // Default to a simple term
         return { type: 'Term', args: [content], truth, priority };
     }
 

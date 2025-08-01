@@ -69,6 +69,12 @@ export class MetaReasoner {
         this._adjustResourceAllocation(metrics);
         this._adjustReasoningFocus(metrics);
 
+        // 4. Perform deeper analysis periodically
+        if (this.nar.state.currentStep % 100 === 0) {
+            this._identifyReasoningBottlenecks();
+            this._pruneLowValueKnowledge();
+        }
+
         return {
             metrics,
             issues,
@@ -114,6 +120,53 @@ export class MetaReasoner {
     addToTrace(traceEntry) {
         this.trace.push({ ...traceEntry, timestamp: Date.now() });
         if (this.trace.length > 50) this.trace.shift();
+    }
+
+    _identifyReasoningBottlenecks() {
+        const bottlenecks = [];
+        for (const [pathId, record] of this.performanceHistory.entries()) {
+            if (record.attempts > 10 && (record.successes / record.attempts) < 0.3) {
+                bottlenecks.push({
+                    pathId,
+                    type: 'low_success_rate',
+                    successRate: record.successes / record.attempts,
+                    attempts: record.attempts
+                });
+            }
+
+            // If a path is frequently successful, consider creating a shortcut
+            if (record.attempts > 20 && (record.successes / record.attempts) > 0.8) {
+                this._createShortcutRule(pathId, record);
+            }
+        }
+        return bottlenecks;
+    }
+
+    _createShortcutRule(pathId, record) {
+        // pathId is expected to be a string of hyperedge IDs separated by '->'
+        const path = pathId.split('->');
+        if (path.length < 2) return;
+
+        const premise = path[0];
+        const conclusion = path[path.length - 1];
+
+        // Avoid creating trivial or self-implying rules
+        if (premise === conclusion) return;
+
+        // Calculate reliability of the path
+        const reliability = record.successes / record.attempts;
+
+        this.nar.api.implication(premise, conclusion, {
+            truth: new TruthValue(reliability, 0.8), // High confidence in the learned rule
+            budget: new Budget({ priority: reliability, durability: 0.9, quality: 0.9 }),
+            derivedBy: 'shortcut'
+        });
+
+        this.nar.notifyListeners('shortcut-created', {
+            premise,
+            conclusion,
+            reliability
+        });
     }
 
     // ===== PRIVATE HELPERS =====
@@ -234,5 +287,31 @@ export class MetaReasoner {
         if (lastMetric.contradictionRate > 0.3) context.push('high-uncertainty');
         if (this.nar.state.questionPromises.size > 0) context.push('question-answering');
         return context;
+    }
+
+    _pruneLowValueKnowledge() {
+        const now = Date.now();
+        const cutoff = now - (this.nar.config.knowledgeTTL || 3600000); // 1 hour default
+        const candidates = [];
+
+        for (const [id, hyperedge] of this.nar.state.hypergraph.entries()) {
+            const lastAccess = this.nar.state.activations.get(id) || 0;
+            const beliefStrength = hyperedge.getTruthExpectation();
+            const isStructural = hyperedge.type === 'Inheritance' || hyperedge.type === 'Similarity';
+
+            // Don't prune very strong beliefs or core structural knowledge
+            if (beliefStrength > 0.8 && isStructural) continue;
+
+            if (lastAccess < cutoff && beliefStrength < 0.2) {
+                candidates.push({ id, value: beliefStrength + (lastAccess / now) });
+            }
+        }
+
+        // Sort by value (least valuable first) and prune a small percentage
+        candidates.sort((a, b) => a.value - b.value);
+        const pruneCount = Math.min(10, Math.floor(candidates.length * 0.05));
+        for (let i = 0; i < pruneCount; i++) {
+            this.nar.api.removeHyperedge(candidates[i].id);
+        }
     }
 }
