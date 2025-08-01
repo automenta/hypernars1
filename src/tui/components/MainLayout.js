@@ -15,9 +15,17 @@ import ParameterView from './ParameterView.js';
 import InteractionView from './InteractionView.js';
 import StatusView from './StatusView.js';
 
+import pkg from 'cli-boxes';
+const { round, single } = pkg;
+
 const Tab = ({ label, isActive }) => (
-    <Box marginRight={2} borderStyle={isActive ? single : undefined} paddingX={1}>
-        <Text bold color={isActive ? 'cyan' : 'gray'}>{label}</Text>
+    <Box
+        marginRight={2}
+        borderStyle={isActive ? round : undefined}
+        borderColor={isActive ? 'cyan' : 'gray'}
+        paddingX={1}
+    >
+        <Text bold color={isActive ? 'cyan' : 'white'}>{label}</Text>
     </Box>
 );
 
@@ -37,13 +45,17 @@ const MainLayout = () => {
     };
 
     return (
-        <Box flexDirection="column" width="100%" height={30}>
-            <Box height="95%">
-                <Box width="70%" flexDirection="column">
-                    <Box height="60%" borderStyle={single} borderColor="cyan">
+        <Box flexDirection="column" width="100%" height="100%">
+            {/* Main Content Area */}
+            <Box flexGrow={1} flexDirection="row">
+                {/* Left Panel */}
+                <Box width="70%" flexDirection="column" padding={1}>
+                    {/* Log View */}
+                    <Box flexGrow={3} borderStyle={round} borderColor="blue" padding={1}>
                         <LogView />
                     </Box>
-                    <Box height="40%" flexDirection="column">
+                    {/* Tabbed View */}
+                    <Box flexGrow={2} marginTop={1} flexDirection="column">
                         <Box>
                             <Tab label="[1] Memory" isActive={activeTab === 'memory'} />
                             <Tab label="[2] Queue" isActive={activeTab === 'queue'} />
@@ -51,24 +63,33 @@ const MainLayout = () => {
                             <Tab label="[4] Contradictions" isActive={activeTab === 'contradictions'} />
                             <Tab label="[5] Temporal" isActive={activeTab === 'temporal'} />
                         </Box>
-                        <Box borderStyle={single} borderColor="cyan" flexGrow={1}>
+                        <Box borderStyle={round} borderColor="blue" flexGrow={1} padding={1}>
                             {renderActiveTab()}
                         </Box>
                     </Box>
                 </Box>
-                <Box width="30%" flexDirection="column">
-                    <Box height="34%" borderStyle={single} borderColor="green">
+
+                {/* Right Panel */}
+                <Box width="30%" flexDirection="column" borderLeftStyle={single} borderLeftColor="gray" padding={1}>
+                    <Box flexGrow={1} borderStyle={round} borderColor="magenta" padding={1}>
                         <ControlView />
                     </Box>
-                    <Box height="33%" borderStyle={single} borderColor="green">
+                    <Box flexGrow={1} marginTop={1} borderStyle={round} borderColor="magenta" padding={1}>
                         <ParameterView />
                     </Box>
-                    <Box height="33%" borderStyle={single} borderColor="green">
+                    <Box flexGrow={1} marginTop={1} borderStyle={round} borderColor="magenta" padding={1}>
                         <InteractionView />
                     </Box>
                 </Box>
             </Box>
-            <Box height="5%">
+
+            {/* Status Bar */}
+            <Box
+                borderTopStyle={single}
+                borderTopColor="gray"
+                paddingX={1}
+                height={1}
+            >
                 <StatusView />
             </Box>
         </Box>

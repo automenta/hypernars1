@@ -182,6 +182,16 @@ export class Api {
   implication(premise, conclusion, options = {}) { return this.addHyperedge('Implication', [premise, conclusion], options); }
   equivalence(premise, conclusion, options = {}) { return this.addHyperedge('Equivalence', [premise, conclusion], options); }
 
+  /**
+   * Retrieves all beliefs associated with a given hyperedge.
+   * @param {string} hyperedgeId The ID of the hyperedge.
+   * @returns {Array} An array of belief objects, or an empty array if not found.
+   */
+  getBeliefs(hyperedgeId) {
+    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+    return hyperedge ? hyperedge.beliefs : [];
+  }
+
   /* ===== CORE: ADDING KNOWLEDGE ===== */
   addHyperedge(type, args, options = {}) {
     const { truth, budget, priority, premises = [], derivedBy } = options;
