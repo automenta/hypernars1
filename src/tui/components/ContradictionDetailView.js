@@ -1,9 +1,11 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { TuiContext } from '../contexts/TuiContext.js';
+import pkg from 'cli-boxes';
+const { single, hidden, rounded } = pkg;
 
 const Belief = ({ belief, isStrongest }) => (
-    <Box flexDirection="column" marginBottom={1} borderStyle="rounded" padding={1} borderColor={isStrongest ? 'green' : 'yellow'}>
+    <Box flexDirection="column" marginBottom={1} borderStyle={rounded} padding={1} borderColor={isStrongest ? 'green' : 'yellow'}>
         <Text bold>Belief (Evidence Strength: {belief.evidenceStrength.toFixed(3)})</Text>
         <Text>  Truth: f={belief.truth.frequency.toFixed(2)}, c={belief.truth.confidence.toFixed(2)} (exp: {belief.truth.expectation().toFixed(2)})</Text>
         <Text>  Budget: p={belief.budget.priority.toFixed(2)}, d={belief.budget.durability.toFixed(2)}, q={belief.budget.quality.toFixed(2)}</Text>
@@ -57,7 +59,7 @@ const ContradictionDetailView = ({ contradictionId, onClose }) => {
     });
 
     return (
-        <Box flexDirection="column" padding={1} borderStyle="single" borderColor="red">
+        <Box flexDirection="column" padding={1} borderStyle={single} borderColor="red">
             <Box>
                 <Text bold>Contradiction Analysis: </Text>
                 <Text>{contradictionId}</Text>
@@ -78,7 +80,7 @@ const ContradictionDetailView = ({ contradictionId, onClose }) => {
                         <Box marginTop={1} flexDirection="column">
                             <Text bold>Manual Resolution:</Text>
                             {strategies.map((strategy, index) => (
-                                <Box key={strategy} borderStyle={index === selectedIndex ? 'single' : 'hidden'} paddingX={1}>
+                                <Box key={strategy} borderStyle={index === selectedIndex ? single : hidden} paddingX={1}>
                                     <Text color={index === selectedIndex ? 'cyan' : 'white'}>{`${index + 1}. ${strategy}`}</Text>
                                 </Box>
                             ))}

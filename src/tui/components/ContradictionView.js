@@ -2,6 +2,8 @@ import React, { useContext, useState, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { TuiContext } from '../contexts/TuiContext.js';
 import ContradictionDetailView from './ContradictionDetailView.js';
+import pkg from 'cli-boxes';
+const { single, hidden } = pkg;
 
 const ContradictionView = () => {
     const { nar } = useContext(TuiContext);
@@ -60,7 +62,7 @@ const ContradictionView = () => {
                 <Text>No contradictions detected.</Text>
             ) : (
                 contradictions.map((contra, index) => (
-                    <Box key={contra.id} borderStyle={index === selectedIndex ? 'single' : 'hidden'} paddingX={1}>
+                    <Box key={contra.id} borderStyle={index === selectedIndex ? single : hidden} paddingX={1}>
                         <Text color={index === selectedIndex ? 'cyan' : 'white'}>
                             {`${contra.id} (${contra.pairs.length} conflicting pair(s))`}
                             {contra.resolved

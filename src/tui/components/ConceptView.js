@@ -1,6 +1,8 @@
 import React, { useContext, useState } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { TuiContext } from '../contexts/TuiContext.js';
+import pkg from 'cli-boxes';
+const { single } = pkg;
 
 const ConceptView = ({ conceptId, onClose }) => {
     const { nar, handleSelectConcept } = useContext(TuiContext);
@@ -48,7 +50,7 @@ const ConceptView = ({ conceptId, onClose }) => {
     );
 
     return (
-        <Box flexDirection="column" padding={1} borderStyle="single" borderColor="magenta">
+        <Box flexDirection="column" padding={1} borderStyle={single} borderColor="magenta">
             <Text bold>Concept Details</Text>
             <Text>ID: {concept.id}</Text>
             <Text>Type: {concept.type}</Text>

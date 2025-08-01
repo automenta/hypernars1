@@ -1,6 +1,8 @@
 import React, { useContext } from 'react';
 import { Box, Text } from 'ink';
 import { TuiContext } from '../contexts/TuiContext.js';
+import pkg from 'cli-boxes';
+const { single } = pkg;
 
 import LogView from './LogView.js';
 import MemoryView from './MemoryView.js';
@@ -14,7 +16,7 @@ import InteractionView from './InteractionView.js';
 import StatusView from './StatusView.js';
 
 const Tab = ({ label, isActive }) => (
-    <Box marginRight={2} borderStyle={isActive ? 'single' : undefined} paddingX={1}>
+    <Box marginRight={2} borderStyle={isActive ? single : undefined} paddingX={1}>
         <Text bold color={isActive ? 'cyan' : 'gray'}>{label}</Text>
     </Box>
 );
@@ -38,7 +40,7 @@ const MainLayout = () => {
         <Box flexDirection="column" width="100%" height={30}>
             <Box height="95%">
                 <Box width="70%" flexDirection="column">
-                    <Box height="60%" borderStyle="single" borderColor="cyan">
+                    <Box height="60%" borderStyle={single} borderColor="cyan">
                         <LogView />
                     </Box>
                     <Box height="40%" flexDirection="column">
@@ -49,19 +51,19 @@ const MainLayout = () => {
                             <Tab label="[4] Contradictions" isActive={activeTab === 'contradictions'} />
                             <Tab label="[5] Temporal" isActive={activeTab === 'temporal'} />
                         </Box>
-                        <Box borderStyle="single" borderColor="cyan" flexGrow={1}>
+                        <Box borderStyle={single} borderColor="cyan" flexGrow={1}>
                             {renderActiveTab()}
                         </Box>
                     </Box>
                 </Box>
                 <Box width="30%" flexDirection="column">
-                    <Box height="34%" borderStyle="single" borderColor="green">
+                    <Box height="34%" borderStyle={single} borderColor="green">
                         <ControlView />
                     </Box>
-                    <Box height="33%" borderStyle="single" borderColor="green">
+                    <Box height="33%" borderStyle={single} borderColor="green">
                         <ParameterView />
                     </Box>
-                    <Box height="33%" borderStyle="single" borderColor="green">
+                    <Box height="33%" borderStyle={single} borderColor="green">
                         <InteractionView />
                     </Box>
                 </Box>

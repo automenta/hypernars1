@@ -6,12 +6,14 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { TuiContext } from '../contexts/TuiContext.js';
+import pkg from 'cli-boxes';
+const { single, hidden } = pkg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const demoDir = path.join(__dirname, '../../demos');
 
 const Tab = ({ label, isActive }) => (
-    <Box marginRight={2} borderStyle={isActive ? 'single' : 'hidden'} paddingX={1}>
+    <Box marginRight={2} borderStyle={isActive ? single : hidden} paddingX={1}>
         <Text bold color={isActive ? 'cyan' : 'gray'}>{label}</Text>
     </Box>
 );
@@ -110,7 +112,7 @@ const InteractionView = () => {
                 <Tab label="[I]nput" isActive={activeTab === 'input'} />
                 <Tab label="[D]emos" isActive={activeTab === 'demos'} />
             </Box>
-            <Box flexGrow={1} borderStyle="single" borderColor="green">
+            <Box flexGrow={1} borderStyle={single} borderColor="green">
                 {activeTab === 'input' ? renderInput() : renderDemos()}
             </Box>
         </Box>
