@@ -18,7 +18,7 @@ export class OptimizedIndex {
 
         // --- Caching ---
         this.derivationCache = new LRUMap(nar.config.derivationCacheSize || 5000);
-        this.questionCache = new LRUMap(1000);
+        this.questionCache = new Map();
 
         // --- Popularity and Activity Tracking ---
         this.conceptPopularity = new Map();

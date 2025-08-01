@@ -6,6 +6,7 @@ import { id } from '../support/utils.js';
 export class Api {
   constructor(nar) {
     this.nar = nar;
+    this.TruthValue = TruthValue;
   }
 
   /* ===== ENHANCED MACRO FUNCTIONS (from enhance.b.md) ===== */

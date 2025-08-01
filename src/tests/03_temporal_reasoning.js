@@ -7,7 +7,7 @@ export default {
     const morning = nar.temporalManager.interval('daytime_event', now, now + 4 * 3600 * 1000);
     const meeting = nar.temporalManager.interval('important_meeting', now + 1 * 3600 * 1000, now + 2 * 3600 * 1000);
 
-    const relId = nar.temporalManager.temporalRelation(meeting, morning, 'during', { truth: nar.truth(1, 0.9) });
+    const relId = nar.temporalManager.addConstraint(meeting, morning, 'during', { truth: new nar.api.TruthValue(1, 0.9) });
     log("Established that the meeting happens during the day.");
 
     const meetingInterval = nar.temporalManager.intervals.get(meeting);
