@@ -27,8 +27,8 @@ const MemoryView = () => {
             concepts = concepts.filter(c => c.type === filterType);
         }
         const sorters = {
-            confidence: (a, b) => (b.getTruth()?.c ?? 0) - (a.getTruth()?.c ?? 0),
-            frequency: (a, b) => (b.getTruth()?.f ?? 0) - (a.getTruth()?.f ?? 0),
+            confidence: (a, b) => (b.getTruth()?.confidence ?? 0) - (a.getTruth()?.confidence ?? 0),
+            frequency: (a, b) => (b.getTruth()?.frequency ?? 0) - (a.getTruth()?.frequency ?? 0),
             recency: (a, b) => (b.beliefs[0]?.timestamp || 0) - (a.beliefs[0]?.timestamp || 0),
         };
         concepts.sort(sorters[sortBy]);
@@ -53,8 +53,8 @@ const MemoryView = () => {
         const end = start + PAGE_SIZE;
         return sortedAndFilteredConcepts.slice(start, end).map(h => {
             const truth = h.getTruth();
-            const f = truth ? truth.f.toFixed(2) : 'N/A';
-            const c = truth ? truth.c.toFixed(2) : 'N/A';
+            const f = truth?.frequency?.toFixed(2) ?? 'N/A';
+            const c = truth?.confidence?.toFixed(2) ?? 'N/A';
             return {
                 label: `${h.id.substring(0, 20)}... ${h.type} (f:${f} c:${c})`,
                 value: h.id,
