@@ -1,5 +1,3 @@
-# Refactorings that are best applied in IDE (ex: renaming)
-
 Rename for Clarity: Many internal methods are prefixed with _, which is a good convention. However, some could be
 renamed for even greater clarity. For example, in AdvancedDerivationEngine, _deriveTemporalRelation could be renamed _
 deriveTransitiveTemporalRelation to be more specific. An IDE's 'Rename Symbol' feature can do this safely across the
