@@ -201,6 +201,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
 
         this._discoverPatterns();
         this._createRulesFromPatterns();
+        this._adaptDerivationRules(); // Added this call
 
         // Periodically push rule productivity stats to the derivation engine
         // so it can re-prioritize its rules.
@@ -212,6 +213,44 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         if (this.experienceBuffer.length > 500) {
             this.experienceBuffer = this.experienceBuffer.slice(-250);
         }
+    }
+
+    /**
+     * Adapts derivation rules based on their measured effectiveness,
+     * as proposed in `enhance.e.md`.
+     */
+    _adaptDerivationRules() {
+        const stats = this.getRuleProductivityStats();
+        if (!stats) return;
+
+        stats.forEach((ruleStats, ruleName) => {
+            if (ruleStats.attempts < 20) return; // Don't adapt without enough data
+
+            const effectiveness = ruleStats.successes / ruleStats.attempts;
+            const rule = this.nar.derivationEngine.rules.get(ruleName);
+            if (!rule) return;
+
+            // If a rule is consistently ineffective, disable it.
+            if (effectiveness < 0.1) {
+                if (rule.enabled !== false) { // Check to avoid repeated notifications
+                    rule.enabled = false;
+                    this.nar.emit('rule-disabled', {
+                        rule: ruleName,
+                        effectiveness,
+                        reason: 'Consistently produced incorrect or useless results.'
+                    });
+                }
+            }
+            // If a rule becomes effective again, re-enable it.
+            else if (effectiveness > 0.4 && rule.enabled === false) {
+                rule.enabled = true;
+                this.nar.emit('rule-enabled', {
+                    rule: ruleName,
+                    effectiveness,
+                    reason: 'Performance has improved.'
+                });
+            }
+        });
     }
 
     _discoverPatterns() {

@@ -25,10 +25,14 @@ export class ExplanationSystem {
      * @returns {string|Object} The formatted explanation.
      */
     explain(hyperedgeId, options = {}) {
-        const { depth = 3, format = 'detailed' } = options;
+        const { depth = 3, format = 'detailed', perspective = 'evidential' } = options;
 
         if (format === 'justification') {
             return this._formatJustification(hyperedgeId);
+        }
+
+        if (perspective === 'counterfactual') {
+            return this._formatCounterfactualExplanation(hyperedgeId, options);
         }
 
         const path = [];
@@ -37,6 +41,12 @@ export class ExplanationSystem {
         if (path.length === 0) {
             return `No derivation path found for ${hyperedgeId}. It might be a base premise.`;
         }
+
+        // Handle perspective-based formatting first
+        if (perspective === 'causal') {
+            return this._formatCausalExplanation(path);
+        }
+        // 'evidential' is the default and will be handled by the format switch
 
         switch (format) {
             case 'json':
@@ -53,6 +63,55 @@ export class ExplanationSystem {
             default:
                 return this._formatDetailedExplanation(hyperedgeId, path, options);
         }
+    }
+
+    _formatCausalExplanation(path) {
+        let explanation = "The belief that ";
+        const conclusion = path[path.length - 1];
+        explanation += `${this._formatHyperedge(conclusion)} is held with confidence ${this._formatConfidence(conclusion.truth.confidence)}. This is caused by the following chain of reasoning:\n`;
+        path.slice().reverse().forEach((step, i) => {
+            explanation += `${'  '.repeat(i)}-> Because of the belief that ${this._formatHyperedge(step)}.\n`;
+        });
+        return explanation;
+    }
+
+    _formatCounterfactualExplanation(hyperedgeId, options) {
+        const { alternative } = options;
+        if (!alternative) {
+            return "Counterfactual explanation requires an 'alternative' premise to be provided in options.";
+        }
+
+        const path = [];
+        this._traceDerivation(hyperedgeId, path, options.depth || 3, new Set());
+        if (path.length === 0) {
+            return "Cannot generate counterfactual: no derivation path found for the original belief.";
+        }
+
+        const originalPremise = path[0];
+        const sandbox = this.nar.createSandbox();
+
+        // Remove the original premise and insert the alternative
+        sandbox.api.removeHyperedge(originalPremise.id);
+        sandbox.api.nal(alternative, { truth: originalPremise.truth }); // Use same truth for a fair comparison
+
+        // Run the sandbox to see what happens
+        sandbox.run(50); // Run for a limited number of steps
+
+        // Check if the original conclusion still holds
+        const conclusionInSandbox = sandbox.api.getBeliefs(hyperedgeId);
+
+        let explanation = `Counterfactual analysis for: ${this._formatHyperedge(this.nar.state.hypergraph.get(hyperedgeId))}\n`;
+        explanation += `If we assume "${alternative}" instead of "${this._formatHyperedge(originalPremise)}":\n`;
+
+        if (conclusionInSandbox.length > 0) {
+            const newTruth = conclusionInSandbox[0].truth;
+            explanation += `The conclusion still holds, but its confidence changes to ${this._formatConfidence(newTruth.confidence)}.`;
+        } else {
+            explanation += "The original conclusion no longer holds.";
+            // A more advanced version would explain what new conclusions are reached instead.
+        }
+
+        return explanation;
     }
 
     /**

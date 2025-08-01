@@ -96,8 +96,8 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     const hyperedge = this.nar.state.hypergraph.get(target);
     if (!hyperedge || activation <= this.nar.config.inferenceThreshold || pathLength > this.nar.config.maxDerivationDepth) return;
 
-    // Get active rules, but don't sort them here
-    const activeRules = [...this.rules.values()].filter(rule => rule.condition(event));
+    // Get active and enabled rules
+    const activeRules = [...this.rules.values()].filter(rule => rule.enabled !== false && rule.condition(event));
 
     if (activeRules.length === 0) return;
 

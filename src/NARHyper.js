@@ -92,6 +92,39 @@ export class NARHyper extends EventEmitter {
     this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
   }
 
+  /**
+   * Creates a sandboxed environment for safe experimentation and counterfactual reasoning.
+   * Based on the proposal in `enhance.e.md`.
+   * @param {Object} options - Configuration for the sandbox.
+   * @returns {NARHyper} A new NARHyper instance configured as a sandbox.
+   */
+  createSandbox(options = {}) {
+    // Create a new NARHyper instance with a similar config, but isolated state
+    const sandbox = new NARHyper({
+      ...this.config,
+      // Allow overriding config for the sandbox
+      ...(options.config || {}),
+    });
+
+    // Copy a subset of knowledge into the sandbox
+    const minConfidence = options.minConfidence || 0.5;
+    const hypergraphToCopy = options.hypergraph || this.state.hypergraph;
+
+    hypergraphToCopy.forEach((hyperedge) => {
+        if (hyperedge.getTruthExpectation() >= minConfidence) {
+            sandbox.api.addHyperedge(hyperedge.type, hyperedge.args, {
+                truth: hyperedge.getTruth(),
+                budget: hyperedge.getStrongestBelief()?.budget
+            });
+        }
+    });
+
+    sandbox.isSandbox = true;
+    sandbox.parent = this;
+
+    return sandbox;
+  }
+
   clearState() {
     this.state = new State(this.config);
     this._initializeModules(this.config); // Re-init managers with the new state

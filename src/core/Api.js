@@ -176,6 +176,22 @@ export class Api {
     return this.nar.temporalManager.project(term, milliseconds);
   }
 
+  /* ===== PUBLIC API: CONTRADICTION MANAGEMENT ===== */
+  getContradictions() {
+    return Array.from(this.nar.contradictionManager.contradictions.entries())
+      .filter(([, data]) => !data.resolved)
+      .map(([id, data]) => ({ id, ...data }));
+  }
+  analyzeContradiction(hyperedgeId) { return this.nar.contradictionManager.analyze(hyperedgeId); }
+  resolveContradiction(hyperedgeId, strategy, options) { return this.nar.contradictionManager.manualResolve(hyperedgeId, strategy, options); }
+
+  /* ===== PUBLIC API: META-REASONING OPERATIONS ===== */
+  getMetaTrace(depth) { return this.nar.metaReasoner.getTrace(depth); }
+  configureMetaStrategy(config) { return this.nar.metaReasoner.configureStrategy(config); }
+  getActiveMetaStrategy() { return this.nar.metaReasoner.getActiveStrategy(); }
+  getMetaMetrics() { return this.nar.metaReasoner.metricsHistory.slice(-1)[0] || null; }
+  getMetaFocus() { return this.nar.metaReasoner.currentFocus; }
+
   /* ===== PUBLIC API: STRUCTURAL OPERATIONS ===== */
   term(name, options = {}) { return this.addHyperedge('Term', [name], options); }
   inheritance(subject, predicate, options = {}) { return this.addHyperedge('Inheritance', [subject, predicate], options); }
@@ -225,6 +241,7 @@ export class Api {
     });
 
     if (revisionResult.needsUpdate) {
+        this.nar.contradictionManager.detectContradiction(termId);
         this.nar.emit('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });
         this.nar.propagation.propagate({
             target: termId,
@@ -273,12 +290,13 @@ export class Api {
    */
   /**
    * Reports the outcome of an action or reasoning process to the Learning Engine.
-   * @param {string} conclusionId - The ID of the hyperedge representing the action or conclusion.
-   * @param {Object} outcomeDetails - Details about the outcome.
-   * @param {boolean} outcomeDetails.success - Whether the outcome was successful.
+   * This is the primary mechanism for providing external feedback to the system.
+   * @param {Object} context - The context in which the action/reasoning occurred (e.g., { operation: 'action', action: 'move_forward' }).
+   * @param {Object} outcome - Details about the outcome (e.g., { success: true, consequence: 'reached_destination' }).
+   * @param {Object} [options={}] - Additional details like the derivation path that led to the action.
    */
-  outcome(conclusionId, outcomeDetails) {
-    this.nar.learningEngine.recordExperience(conclusionId, outcomeDetails);
+  outcome(context, outcome, options = {}) {
+    this.nar.learningEngine.recordExperience(context, outcome, options);
   }
 
   revise(hyperedgeId, options = {}) {

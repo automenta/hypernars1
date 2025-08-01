@@ -69,34 +69,155 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     query(pattern, options = {}) {
+        const { limit = 10, minExpectation = 0.5, sortBy = 'expectation' } = options;
+        const startTime = Date.now();
+
+        try {
+            let results;
+            // Handle simple wildcard queries with the old logic for now.
+            if (pattern.includes('*') && !pattern.includes('<')) {
+                 results = this._wildcardQuery(pattern, options);
+            } else {
+                results = this.queryWithBinding(pattern, options);
+            }
+
+            // Sort and limit results
+            this._sortQueryResults(results, sortBy);
+            return results.slice(0, limit);
+        } catch (e) {
+            this.nar.emit('log', { message: `Query execution failed: ${e.message}`, level: 'error', error: e });
+            return [];
+        } finally {
+            const duration = Date.now() - startTime;
+            // Optionally record query performance
+        }
+    }
+
+    _wildcardQuery(pattern, options) {
         const { limit = 10, minExpectation = 0.0 } = options;
         const results = [];
+        const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\(/g, '\\(').replace(/\)/g, '\\)'));
+        for (const [id, hyperedge] of this.nar.state.hypergraph.entries()) {
+            if (regex.test(id)) {
+                results.push({
+                    id,
+                    bindings: {},
+                    expectation: hyperedge.getTruth().expectation(),
+                    hyperedge,
+                });
+            }
+            if (results.length >= limit) break;
+        }
+        return results.filter(r => r.expectation >= minExpectation);
+    }
 
-        // Handle wildcard queries
-        if (pattern.includes('*')) {
-            const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\(/g, '\\(').replace(/\)/g, '\\)'));
-            for (const [id, hyperedge] of this.nar.state.hypergraph.entries()) {
-                if (regex.test(id)) {
+    /**
+     * Enhanced query processing with variable binding and constraint satisfaction,
+     * based on the `enhance.b.md` and `enhance.d.md` proposals.
+     * @param {string} pattern - The query pattern, e.g., '<$x --> bird>'.
+     * @param {object} options - Query options like { limit, minExpectation }.
+     * @returns {Array} A list of matching results with bindings.
+     */
+    queryWithBinding(pattern, options = {}) {
+        const { minExpectation = 0.5 } = options;
+        const results = [];
+        const parsedPattern = this.parse(pattern);
+
+        // Find all hyperedges that could potentially match the pattern's top-level type.
+        const candidateEdges = this.nar.state.index.byType.get(parsedPattern.type) || new Set();
+
+        for (const edgeId of candidateEdges) {
+            const hyperedge = this.nar.state.hypergraph.get(edgeId);
+            if (!hyperedge) continue;
+
+            const bindings = new Map();
+            if (this._matchRecursive(parsedPattern, hyperedge, bindings)) {
+                const expectation = hyperedge.getTruth().expectation();
+                if (expectation >= minExpectation) {
                     results.push({
-                        id,
-                        bindings: {},
-                        expectation: hyperedge.getTruth().expectation(),
-                        hyperedge,
+                        id: edgeId,
+                        bindings: Object.fromEntries(bindings),
+                        expectation,
+                        hyperedge
                     });
                 }
-                if (results.length >= limit) break;
-            }
-        } else {
-            // Handle exact queries
-            const parsed = this.parse(pattern.replace('?', ''));
-            const hyperedgeId = this._getParsedStructureId(parsed);
-            const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-            if (hyperedge) {
-                results.push({ id: hyperedgeId, bindings: {}, expectation: hyperedge.getTruth().expectation(), hyperedge });
             }
         }
 
-        return results.filter(r => r.expectation >= minExpectation).sort((a, b) => b.expectation - a.expectation);
+        return results;
+    }
+
+    _matchRecursive(patternNode, hyperedgeNode, bindings) {
+        if (!patternNode || !hyperedgeNode) return false;
+
+        // Type mismatch
+        if (patternNode.type !== hyperedgeNode.type) {
+            return false;
+        }
+
+        // Argument count mismatch
+        if (patternNode.args.length !== hyperedgeNode.args.length) {
+            return false;
+        }
+
+        // Recursively match arguments
+        for (let i = 0; i < patternNode.args.length; i++) {
+            const patternArg = patternNode.args[i];
+            const hyperedgeArgId = hyperedgeNode.args[i]; // This is an ID string
+
+            if (typeof patternArg === 'object' && patternArg.type === 'Variable') {
+                const varName = patternArg.args[0];
+                if (bindings.has(varName)) {
+                    // If variable is already bound, it must match the current value (which is an ID)
+                    if (bindings.get(varName) !== hyperedgeArgId) {
+                        return false;
+                    }
+                } else {
+                    // New binding: bind the variable name to the hyperedge argument ID
+                    bindings.set(varName, hyperedgeArgId);
+                }
+            } else if (typeof patternArg === 'object' && patternArg.type === 'Term') {
+                if (patternArg.args[0] !== hyperedgeArgId) {
+                    return false;
+                }
+            } else if (typeof patternArg === 'object' && patternArg.type) {
+                // Nested structure: patternArg is a parsed object, hyperedgeArgId is the ID of the nested hyperedge
+                const nestedHyperedge = this.nar.state.hypergraph.get(hyperedgeArgId);
+                if (!nestedHyperedge || !this._matchRecursive(patternArg, nestedHyperedge, bindings)) {
+                    return false;
+                }
+            } else {
+                // Simple term match: patternArg is a string, hyperedgeArgId is a string
+                if (patternArg !== hyperedgeArgId) {
+                    return false;
+                }
+            }
+        }
+
+        // If all arguments matched, the pattern matches
+        return true;
+    }
+
+    _sortQueryResults(results, sortBy) {
+        switch (sortBy) {
+            case 'expectation':
+                results.sort((a, b) => b.expectation - a.expectation);
+                break;
+            case 'activation':
+                results.sort((a, b) =>
+                    (this.nar.state.activations.get(b.id) || 0) - (this.nar.state.activations.get(a.id) || 0)
+                );
+                break;
+            case 'recent':
+                results.sort((a, b) => {
+                    const aTime = this.nar.state.hypergraph.get(a.id)?.beliefs[0]?.timestamp || 0;
+                    const bTime = this.nar.state.hypergraph.get(b.id)?.beliefs[0]?.timestamp || 0;
+                    return bTime - aTime;
+                });
+                break;
+            default:
+                results.sort((a, b) => b.expectation - a.expectation);
+        }
     }
 
     parse(expression) {
