@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { useInput } from 'ink';
+import { useInput, useStdin } from 'ink';
 
 import ConceptView from './components/ConceptView.js';
 import MainLayout from './components/MainLayout.js';
@@ -7,6 +7,7 @@ import { useNarSystem } from '../hooks/useNarSystem.js';
 import { TuiContext } from './contexts/TuiContext.js';
 
 const App = ({ nar }) => {
+    const { isRawModeSupported } = useStdin();
     const [logs, setLogs] = useState([]);
     const [selectedConceptId, setSelectedConceptId] = useState(null);
     const [activeTab, setActiveTab] = useState('memory'); // memory, queue, system
@@ -53,7 +54,7 @@ const App = ({ nar }) => {
         else if (input === '4') setActiveTab('contradictions');
         else if (input === '5') setActiveTab('temporal');
         else if (key.escape) process.exit();
-    });
+    }, { isActive: isRawModeSupported });
 
     const handleCommand = (command) => {
         if (command.startsWith('/')) {

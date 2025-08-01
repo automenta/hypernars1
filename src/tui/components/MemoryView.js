@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect, useMemo } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdin } from 'ink';
 import SelectInput from 'ink-select-input';
 import { TuiContext } from '../contexts/TuiContext.js';
 
@@ -7,6 +7,7 @@ const PAGE_SIZE = 10;
 
 const MemoryView = () => {
     const { nar, handleSelectConcept } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [allConcepts, setAllConcepts] = useState([]);
     const [sortBy, setSortBy] = useState('confidence'); // confidence, frequency, recency
     const [filterType, setFilterType] = useState(null);
@@ -26,8 +27,8 @@ const MemoryView = () => {
             concepts = concepts.filter(c => c.type === filterType);
         }
         const sorters = {
-            confidence: (a, b) => b.getTruth().c - a.getTruth().c,
-            frequency: (a, b) => b.getTruth().f - a.getTruth().f,
+            confidence: (a, b) => (b.getTruth()?.c ?? 0) - (a.getTruth()?.c ?? 0),
+            frequency: (a, b) => (b.getTruth()?.f ?? 0) - (a.getTruth()?.f ?? 0),
             recency: (a, b) => (b.beliefs[0]?.timestamp || 0) - (a.beliefs[0]?.timestamp || 0),
         };
         concepts.sort(sorters[sortBy]);
@@ -45,15 +46,20 @@ const MemoryView = () => {
         else if (input === 'a') { setFilterType(null); setPage(0); }
         else if (input === '>' || input === '.') setPage(p => Math.min(p + 1, totalPages - 1));
         else if (input === '<' || input === ',') setPage(p => Math.max(p - 1, 0));
-    });
+    }, { isActive: isRawModeSupported });
 
     const paginatedConcepts = useMemo(() => {
         const start = page * PAGE_SIZE;
         const end = start + PAGE_SIZE;
-        return sortedAndFilteredConcepts.slice(start, end).map(h => ({
-            label: `${h.id.substring(0, 20)}... ${h.type} (f:${h.getTruth().f.toFixed(2)} c:${h.getTruth().c.toFixed(2)})`,
-            value: h.id,
-        }));
+        return sortedAndFilteredConcepts.slice(start, end).map(h => {
+            const truth = h.getTruth();
+            const f = truth ? truth.f.toFixed(2) : 'N/A';
+            const c = truth ? truth.c.toFixed(2) : 'N/A';
+            return {
+                label: `${h.id.substring(0, 20)}... ${h.type} (f:${f} c:${c})`,
+                value: h.id,
+            };
+        });
     }, [sortedAndFilteredConcepts, page]);
 
     const handleSelect = (item) => {
@@ -75,7 +81,11 @@ const MemoryView = () => {
                     Sort: [c], [f], [r] | Filter: [j], [q], [a] | Page: [&lt;] [&gt;]
                 </Text>
             </Box>
-            <SelectInput items={paginatedConcepts} onSelect={handleSelect} />
+            {isRawModeSupported ? (
+                <SelectInput items={paginatedConcepts} onSelect={handleSelect} />
+            ) : (
+                <Text>[Input disabled in non-interactive mode]</Text>
+            )}
         </Box>
     );
 };

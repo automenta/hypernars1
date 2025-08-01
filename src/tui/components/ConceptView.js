@@ -1,11 +1,12 @@
 import React, { useContext, useState } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdin } from 'ink';
 import { TuiContext } from '../contexts/TuiContext.js';
 import pkg from 'cli-boxes';
 const { single } = pkg;
 
 const ConceptView = ({ conceptId, onClose }) => {
     const { nar, handleSelectConcept } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [showBeliefs, setShowBeliefs] = useState(false);
     const [showRelated, setShowRelated] = useState(false);
     const concept = nar.state.hypergraph.get(conceptId);
@@ -14,7 +15,7 @@ const ConceptView = ({ conceptId, onClose }) => {
         if (key.escape) onClose();
         else if (input === 'b') setShowBeliefs(v => !v);
         else if (input === 'r') setShowRelated(v => !v);
-    });
+    }, { isActive: isRawModeSupported });
 
     if (!concept) {
         return <Text>Concept {conceptId} not found. Press ESC to close.</Text>;

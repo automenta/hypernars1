@@ -1,5 +1,5 @@
 import React, { useState, useContext, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdin } from 'ink';
 import TextInput from 'ink-text-input';
 import SelectInput from 'ink-select-input';
 import fs from 'fs/promises';
@@ -25,6 +25,7 @@ const Tab = ({ label, isActive }) => (
 
 const InteractionView = () => {
     const { handleCommand, runDemo, log } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [activeTab, setActiveTab] = useState('input'); // input, demos
 
     const [inputValue, setInputValue] = useState('');
@@ -41,7 +42,8 @@ const InteractionView = () => {
                         const module = await import(path.join(demoDir, file));
                         return {
                             label: module.default.name,
-                            value: module.default
+                            value: module.default,
+                            key: module.default.name
                         };
                     })
                 );
@@ -74,7 +76,7 @@ const InteractionView = () => {
                 setInputValue(history[newIndex] || '');
             }
         }
-    });
+    }, { isActive: isRawModeSupported });
 
     const handleSubmit = () => {
         if (handleCommand && inputValue) {
@@ -94,18 +96,26 @@ const InteractionView = () => {
     const renderInput = () => (
         <Box paddingX={1}>
             <Text color="cyan" bold>&gt; </Text>
-            <TextInput
-                value={inputValue}
-                onChange={setInputValue}
-                onSubmit={handleSubmit}
-                placeholder="Enter NAL or /command..."
-            />
+            {isRawModeSupported ? (
+                <TextInput
+                    value={inputValue}
+                    onChange={setInputValue}
+                    onSubmit={handleSubmit}
+                    placeholder="Enter NAL or /command..."
+                />
+            ) : (
+                <Text>[Input disabled in non-interactive mode]</Text>
+            )}
         </Box>
     );
 
     const renderDemos = () => (
         <Box flexDirection="column">
-            <SelectInput items={demos} onSelect={handleDemoSelect} />
+            {isRawModeSupported ? (
+                <SelectInput items={demos} onSelect={handleDemoSelect} />
+            ) : (
+                <Text>[Input disabled in non-interactive mode]</Text>
+            )}
         </Box>
     );
 

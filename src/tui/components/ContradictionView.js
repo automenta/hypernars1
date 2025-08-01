@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect, useCallback } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdin } from 'ink';
 import { TuiContext } from '../contexts/TuiContext.js';
 import ContradictionDetailView from './ContradictionDetailView.js';
 import pkg from 'cli-boxes';
@@ -7,6 +7,7 @@ const { single, hidden } = pkg;
 
 const ContradictionView = () => {
     const { nar } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [contradictions, setContradictions] = useState([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [selectedContradictionId, setSelectedContradictionId] = useState(null);
@@ -44,7 +45,7 @@ const ContradictionView = () => {
                 setSelectedContradictionId(contradictions[selectedIndex].id);
             }
         }
-    });
+    }, { isActive: isRawModeSupported });
 
     const handleCloseDetailView = useCallback(() => {
         setSelectedContradictionId(null);

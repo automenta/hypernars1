@@ -1,11 +1,12 @@
 import React, { useState, useContext } from 'react';
-import { Box, Text } from 'ink';
+import { Box, Text, useStdin } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
 import { TuiContext } from '../contexts/TuiContext.js';
 
 const ParameterView = () => {
     const { nar, updateConfig } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [editingItem, setEditingItem] = useState(null);
     const [inputValue, setInputValue] = useState('');
 
@@ -33,11 +34,15 @@ const ParameterView = () => {
                 <Text bold>Edit {editingItem}</Text>
                 <Box>
                     <Box marginRight={1}><Text>&gt;</Text></Box>
-                    <TextInput
-                        value={inputValue}
-                        onChange={setInputValue}
-                        onSubmit={handleSubmit}
-                    />
+                    {isRawModeSupported ? (
+                        <TextInput
+                            value={inputValue}
+                            onChange={setInputValue}
+                            onSubmit={handleSubmit}
+                        />
+                    ) : (
+                        <Text>[Input disabled in non-interactive mode]</Text>
+                    )}
                 </Box>
             </Box>
         );
@@ -46,7 +51,11 @@ const ParameterView = () => {
     return (
         <Box flexDirection="column" paddingX={1}>
             <Text bold>Parameters</Text>
-            <SelectInput items={items} onSelect={handleSelect} />
+            {isRawModeSupported ? (
+                <SelectInput items={items} onSelect={handleSelect} />
+            ) : (
+                <Text>[Input disabled in non-interactive mode]</Text>
+            )}
         </Box>
     );
 };

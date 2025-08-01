@@ -1,5 +1,5 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text, useInput, useStdin } from 'ink';
 import { TuiContext } from '../contexts/TuiContext.js';
 import pkg from 'cli-boxes';
 const { single, hidden, rounded } = pkg;
@@ -22,6 +22,7 @@ const Belief = ({ belief, isStrongest }) => (
 
 const ContradictionDetailView = ({ contradictionId, onClose }) => {
     const { nar, log } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [analysis, setAnalysis] = useState(null);
     const [strategies, setStrategies] = useState([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -56,7 +57,7 @@ const ContradictionDetailView = ({ contradictionId, onClose }) => {
                 onClose();
             }
         }
-    });
+    }, { isActive: isRawModeSupported });
 
     return (
         <Box flexDirection="column" padding={1} borderStyle={single} borderColor="red">
