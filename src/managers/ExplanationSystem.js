@@ -17,6 +17,8 @@ export class ExplanationSystem {
                 return this._generateStoryExplanation(hyperedgeId, path);
             case 'concise':
                 return this._formatConciseExplanation(path);
+            case 'technical':
+                return this._formatTechnicalExplanation(path);
             // New formats from enhancement spec
             case 'evidence-based':
                 return this._generateEvidenceBasedExplanation(hyperedgeId);
@@ -149,7 +151,9 @@ export class ExplanationSystem {
         let explanation = `CONCLUSION: ${this._formatHyperedge(hyperedge)}\n`;
         if (includeConfidence) {
             const truth = hyperedge.getTruth();
-            explanation += `Confidence: ${truth.expectation().toFixed(2)} (f: ${truth.frequency.toFixed(2)}, c: ${truth.confidence.toFixed(2)})\n\n`;
+            explanation += `Confidence: ${truth.expectation().toFixed(2)} ` +
+                `(frequency: ${truth.frequency.toFixed(2)}, ` +
+                `confidence: ${truth.confidence.toFixed(2)})\n\n`;
         }
 
         explanation += "PRIMARY REASONING PATH:\n";
@@ -158,15 +162,56 @@ export class ExplanationSystem {
         });
 
         if (hyperedge.beliefs && hyperedge.beliefs.length > 1) {
-            const alternatives = hyperedge.beliefs.slice(1, maxAlternatives + 1);
+            const alternatives = hyperedge.beliefs
+                .slice(1, maxAlternatives + 1)
+                .map((belief, idx) => ({
+                    belief,
+                    path: this._findAlternativePath(hyperedgeId, belief)
+                }));
+
             if (alternatives.length > 0) {
-                explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1} total):\n`;
+                explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1}):\n`;
                 alternatives.forEach((alt, i) => {
-                    explanation += `${i + 1}. A belief with confidence ${alt.truth.expectation().toFixed(2)} also exists.\n`;
+                    explanation += `${i + 1}. Based on different evidence:\n`;
+                    explanation += `   Confidence: ${alt.belief.truth.expectation().toFixed(2)}\n`;
+                    if (alt.path && alt.path.length > 0) {
+                        explanation += `   Reasoning path: ${alt.path.map(s => this._formatHyperedge(s)).join(' → ')}\n`;
+                    }
                 });
             }
         }
+
+        const temporalContext = this.nar.temporalManager.getContext();
+        if (temporalContext.currentPeriod) {
+            explanation += `\nTEMPORAL CONTEXT: ${temporalContext.currentPeriod}`;
+            if (temporalContext.season) explanation += `, ${temporalContext.season}`;
+        }
+
         return explanation;
+    }
+
+    _formatTechnicalExplanation(path) {
+        if (!path || path.length === 0) return "No technical explanation available.";
+        let explanation = "TECHNICAL REASONING TRACE:\n";
+        path.forEach((step, i) => {
+            explanation += `Step ${i + 1}:\n`;
+            explanation += `  ID: ${step.id}\n`;
+            explanation += `  Type: ${step.type}\n`;
+            explanation += `  Truth: { f: ${step.truth.frequency.toFixed(3)}, c: ${step.truth.confidence.toFixed(3)} }\n`;
+            explanation += `  DerivedBy: ${step.derivationRule}\n`;
+            explanation += `  Premises: ${step.premises.join(', ') || 'N/A'}\n\n`;
+        });
+        return explanation;
+    }
+
+    _findAlternativePath(hyperedgeId, belief) {
+        // Placeholder implementation. A real implementation would need to
+        // trace the derivation path for a specific belief, which is complex.
+        const path = [];
+        if (belief.premises && belief.premises.length > 0) {
+            this._traceDerivation(belief.premises[0], path, 2, new Set());
+        }
+        return path;
     }
 
     _generateEvidenceBasedExplanation(hyperedgeId) {

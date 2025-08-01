@@ -19,41 +19,16 @@ export class Hyperedge {
         timestamp: Date.now()
     };
 
-    const resolution = this.nar.contradictionManager.handle(this, newBelief);
+    // Add the new belief to the list
+    this.beliefs.push(newBelief);
 
-    if (resolution) {
-        switch (resolution.action) {
-            case 'reject':
-                return { needsUpdate: false }; // The new belief is rejected
-            case 'accept':
-                this.beliefs = [newBelief]; // Replace all with the new accepted belief
-                break;
-            case 'merge':
-                // The resolution provided a merged belief, make it the only one
-                const mergedBelief = { ...newBelief, truth: resolution.mergedTruth, budget: resolution.adjustedBudget };
-                this.beliefs = [mergedBelief];
-                break;
-            case 'split':
-                // The new belief is added to a different, new concept.
-                // The original hyperedge remains untouched by this specific new belief.
-                const newHyperedge = this.nar.state.hypergraph.get(resolution.newConceptId);
-                if (newHyperedge) {
-                    // This is a direct revision on the new hyperedge, no contradiction check needed here.
-                    newHyperedge.beliefs = [newBelief];
-                }
-                return { needsUpdate: true }; // A change was made to the system
-            default:
-                // Default case, fall through to normal processing
-                this.beliefs = [...this.beliefs, newBelief];
-        }
-    } else {
-        // No contradiction, proceed with normal revision by adding the new belief
-        this.beliefs.push(newBelief);
+    // Sort beliefs by budget priority and prune to capacity
+    this.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
+    if (this.beliefs.length > beliefCapacity) {
+        this.beliefs = this.beliefs.slice(0, beliefCapacity);
     }
 
-    // Sort and manage capacity
-    this.beliefs.sort((a, b) => b.budget.priority - a.budget.priority).slice(0, beliefCapacity);
-
+    // Always signal an update occurred
     return { newBelief, needsUpdate: true };
   }
 

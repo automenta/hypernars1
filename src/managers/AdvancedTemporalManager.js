@@ -1,131 +1,141 @@
-import {TemporalManagerBase} from './TemporalManagerBase.js';
-import {TimeInterval} from '../support/TimeInterval.js';
-import {id} from '../support/utils.js';
+import { TemporalManagerBase } from './TemporalManagerBase.js';
+import { TimeInterval } from '../support/TimeInterval.js';
+import { id } from '../support/utils.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 /**
- * An advanced temporal manager that implements Allen's Interval Algebra
- * for sophisticated reasoning about time.
+ * An advanced temporal manager that implements a comprehensive temporal framework
+ * with intervals, durations, relationships, and predictive capabilities.
  */
 export class AdvancedTemporalManager extends TemporalManagerBase {
     constructor(nar) {
         super(nar);
-        this._isAdvanced = true; // Debug property
-        // This map will store the actual TimeInterval objects.
-        // The key is the hyperedge ID of the interval term.
-        this.intervals = new Map();
-        this.relations = new Map();
+        this.intervals = new Map(); // Stores TimeInterval objects
+        this.projections = new Map(); // Stores future projections
     }
 
     /**
-     * Creates and stores a temporal interval for a given term.
-     * @param {string} term - The term to associate with the interval.
-     * @param {number} start - The start timestamp (ms).
-     * @param {number} end - The end timestamp (ms).
-     * @param {object} options - Truth and budget options for the hyperedge.
-     * @returns {string} The ID of the created interval hyperedge.
+     * Define temporal interval with start/end times or a duration pattern.
+     * @param {string} term - Term being described.
+     * @param {string|number} start - Start time or a duration pattern like "daily".
+     * @param {string|number} [end] - End time (if start is absolute) or a pattern.
+     * @param {Object} [options] - Additional options.
      */
-    interval(term, start, end, options = {}) {
-        const intervalId = id('TimeInterval', [term, start, end]);
+    during(term, start, end, options = {}) {
+        // This handles cases like `during('meeting', '9:00-10:00', 'daily')`
+        // where the third argument is a pattern.
+        if (typeof end === 'string' && !end.includes(':') && !Number.isFinite(parseInt(end))) {
+            const pattern = end;
+            return this._addTemporalInterval(term, start, null, pattern, options);
+        }
+        // This handles cases like `during('meeting', 1672531200000, 1672534800000)`
+        return this._addTemporalInterval(term, start, end, null, options);
+    }
+
+    /**
+     * Define a relative temporal relationship between two terms.
+     * @param {string} term1 - First term.
+     * @param {string} term2 - Second term.
+     * @param {string} relation - 'before', 'after', 'during', 'overlaps'.
+     * @param {Object} [options] - Confidence and priority.
+     */
+    relate(term1, term2, relation, options = {}) {
+        return this._addTemporalRelation(term1, term2, relation, options);
+    }
+
+    /**
+     * Project future events based on patterns.
+     * @param {string} event - Event to project.
+     * @param {string} pattern - Temporal pattern (e.g., 'during(commute)').
+     * @param {number} horizon - Minutes into the future to project.
+     */
+    predict(event, pattern, horizon) {
+        return this._addTemporalProjection(event, pattern, horizon);
+    }
+
+    /**
+     * Get the current temporal context.
+     * @returns {Object} Current time context.
+     */
+    getContext() {
+        return this._getTemporalContext();
+    }
+
+    /**
+     * Internal method to add a temporal interval.
+     * @private
+     */
+    _addTemporalInterval(term, start, end, pattern, options) {
+        const finalArgs = [term, start, end, pattern].filter(Boolean);
+        const intervalId = id('TimeInterval', finalArgs);
         const interval = new TimeInterval(intervalId, term, start, end, options);
         this.intervals.set(intervalId, interval);
 
-        // Also represent the interval symbolically in the hypergraph for general reasoning
-        this.nar.api.addHyperedge('TimeInterval', [term, start, end], options);
+        // Add to hypergraph, ensuring the ID matches exactly
+        this.nar.api.addHyperedge('TimeInterval', finalArgs, options);
         return intervalId;
     }
 
     /**
-     * Creates a symbolic relationship between two existing temporal intervals.
-     * It computes the relation using Allen's algebra and asserts it into the hypergraph.
-     * @param {string} intervalId1 - The ID of the first interval hyperedge.
-     * @param {string} intervalId2 - The ID of the second interval hyperedge.
-     * @param {object} options - Truth and budget options for the relation.
-     * @returns {string|null} The ID of the created relation hyperedge, or null if intervals don't exist.
+     * Internal method to add a temporal relation.
+     * @private
      */
-    relate(intervalId1, intervalId2, options = {}) {
-        const interval1 = this.intervals.get(intervalId1);
-        const interval2 = this.intervals.get(intervalId2);
-
-        if (!interval1 || !interval2) {
-            console.warn('Cannot create temporal relation: one or both intervals not found.', { intervalId1, intervalId2 });
-            return null;
-        }
-
-        const relationType = interval1.relateTo(interval2);
-        if (relationType === 'unknown') {
-            return null;
-        }
-
-        // Store the computed relation symbolically in the hypergraph
-        const relationId = this.nar.api.addHyperedge('TemporalRelation', [intervalId1, intervalId2, relationType], options);
-
-        // Also store it on the interval objects for quick access
-        interval1.relations.set(intervalId2, relationType);
-        interval2.relations.set(intervalId1, this._getInverseTemporalRelation(relationType));
-
+    _addTemporalRelation(term1, term2, relation, options) {
+        const relationId = id('TemporalRelation', [term1, term2, relation]);
+        this.nar.api.addHyperedge('TemporalRelation', [term1, term2, relation], options);
         return relationId;
     }
 
     /**
-     * Finds intervals related to a subject with optional temporal constraints.
-     * @param {string} subject - The term to query for.
-     * @param {object} [constraints={}] - Constraints like { before: timestamp, after: timestamp }.
-     * @returns {Array<object>} A list of matching intervals and their details.
+     * Internal method to add a temporal projection.
+     * @private
      */
-    query(subject, constraints = {}) {
-        const results = [];
-        this.intervals.forEach(interval => {
-            if (interval.term === subject) {
-                let matches = true;
-                if (constraints.before && interval.end >= constraints.before) matches = false;
-                if (constraints.after && interval.start <= constraints.after) matches = false;
+    _addTemporalProjection(event, pattern, horizon) {
+        const projectionId = id('TemporalProjection', [event, pattern, horizon]);
+        const projectionTime = Date.now() + horizon * 60000; // horizon in minutes
 
-                if (matches) {
-                    results.push({
-                        intervalId: interval.id,
-                        term: interval.term,
-                        start: interval.start,
-                        end: interval.end,
-                        truth: interval.truth
-                    });
-                }
-            }
+        this.projections.set(projectionId, { event, pattern, horizon, projectionTime });
+
+        // Add to hypergraph as a belief about the future
+        this.nar.api.addHyperedge('TemporalProjection', [event, pattern, horizon], {
+            truth: new TruthValue(0.7, 0.6) // Projections are uncertain
         });
-        return results;
+
+        return projectionId;
     }
 
     /**
-     * Gets the inverse of a temporal relation.
-     * @param {string} relation - The relation from Allen's algebra.
-     * @returns {string} The inverse relation.
+     * Internal method to get temporal context.
+     * @private
      */
-    _getInverseTemporalRelation(relation) {
-        const inverses = {
-            'before': 'after', 'after': 'before',
-            'meets': 'metBy', 'metBy': 'meets',
-            'overlaps': 'overlappedBy', 'overlappedBy': 'overlaps',
-            'during': 'contains', 'contains': 'during',
-            'starts': 'startedBy', 'startedBy': 'starts',
-            'finishes': 'finishedBy', 'finishedBy': 'finishes',
-            'equals': 'equals'
+    _getTemporalContext() {
+        const now = new Date();
+        const hour = now.getHours();
+        let currentPeriod = 'night';
+        if (hour >= 5 && hour < 12) currentPeriod = 'morning';
+        else if (hour >= 12 && hour < 17) currentPeriod = 'afternoon';
+        else if (hour >= 17 && hour < 21) currentPeriod = 'evening';
+
+        const seasons = ['winter', 'spring', 'summer', 'fall'];
+        const season = seasons[Math.floor((now.getMonth() / 12) * 4) % 4];
+
+        return {
+            timestamp: now.getTime(),
+            currentPeriod,
+            season
         };
-        return inverses[relation] || 'unknown';
     }
 
     /**
-     * Adjusts the temporal horizon. This is a placeholder for now but could be
-     * used by the MetaReasoner to focus or broaden temporal analysis.
+     * Adjusts the temporal horizon. Could be used by MetaReasoner.
      */
     adjustTemporalHorizon() {
-        // This could be used to prune old intervals from the `this.intervals` map
-        // or to adjust the scope of temporal queries.
-    }
-
-    /**
-     * Gets the current temporal context.
-     * @returns {{timestamp: number, currentPeriod: string}}
-     */
-    getContext() {
-        return { timestamp: Date.now(), currentPeriod: 'present' };
+        const now = Date.now();
+        // Prune old projections
+        for (const [id, proj] of this.projections.entries()) {
+            if (proj.projectionTime < now) {
+                this.projections.delete(id);
+            }
+        }
     }
 }

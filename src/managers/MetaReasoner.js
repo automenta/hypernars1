@@ -1,181 +1,155 @@
+/**
+ * Meta-reasoning system for self-monitoring and optimization of the NAR.
+ * It allows the system to adapt its strategies and resource allocation
+ * based on performance and context.
+ */
 export class MetaReasoner {
     constructor(nar) {
         this.nar = nar;
-        this.performanceHistory = [];
-        this.strategyEffectiveness = new Map();
-        this.currentFocus = 'default';
-        this.focusHistory = [];
-        this.recentContradictions = 0;
+        this.strategies = []; // Holds strategy configurations
+        this.trace = []; // Holds a trace of recent reasoning steps
+        this.metricsHistory = []; // Holds a history of performance metrics
 
-        // Default effectiveness for sources
-        this.strategyEffectiveness.set('source:internal', { successes: 10, attempts: 12 }); // Assume internal is mostly reliable
-
-        // Listen for events to track system activity
-        this.nar.on('contradiction-resolved', () => this.recentContradictions++);
-    }
-
-/**
- * Records the source of a belief, allowing the system to track source reliability.
- * @param {string} hyperedgeId The ID of the belief.
- * @param {string} source The source identifier (e.g., 'user_input', 'sensor_A').
- */
-recordSource(hyperedgeId, source) {
-    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-    if (!hyperedge) return;
-
-    // Find the primary belief to attach the source to
-    const belief = hyperedge.getStrongestBelief();
-    if (belief) {
-        belief.source = source;
-    }
-
-    // Initialize source effectiveness if not already tracked
-    if (!this.strategyEffectiveness.has(`source:${source}`)) {
-        this.strategyEffectiveness.set(`source:${source}`, { successes: 5, attempts: 10, lastUpdated: Date.now() }); // Start with neutral effectiveness
-    }
-}
-
-    optimizeResources() {
-        this._updatePerformanceMetrics();
-        this._adjustReasoningFocus();
-        this._adjustResourceAllocation();
-        this._selectOptimalStrategies();
-    }
-
-    trackOutcome(strategyName, outcome, metrics = {}) {
-        if (!this.strategyEffectiveness.has(strategyName)) {
-            this.strategyEffectiveness.set(strategyName, {
-                successes: 0,
-                attempts: 0,
-                lastUpdated: Date.now(),
-                metrics: {}
-            });
-        }
-
-        const record = this.strategyEffectiveness.get(strategyName);
-        record.attempts++;
-        if (outcome === 'success') {
-            record.successes++;
-        }
-        record.lastUpdated = Date.now();
-    }
-
-    getStrategyEffectiveness(strategyName) {
-        const record = this.strategyEffectiveness.get(strategyName);
-        if (!record || record.attempts === 0) return 0.5; // Default effectiveness
-
-        const successRate = record.successes / record.attempts;
-        const recencyFactor = Math.exp(-(Date.now() - record.lastUpdated) / (1000 * 60 * 10)); // 10 minute decay
-
-        return successRate * 0.8 + recencyFactor * 0.2;
-    }
-
-    _updatePerformanceMetrics() {
-        const queueSize = this.nar.state.eventQueue.heap.length;
-        const activeConcepts = this.nar.state.activations.size;
-        const resourcePressure = Math.min(1.0, queueSize / (activeConcepts * 10 + 1));
-
-        // Decay the contradiction counter
-        this.recentContradictions *= 0.95;
-
-        const performance = {
-            timestamp: Date.now(),
-            queueSize,
-            activeConcepts,
-            resourcePressure,
-            questionSuccessRate: this._getQuestionSuccessRate(),
-            contradictionRate: this.recentContradictions
-        };
-
-        this.performanceHistory.push(performance);
-        if (this.performanceHistory.length > 200) {
-            this.performanceHistory.shift();
-        }
-    }
-
-    _getQuestionSuccessRate() {
-        let successes = 0;
-        let total = 0;
-        // This is a simplified proxy. A real implementation would need to track question outcomes.
-        this.nar.state.questionPromises.forEach(promise => {
-            if (promise.resolved) successes++;
-            total++;
+        // Add a default strategy
+        this.configureStrategy({
+            context: 'default',
+            strategy: 'balanced',
+            priority: 0
         });
-
-        if (total === 0) return 0.75; // Assume good performance if no questions asked
-        return successes / total;
     }
 
-    _adjustReasoningFocus() {
-        let newFocus = 'default';
+    /**
+     * Configure a reasoning strategy based on a specific context.
+     * @param {Object} config - Strategy configuration.
+     * @param {string} config.context - When to apply (e.g., 'high-uncertainty').
+     * @param {string} config.strategy - Which strategy to use.
+     * @param {number} config.priority - Priority of this configuration.
+     */
+    configureStrategy(config) {
+        this.strategies.push(config);
+        this.strategies.sort((a, b) => b.priority - a.priority);
+    }
 
-        if (this.nar.state.questionPromises.size > 2) {
-            newFocus = 'question-answering';
-        } else if (this.recentContradictions > 2) { // Check the decayed counter
-            newFocus = 'contradiction-resolution';
+    /**
+     * Get the current reasoning strategy based on the system's context.
+     * @returns {string} Active strategy name.
+     */
+    getActiveStrategy() {
+        const context = this._assessReasoningContext();
+        const strategy = this.strategies.find(s =>
+            context.includes(s.context) || s.context === 'default'
+        );
+        return strategy ? strategy.strategy : 'balanced';
+    }
+
+    /**
+     * Self-monitor reasoning performance and adapt strategies and parameters.
+     * This method should be called periodically in the main system loop.
+     */
+    selfMonitor() {
+        // 1. Track metrics
+        const metrics = {
+            timestamp: Date.now(),
+            inferenceRate: this._calculateInferenceRate(),
+            contradictionRate: this._calculateContradictionRate(),
+            resourceUtilization: this._calculateResourceUtilization(),
+            queueSize: this.nar.state.eventQueue.heap.length,
+        };
+        this.metricsHistory.push(metrics);
+        if (this.metricsHistory.length > 100) {
+            this.metricsHistory.shift();
+        }
+        this.addToTrace({ type: 'self-monitor', metrics });
+
+        // 2. Detect issues based on metrics
+        const issues = [];
+        if (metrics.contradictionRate > 0.3) issues.push('high-contradictions');
+        if (metrics.inferenceRate < 0.1) issues.push('low-inference-rate');
+        if (metrics.resourceUtilization > 0.8) issues.push('high-resource-utilization');
+
+        // 3. Adapt if needed
+        if (issues.length > 0) {
+            this._adaptReasoning(issues, metrics);
         }
 
-        if (newFocus !== this.currentFocus) {
-            this.focusHistory.push({ from: this.currentFocus, to: newFocus, timestamp: Date.now() });
-            if (this.focusHistory.length > 20) this.focusHistory.shift();
-            this.currentFocus = newFocus;
-            this.nar.notifyListeners('focus-changed', { newFocus });
+        return {
+            metrics,
+            issues,
+            strategy: this.getActiveStrategy()
+        };
+    }
+
+    /**
+     * Get the reasoning trace for debugging and analysis.
+     * @param {number} [depth=5] - How deep to trace back.
+     * @returns {Array} The last `depth` entries of the trace history.
+     */
+    getTrace(depth = 5) {
+        return this.trace.slice(-depth);
+    }
+
+    /**
+     * Adds an entry to the reasoning trace.
+     * @param {Object} traceEntry - The entry to add to the trace.
+     */
+    addToTrace(traceEntry) {
+        this.trace.push({ ...traceEntry, timestamp: Date.now() });
+        if (this.trace.length > 50) { // Keep trace to a manageable size
+            this.trace.shift();
         }
     }
 
-    _adjustResourceAllocation() {
-        const lastPerf = this.performanceHistory[this.performanceHistory.length - 1];
-        if (!lastPerf) return;
+    // --- Private Helper Methods for Self-Monitoring ---
 
-        const { resourcePressure, questionSuccessRate, contradictionRate } = lastPerf;
+    _assessReasoningContext() {
+        // This is a simplified context assessment. A more advanced version
+        // would analyze the nature of current tasks and knowledge.
+        const context = ['default'];
+        const lastMetric = this.metricsHistory[this.metricsHistory.length - 1];
+        if (!lastMetric) return context;
+
+        if (lastMetric.contradictionRate > 0.3) context.push('high-uncertainty');
+        if (this.nar.state.questionPromises.size > 0) context.push('question-answering');
+        return context;
+    }
+
+    _calculateInferenceRate() {
+        // Placeholder: A real implementation would track derivations over time.
+        // For now, let's use a proxy based on derivation cache activity.
+        const cache = this.nar.state.index.derivationCache;
+        if (!cache || cache.size === 0) return 0.5;
+        // This is a mock value.
+        return Math.min(1.0, (cache.newThisCycle || 0) / 10.0);
+    }
+
+    _calculateContradictionRate() {
+        // Placeholder: A real implementation would track contradiction events.
+        const contradictionEvents = this.trace.filter(t => t.type === 'contradiction-resolved').length;
+        return Math.min(1.0, contradictionEvents / this.trace.length);
+    }
+
+    _calculateResourceUtilization() {
+        const queueSize = this.nar.state.eventQueue.heap.length;
+        const maxQueueSize = 2000; // Assumed max
+        return Math.min(1.0, queueSize / maxQueueSize);
+    }
+
+    _adaptReasoning(issues, metrics) {
+        this.addToTrace({ type: 'adaptation', issues, metrics });
         const policy = this.nar.config;
         const adaptationRate = 0.05;
 
-        // If success rate is low, be more generous with resources
-        if (questionSuccessRate < 0.6) {
-            policy.budgetThreshold = Math.max(0.01, policy.budgetThreshold * (1 - adaptationRate));
-            policy.maxPathLength = Math.min(20, policy.maxPathLength + 1);
+        if (issues.includes('high-contradictions')) {
+            // Become more skeptical
+            policy.inferenceThreshold = Math.min(0.5, policy.inferenceThreshold * (1 + adaptationRate));
+        }
+        if (issues.includes('low-inference-rate')) {
+            // Be more eager to infer
             policy.inferenceThreshold = Math.max(0.1, policy.inferenceThreshold * (1 - adaptationRate));
         }
-
-        // If pressure is high, be more strict
-        if (resourcePressure > 0.7) {
+        if (issues.includes('high-resource-utilization')) {
+            // Be stricter with budget
             policy.budgetThreshold = Math.min(0.2, policy.budgetThreshold * (1 + adaptationRate));
-            policy.maxPathLength = Math.max(8, Math.floor(policy.maxPathLength * (1 - adaptationRate)));
         }
-
-        // If contradiction rate is high, be more cautious
-        if (contradictionRate > 1.5) { // The counter is decayed, so > 1.5 means several recent contradictions
-            policy.inferenceThreshold = Math.min(0.5, policy.inferenceThreshold * (1 + adaptationRate));
-            if (this.nar.learningEngine) {
-                this.nar.learningEngine.learningRate *= 0.9; // Learn more slowly from potentially noisy data
-            }
-        } else {
-             if (this.nar.learningEngine) {
-                this.nar.learningEngine.learningRate = Math.min(0.1, this.nar.learningEngine.learningRate * 1.05); // Gradually restore learning rate
-            }
-        }
-
-        // Adapt based on focus
-        if (this.currentFocus === 'question-answering') {
-            policy.inferenceThreshold *= 0.9; // Be more eager to infer
-        } else if (this.currentFocus !== 'contradiction-resolution') {
-            policy.inferenceThreshold = Math.min(0.3, policy.inferenceThreshold * 1.01); // Gradually restore to default
-        }
-    }
-
-    _selectOptimalStrategies() {
-        // Example: prioritize derivation rules based on effectiveness
-        const ruleEffectiveness = {};
-        const ruleNames = ['Inheritance', 'Similarity', 'Implication']; // Example rules
-
-        ruleNames.forEach(rule => {
-            ruleEffectiveness[rule] = this.getStrategyEffectiveness(`derive_${rule}`);
-        });
-
-        // This can be used by the derivation system to prioritize rules
-        this.nar.config.derivationPriority = Object.entries(ruleEffectiveness)
-            .sort((a, b) => b[1] - a[1])
-            .map(([rule]) => rule);
     }
 }

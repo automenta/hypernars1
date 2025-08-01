@@ -1,50 +1,71 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { NARHyper } from '../NARHyper.js';
+import { MetaReasoner } from './MetaReasoner.js';
+
+const config = {
+    modules: {
+        MetaReasoner: MetaReasoner
+    }
+};
 
 describe('MetaReasoner', () => {
-    it('should track source reliability', () => {
-        const nar = new NARHyper();
-        const beliefId = nar.nal('a.');
 
-        nar.metaReasoner.recordSource(beliefId, 'test_source');
+    it('should configure and retrieve strategies', () => {
+        const nar = new NARHyper(config);
 
-        const effectiveness = nar.metaReasoner.getStrategyEffectiveness('source:test_source');
-        // It's initialized with 5/10 successes and full recency, so (0.5 * 0.8) + (1.0 * 0.2) = 0.6
-        expect(effectiveness).toBeCloseTo(0.6);
+        nar.metaReasoner.configureStrategy({
+            context: 'test-context',
+            strategy: 'test-strategy',
+            priority: 10
+        });
+
+        // Mock the context assessment to return our test context
+        jest.spyOn(nar.metaReasoner, '_assessReasoningContext').mockReturnValue(['test-context']);
+
+        const activeStrategy = nar.metaReasoner.getActiveStrategy();
+        expect(activeStrategy).toBe('test-strategy');
     });
 
-    it('should update derivationPriority based on rule effectiveness', () => {
-        const nar = new NARHyper();
+    it('should run self-monitoring and produce metrics', () => {
+        const nar = new NARHyper(config);
 
-        // Simulate a history of 'Inheritance' being more successful than 'Similarity'
-        nar.metaReasoner.trackOutcome('derive_Inheritance', 'success');
-        nar.metaReasoner.trackOutcome('derive_Inheritance', 'success');
-        nar.metaReasoner.trackOutcome('derive_Similarity', 'failure');
-        nar.metaReasoner.trackOutcome('derive_Similarity', 'failure');
+        // Add some activity to generate metrics
+        nar.state.eventQueue.push({ budget: { priority: 0.5 } });
+        nar.metaReasoner.addToTrace({ type: 'contradiction-resolved' });
 
-        // Run optimization
-        nar.metaReasoner.optimizeResources();
+        const report = nar.metaReasoner.selfMonitor();
 
-        const priorityList = nar.config.derivationPriority;
-
-        expect(priorityList).toBeDefined();
-        // Inheritance should now have a higher priority (appear earlier in the list)
-        expect(priorityList.indexOf('Inheritance')).toBeLessThan(priorityList.indexOf('Similarity'));
+        expect(report).toBeDefined();
+        expect(report.metrics).toBeDefined();
+        expect(report.metrics.queueSize).toBe(1);
+        expect(report.metrics.contradictionRate).toBeGreaterThan(0);
+        expect(report.issues).toBeInstanceOf(Array);
     });
 
-    it('should adjust resource allocation based on performance', () => {
-        const nar = new NARHyper();
-        const initialBudgetThreshold = nar.config.budgetThreshold;
+    it('should adapt reasoning parameters based on detected issues', () => {
+        const nar = new NARHyper(config);
+        const initialInferenceThreshold = nar.config.inferenceThreshold;
 
-        // Simulate high resource pressure
-        for (let i = 0; i < 200; i++) {
-            nar.state.eventQueue.push({ budget: { priority: 0.5 } });
-        }
-        nar.state.activations.set('dummy', 0.1); // To prevent division by zero
+        // Mock the metric calculators to force ONLY the desired issue
+        jest.spyOn(nar.metaReasoner, '_calculateContradictionRate').mockReturnValue(0.5); // high-contradictions
+        jest.spyOn(nar.metaReasoner, '_calculateInferenceRate').mockReturnValue(0.5); // normal inference rate
 
-        nar.metaReasoner.optimizeResources();
+        nar.metaReasoner.selfMonitor();
 
-        // With high pressure, the budget threshold should increase to be more selective
-        expect(nar.config.budgetThreshold).toBeGreaterThan(initialBudgetThreshold);
+        // With high contradictions, the inference threshold should be increased (to be more skeptical)
+        expect(nar.config.inferenceThreshold).toBeCloseTo(initialInferenceThreshold * 1.05);
+    });
+
+    it('should provide a reasoning trace', () => {
+        const nar = new NARHyper(config);
+
+        nar.metaReasoner.addToTrace({ type: 'test-event-1' });
+        nar.metaReasoner.addToTrace({ type: 'test-event-2' });
+
+        const trace = nar.metaReasoner.getTrace(2);
+
+        expect(trace.length).toBe(2);
+        expect(trace[0].type).toBe('test-event-1');
+        expect(trace[1].type).toBe('test-event-2');
     });
 });

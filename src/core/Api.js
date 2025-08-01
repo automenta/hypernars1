@@ -18,6 +18,14 @@ export class Api {
     let context = null;
     let cleanStatement = statement;
 
+    // Add temporal and source context from spec `a`
+    if (!options.timestamp && this.nar.temporalManager) {
+        options.timestamp = Date.now();
+    }
+    if (!options.source && this.nar.metaReasoner) {
+        options.source = this.nar.metaReasoner.getActiveStrategy();
+    }
+
     const contextMatch = statement.match(/@context:([^ ]+)/);
     if (contextMatch) {
       context = contextMatch[1];
@@ -35,7 +43,47 @@ export class Api {
   }
 
   nalq(question, options = {}) {
-    return this.nar.questionHandler.ask(question, options);
+    // Logic from spec `a` to add urgency and adjust timeout
+    if (!options.urgency) {
+        options.urgency = this._assessQuestionUrgency(question);
+    }
+    if (!options.timeout && this.nar.config) {
+        options.timeout = this.nar.config.questionTimeout * (1.5 - Math.min(1.0, options.urgency || 0.5));
+    }
+    return this.nar.expressionEvaluator.parseQuestion(question, options);
+  }
+
+  /**
+   * Create a contextual temporal sequence.
+   * From spec `a`.
+   */
+  seq(...terms) {
+    const options = (typeof terms[terms.length-1] === 'object') ? terms.pop() : {};
+    const timestamp = options.timestamp || Date.now();
+
+    // Add temporal context
+    const context = options.context || this.nar.temporalManager?.getContext?.() || {};
+
+    terms.slice(0, -1).forEach((term, i) => {
+      const nextTerm = terms[i + 1];
+      const stepTimestamp = timestamp + (i * (options.interval || 1000));
+
+      // Use the temporal manager to assert the relationship
+      this.nar.temporalManager.relate(term, nextTerm, 'before', {
+          truth: options.truth || new TruthValue(0.9, 0.9),
+          timestamp: stepTimestamp
+      });
+
+      // Add contextual information (with placeholder helpers)
+      if (context.period) {
+        this._addTemporalContext(term, context.period, stepTimestamp);
+      }
+      if (context.location) {
+        this._addLocationContext(term, context.location);
+      }
+    });
+
+    return id('Sequence', terms);
   }
 
   /**
@@ -135,7 +183,7 @@ export class Api {
     if (finalBudget && !(finalBudget instanceof Budget)) {
         finalBudget = new Budget(finalBudget.priority, finalBudget.durability, finalBudget.quality);
     } else if (!finalBudget) {
-        finalBudget = this.nar.memoryManager.dynamicBudgetAllocation({ type: 'revision' }, { importance: priority });
+        finalBudget = this.nar.memoryManager.allocateResources({ type: 'revision' }, { importance: priority });
     }
 
     // Delegate revision and contradiction handling to the hyperedge itself
@@ -148,5 +196,30 @@ export class Api {
     }
 
     return termId;
+  }
+
+  // --- Placeholder helpers for enhanced macros ---
+
+  _assessQuestionUrgency(question) {
+    // Placeholder: more complex logic would analyze question structure
+    if (question.includes('?')) {
+        return 0.7; // High urgency for direct questions
+    }
+    return 0.4; // Lower urgency for goal-like queries
+  }
+
+  _addTemporalContext(term, period, timestamp) {
+    // Placeholder: creates a hyperedge linking the term to a temporal period
+    this.addHyperedge('inPeriod', [term, period], {
+        truth: TruthValue.certain(),
+        timestamp
+    });
+  }
+
+  _addLocationContext(term, location) {
+    // Placeholder: creates a hyperedge linking the term to a location
+    this.addHyperedge('atLocation', [term, location], {
+        truth: TruthValue.certain()
+    });
   }
 }

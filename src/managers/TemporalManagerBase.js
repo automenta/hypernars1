@@ -22,7 +22,11 @@ export class TemporalManagerBase {
      * Provides the current temporal context.
      */
     getContext() {
-        throw new Error("Method 'getContext()' must be implemented.");
+        return {
+            timestamp: Date.now(),
+            currentPeriod: 'present',
+            season: 'unknown'
+        };
     }
 
     predict(event, pattern, horizon) {

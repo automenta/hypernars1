@@ -1,107 +1,85 @@
-import { describe, it, expect, jest } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { NARHyper } from '../NARHyper.js';
 import { TruthValue } from '../support/TruthValue.js';
 import { Budget } from '../support/Budget.js';
 import { id } from '../support/utils.js';
+import { AdvancedContradictionManager } from '../managers/AdvancedContradictionManager.js';
+
+// Use the AdvancedContradictionManager for these tests
+const config = {
+    modules: {
+        ContradictionManager: AdvancedContradictionManager
+    }
+};
 
 describe('AdvancedContradictionManager', () => {
 
-    it('should accept a new belief if its evidence is significantly stronger', () => {
-        const nar = new NARHyper();
+    it('should resolve a contradiction in favor of the belief with stronger evidence', () => {
+        const nar = new NARHyper(config);
         const termId = id('Term', ['a']);
 
-        nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.1, 0.9), budget: new Budget(0.1, 0.9, 0.9) });
+        // Add two contradictory beliefs
         nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.1, 0.9), budget: new Budget(0.1, 0.9, 0.9) });
 
         const hyperedge = nar.state.hypergraph.get(termId);
-        const finalBelief = hyperedge.getStrongestBelief();
+        expect(hyperedge.beliefs.length).toBe(2); // Both beliefs should exist initially
 
-        // The new belief should have won
-        expect(finalBelief.truth.frequency).toBe(0.9);
-        expect(hyperedge.beliefs.length).toBe(1); // The old one should be replaced
+        // Add evidence. Belief 0 has frequency 0.9, belief 1 has frequency 0.1.
+        nar.contradictionManager.addEvidence(termId, { source: 'A', strength: 0.9, beliefIndex: 0 }); // Strong evidence for the first belief
+        nar.contradictionManager.addEvidence(termId, { source: 'B', strength: 0.2, beliefIndex: 1 }); // Weak evidence for the second
+
+        // Resolve the contradiction
+        const result = nar.contradictionManager.resolve(termId);
+
+        expect(result.resolved).toBe(true);
+        expect(hyperedge.beliefs.length).toBe(1); // The weaker belief should be removed
+        expect(hyperedge.getStrongestBelief().truth.frequency).toBe(0.9);
     });
 
-    it('should reject a new belief if its evidence is significantly weaker', () => {
-        const nar = new NARHyper();
+    it('should not resolve a contradiction if evidence strength is too similar', () => {
+        const nar = new NARHyper(config);
         const termId = id('Term', ['b']);
 
         nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
-        nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.1, 0.9), budget: new Budget(0.1, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.1, 0.9), budget: new Budget(0.8, 0.9, 0.9) });
 
         const hyperedge = nar.state.hypergraph.get(termId);
-        const finalBelief = hyperedge.getStrongestBelief();
 
-        // The original belief should remain
-        expect(finalBelief.truth.frequency).toBe(0.9);
-        expect(hyperedge.beliefs.length).toBe(1);
+        // Add evidence of similar strength
+        nar.contradictionManager.addEvidence(termId, { source: 'A', strength: 0.8, beliefIndex: 0 });
+        nar.contradictionManager.addEvidence(termId, { source: 'B', strength: 0.7, beliefIndex: 1 });
+
+        const result = nar.contradictionManager.resolve(termId);
+
+        expect(result.resolved).toBe(false);
+        expect(result.reason).toBe('Insufficient evidence difference');
+        expect(hyperedge.beliefs.length).toBe(2); // Both beliefs should remain
     });
 
-    it('should merge beliefs of similar strength', () => {
-        const nar = new NARHyper();
+    it('should provide a detailed analysis of a contradiction', () => {
+        const nar = new NARHyper(config);
         const termId = id('Term', ['c']);
 
         nar.api.addHyperedge('Term', ['c'], { truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
-        nar.api.addHyperedge('Term', ['c'], { truth: new TruthValue(0.1, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['c'], { truth: new TruthValue(0.2, 0.7), budget: new Budget(0.7, 0.9, 0.9) });
 
-        const hyperedge = nar.state.hypergraph.get(termId);
-        const finalBelief = hyperedge.getStrongestBelief();
+        nar.contradictionManager.addEvidence(termId, { source: 'A', strength: 0.9, beliefIndex: 0 });
+        nar.contradictionManager.addEvidence(termId, { source: 'B', strength: 0.3, beliefIndex: 1 });
 
-        // The frequency should be revised towards the middle (0.5)
-        expect(finalBelief.truth.frequency).toBeCloseTo(0.5);
-        // Confidence should be higher as it's a revision of two confident beliefs
-        expect(finalBelief.truth.confidence).toBeGreaterThanOrEqual(0.8);
-    });
+        const analysis = nar.contradictionManager.analyze(termId);
 
-    it('should split a concept when a contextual contradiction occurs', () => {
-        const nar = new NARHyper();
-        const originalId = id('Inheritance', ['bird', 'flyer']);
+        expect(analysis).toBeDefined();
+        expect(analysis.contradictions.length).toBe(2);
 
-        // Add a general belief
-        nar.api.addHyperedge('Inheritance', ['bird', 'flyer'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
+        // The contradictions should be sorted by evidence strength
+        expect(analysis.contradictions[0].truth.frequency).toBe(0.9);
+        expect(analysis.contradictions[1].truth.frequency).toBe(0.2);
 
-        // Mock the context detection to force a split
-        jest.spyOn(nar.contradictionManager, '_determineContradictionContext').mockReturnValue({ type: 'contextual' });
+        expect(analysis.contradictions[0].evidence.length).toBe(1);
+        expect(analysis.contradictions[0].evidence[0].source).toBe('A');
+        expect(analysis.contradictions[0].evidenceStrength).toBeGreaterThan(analysis.contradictions[1].evidenceStrength);
 
-        // Add a contradictory belief that will now be treated as contextual
-        nar.api.addHyperedge('Inheritance', ['bird', 'flyer'], { truth: new TruthValue(0.1, 0.99), budget: new Budget(0.95, 0.9, 0.9) });
-
-        const originalHyperedge = nar.state.hypergraph.get(originalId);
-        // The original hyperedge should still have its original belief, as the new one was split off
-        expect(originalHyperedge.getStrongestBelief().truth.frequency).toBe(0.9);
-
-        // A new hyperedge should be created for the specific context
-        const newConceptId = `${originalId}|context:contextual`;
-        const newHyperedge = nar.state.hypergraph.get(newConceptId);
-        expect(newHyperedge).toBeDefined();
-        expect(newHyperedge.type).toBe('Inheritance');
-        // And it should contain the new belief
-        expect(newHyperedge.getStrongestBelief().truth.frequency).toBe(0.1);
-    });
-
-    it('should accept a newer belief in a temporal context', () => {
-        const nar = new NARHyper();
-        const termId = id('Term', ['d']);
-        const originalTime = Date.now();
-
-        // Mock Date.now to control timestamps
-        const dateSpy = jest.spyOn(Date, 'now');
-
-        // Add the first belief at an "old" time
-        dateSpy.mockReturnValue(originalTime);
-        nar.api.addHyperedge('Term', ['d'], { truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
-
-        // Add the second, contradictory belief at a "newer" time
-        dateSpy.mockReturnValue(originalTime + 2000); // 2 seconds later
-        nar.api.addHyperedge('Term', ['d'], { truth: new TruthValue(0.1, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
-
-        const hyperedge = nar.state.hypergraph.get(termId);
-        const finalBelief = hyperedge.getStrongestBelief();
-
-        // The newer belief (frequency 0.1) should have been accepted
-        expect(finalBelief.truth.frequency).toBe(0.1);
-        expect(hyperedge.beliefs.length).toBe(1);
-
-        // Restore the spy
-        dateSpy.mockRestore();
+        expect(analysis.resolutionSuggestion.resolved).toBe(true);
     });
 });

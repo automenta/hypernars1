@@ -66,7 +66,7 @@ export class QuestionHandler {
         }
         else {
           const hyperedgeId = id('Inheritance', [subject, predicate]);
-          const budget = this.nar.memoryManager.dynamicBudgetAllocation({ type: 'question' }, { importance: 1.0, urgency: 1.0 });
+          const budget = this.nar.memoryManager.allocateResources({ type: 'question' }, { importance: 1.0, urgency: 1.0 });
           this.nar.propagation.propagate(hyperedgeId, 1.0, budget, 0, 0, []);
         }
       }

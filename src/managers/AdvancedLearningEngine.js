@@ -100,11 +100,12 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         recent.forEach(exp => {
             if (exp.derivationPath && exp.derivationPath.length > 0) {
                 const pathKey = exp.derivationPath.join('->');
-                this.nar.metaReasoner.trackOutcome(
-                    `path:${pathKey}`,
-                    exp.success ? 'success' : 'failure',
-                    { accuracy: exp.accuracy }
-                );
+                this.nar.metaReasoner.addToTrace({
+                    type: 'learning-outcome',
+                    path: pathKey,
+                    outcome: exp.success ? 'success' : 'failure',
+                    accuracy: exp.accuracy
+                });
             }
         });
     }

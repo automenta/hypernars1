@@ -66,7 +66,7 @@ export class System {
   _runMaintenance() {
     this.nar.memoryManager.maintainMemory();
     this.nar.contradictionManager.resolveContradictions();
-    this.nar.metaReasoner.optimizeResources();
+    this.nar.metaReasoner.selfMonitor();
     this.nar.learningEngine.applyLearning();
     this.nar.temporalManager.adjustTemporalHorizon?.();
   }
