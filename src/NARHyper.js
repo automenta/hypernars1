@@ -10,6 +10,7 @@ import { id } from './support/utils.js';
 import { State } from './core/State.js';
 import { Api } from './core/Api.js';
 import { DerivationEngine } from './core/DerivationEngine.js';
+import { SimpleDerivationEngine } from './core/SimpleDerivationEngine.js';
 import { Propagation } from './core/Propagation.js';
 import { QuestionHandler } from './core/QuestionHandler.js';
 import { System } from './core/System.js';
@@ -35,36 +36,37 @@ export class NARHyper {
     // Core components
     this.state = new State(this.config);
     this.propagation = new Propagation(this);
-    this.derivationEngine = new DerivationEngine(this);
     this.questionHandler = new QuestionHandler(this);
     this.system = new System(this);
     this.api = new Api(this);
 
-    // Evaluator and Managers
+    // Evaluator, Managers, and Derivation Engine
     this.expressionEvaluator = new ExpressionEvaluator(this);
-    this._initializeManagers(config);
+    this._initializeModules(config);
 
     // Expose public API methods
     this._exposeApi();
   }
 
-  _initializeManagers(config) {
-    const managerClasses = {
+  _initializeModules(config) {
+    const moduleClasses = {
+        DerivationEngine,
         MemoryManager,
         ContradictionManager,
         MetaReasoner,
         LearningEngine,
         ExplanationSystem,
         TemporalManager,
-        ...(config.managers || {})
+        ...(config.modules || {})
     };
 
-    this.memoryManager = new managerClasses.MemoryManager(this);
-    this.contradictionManager = new managerClasses.ContradictionManager(this);
-    this.metaReasoner = new managerClasses.MetaReasoner(this);
-    this.learningEngine = new managerClasses.LearningEngine(this);
-    this.explanationSystem = new managerClasses.ExplanationSystem(this);
-    this.temporalManager = new managerClasses.TemporalManager(this);
+    this.derivationEngine = new moduleClasses.DerivationEngine(this);
+    this.memoryManager = new moduleClasses.MemoryManager(this);
+    this.contradictionManager = new moduleClasses.ContradictionManager(this);
+    this.metaReasoner = new moduleClasses.MetaReasoner(this);
+    this.learningEngine = new moduleClasses.LearningEngine(this);
+    this.explanationSystem = new moduleClasses.ExplanationSystem(this);
+    this.temporalManager = new moduleClasses.TemporalManager(this);
   }
 
   _exposeApi() {

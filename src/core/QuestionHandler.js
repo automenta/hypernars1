@@ -137,6 +137,7 @@ export class QuestionHandler {
             args: hyperedge.args,
             truth: belief.truth
           });
+          this.nar.learningEngine.recordSuccess?.(hyperedgeId);
         }
       }
     });

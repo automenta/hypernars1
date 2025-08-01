@@ -73,12 +73,12 @@ export class AdvancedMemoryManager extends MemoryManager {
 
         // Boost scores for recently derived terms (if learning engine is advanced enough)
         if (this.nar.learningEngine?.recentSuccesses) {
-            this.nar.learningEngine.recentSuccesses
-                .filter(success => Date.now() - success.timestamp < 10000) // Last 10 seconds
-                .forEach(success => {
-                    const currentScore = this.importanceScores.get(success.hyperedgeId) || 0;
+            Array.from(this.nar.learningEngine.recentSuccesses)
+                .filter(successId => this.nar.state.hypergraph.has(successId))
+                .forEach(successId => {
+                    const currentScore = this.importanceScores.get(successId) || 0;
                     this.importanceScores.set(
-                        success.hyperedgeId,
+                        successId,
                         Math.min(1.0, currentScore + 0.15)
                     );
                 });
@@ -140,5 +140,35 @@ export class AdvancedMemoryManager extends MemoryManager {
             }
         }
         return terms;
+    }
+
+    /**
+     * Dynamically allocates a budget for a new task or belief.
+     * @param {object} [context={}] - Context about the task (e.g., novelty, importance).
+     * @returns {Budget} A new budget object.
+     */
+    dynamicBudgetAllocation(context = {}) {
+        let { priority = 0.5, durability = 0.5, quality = 0.5 } = context;
+
+        // Adjust based on system load
+        const queueSize = this.nar.state.eventQueue.heap.length;
+        const systemLoad = Math.min(queueSize / 1000, 1.0); // Normalize to 0-1, 1000 is high load
+
+        // Reduce priority for low-value tasks when system is busy
+        if (systemLoad > 0.7 && priority < 0.5) {
+            priority *= (1 - (systemLoad - 0.7));
+        }
+
+        // Adjust based on novelty of information
+        if (context.noveltyScore) {
+            priority = Math.min(priority + context.noveltyScore * 0.15, 1.0);
+            quality = Math.min(quality + context.noveltyScore * 0.1, 1.0);
+        }
+
+        // Apply minimum thresholds to prevent starvation
+        priority = Math.max(priority, this.nar.config.minPriorityThreshold || 0.01);
+        durability = Math.max(durability, this.nar.config.minDurabilityThreshold || 0.01);
+
+        return new this.nar.Budget(priority, durability, quality);
     }
 }

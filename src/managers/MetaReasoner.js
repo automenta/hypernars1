@@ -5,9 +5,13 @@ export class MetaReasoner {
         this.strategyEffectiveness = new Map();
         this.currentFocus = 'default';
         this.focusHistory = [];
+        this.recentContradictions = 0;
 
         // Default effectiveness for sources
         this.strategyEffectiveness.set('source:internal', { successes: 10, attempts: 12 }); // Assume internal is mostly reliable
+
+        // Listen for events to track system activity
+        this.nar.on('contradiction-resolved', () => this.recentContradictions++);
     }
 
 /**
@@ -71,12 +75,16 @@ recordSource(hyperedgeId, source) {
         const activeConcepts = this.nar.state.activations.size;
         const resourcePressure = Math.min(1.0, queueSize / (activeConcepts * 10 + 1));
 
+        // Decay the contradiction counter
+        this.recentContradictions *= 0.95;
+
         const performance = {
             timestamp: Date.now(),
             queueSize,
             activeConcepts,
             resourcePressure,
-            questionSuccessRate: this._getQuestionSuccessRate()
+            questionSuccessRate: this._getQuestionSuccessRate(),
+            contradictionRate: this.recentContradictions
         };
 
         this.performanceHistory.push(performance);
@@ -103,7 +111,7 @@ recordSource(hyperedgeId, source) {
 
         if (this.nar.state.questionPromises.size > 2) {
             newFocus = 'question-answering';
-        } else if (this.nar.contradictionManager.contradictions.size > 5) {
+        } else if (this.recentContradictions > 2) { // Check the decayed counter
             newFocus = 'contradiction-resolution';
         }
 

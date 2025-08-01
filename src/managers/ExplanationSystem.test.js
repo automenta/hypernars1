@@ -1,5 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { NARHyper } from '../NARHyper.js';
+import { id } from '../support/utils.js';
 
 describe('ExplanationSystem', () => {
     it('should identify a direct assertion', () => {
@@ -15,13 +16,12 @@ describe('ExplanationSystem', () => {
         const p1 = nar.inheritance('A', 'B');
         const p2 = nar.inheritance('B', 'C');
 
-        // Manually create the conclusion with premises
-        const conclusion = nar.inheritance('A', 'C', { premises: [p1, p2] });
+        // Manually create the conclusion, passing the derivation rule name
+        const conclusion = nar.inheritance('A', 'C', { premises: [p1, p2], derivedBy: 'transitivity' });
 
         const explanation = nar.explain(conclusion, { depth: 3, format: 'json' });
         const path = JSON.parse(explanation);
 
-        // Find the conclusion step in the path
         const conclusionStep = path.find(step => step.id === conclusion);
         expect(conclusionStep).toBeDefined();
         expect(conclusionStep.derivationRule).toBe('transitivity');
@@ -32,8 +32,8 @@ describe('ExplanationSystem', () => {
         const p1 = nar.similarity('A', 'B');
         const p2 = nar.inheritance('A', 'C');
 
-        // Manually create the conclusion with premises
-        const conclusion = nar.inheritance('B', 'C', { premises: [p1, p2] });
+        // Manually create the conclusion, passing the derivation rule name
+        const conclusion = nar.inheritance('B', 'C', { premises: [p1, p2], derivedBy: 'analogy' });
 
         const explanation = nar.explain(conclusion, { depth: 3, format: 'json' });
         const path = JSON.parse(explanation);

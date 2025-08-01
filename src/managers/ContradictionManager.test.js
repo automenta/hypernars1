@@ -1,81 +1,80 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { NARHyper } from '../NARHyper.js';
-import { ContradictionManager } from './ContradictionManager.js';
-import { SimpleContradictionManager } from './SimpleContradictionManager.js';
-import { id } from '../support/utils.js';
 import { TruthValue } from '../support/TruthValue.js';
 import { Budget } from '../support/Budget.js';
+import { id } from '../support/utils.js';
 
-describe('ContradictionManager', () => {
-    it('should detect a contradiction when opposing beliefs are added', () => {
+describe('AdvancedContradictionManager', () => {
+
+    it('should accept a new belief if its evidence is significantly stronger', () => {
         const nar = new NARHyper();
         const termId = id('Term', ['a']);
 
-        // Add two beliefs with different budgets to ensure they are both stored
-        nar.addHyperedge('Term', ['a'], { truth: new TruthValue(1.0, 0.9), budget: new Budget(1.0, 0.9, 0.9) });
-        nar.addHyperedge('Term', ['a'], { truth: new TruthValue(0.0, 0.9), budget: new Budget(0.9, 1.0, 1.0) });
+        nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.1, 0.9), budget: new Budget(0.1, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
 
-        const wasContradictionDetected = nar.contradictionManager.detectContradictions(termId);
+        const hyperedge = nar.state.hypergraph.get(termId);
+        const finalBelief = hyperedge.getStrongestBelief();
 
-        expect(wasContradictionDetected).toBe(true);
-        expect(nar.contradictionManager.contradictions.size).toBe(1);
+        // The new belief should have won
+        expect(finalBelief.truth.frequency).toBe(0.9);
+        expect(hyperedge.beliefs.length).toBe(1); // The old one should be replaced
     });
 
-    it('should resolve a contradiction using evidence-weighted revision', () => {
-        const nar = new NARHyper({
-            managers: { ContradictionManager: ContradictionManager }
-        });
+    it('should reject a new belief if its evidence is significantly weaker', () => {
+        const nar = new NARHyper();
         const termId = id('Term', ['b']);
 
-        // Belief 1: Strong positive evidence
-        nar.addHyperedge('Term', ['b'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
-        // Belief 2: Weak negative evidence
-        nar.addHyperedge('Term', ['b'], { truth: new TruthValue(0.1, 0.6), budget: new Budget(0.3, 0.8, 0.8) });
+        nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.1, 0.9), budget: new Budget(0.1, 0.9, 0.9) });
 
-        nar.contradictionManager.detectContradictions(termId);
-        nar.contradictionManager.resolveContradictions();
+        const hyperedge = nar.state.hypergraph.get(termId);
+        const finalBelief = hyperedge.getStrongestBelief();
 
-        const finalTruth = nar.api.getTruth(termId);
-
-        // The weighted average should be closer to 0.9 than 0.1
-        expect(finalTruth.frequency).toBeGreaterThan(0.7);
-        // The contradiction should be marked as resolved
-        const contradiction = nar.contradictionManager.contradictions.values().next().value;
-        expect(contradiction.resolved).toBe(true);
+        // The original belief should remain
+        expect(finalBelief.truth.frequency).toBe(0.9);
+        expect(hyperedge.beliefs.length).toBe(1);
     });
 
-    it('should resolve a contradiction by creating a contextual split', () => {
-        const nar = new NARHyper({
-            managers: { ContradictionManager: ContradictionManager }
-        });
+    it('should merge beliefs of similar strength', () => {
+        const nar = new NARHyper();
+        const termId = id('Term', ['c']);
+
+        nar.api.addHyperedge('Term', ['c'], { truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['c'], { truth: new TruthValue(0.1, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
+
+        const hyperedge = nar.state.hypergraph.get(termId);
+        const finalBelief = hyperedge.getStrongestBelief();
+
+        // The frequency should be revised towards the middle (0.5)
+        expect(finalBelief.truth.frequency).toBeCloseTo(0.5);
+        // Confidence should be higher as it's a revision of two confident beliefs
+        expect(finalBelief.truth.confidence).toBeGreaterThanOrEqual(0.8);
+    });
+
+    it('should split a concept when a contextual contradiction occurs', () => {
+        const nar = new NARHyper();
         const originalId = id('Inheritance', ['bird', 'flyer']);
 
         // Add a general belief
-        nar.addHyperedge('Inheritance', ['bird', 'flyer'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9), context: 'general' });
+        nar.api.addHyperedge('Inheritance', ['bird', 'flyer'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
 
-        // Add a contradictory belief with a specific context
-        const penguinBelief = {
-            truth: new TruthValue(0.1, 0.99),
-            budget: new Budget(0.95, 0.9, 0.9),
-            context: 'penguin_case' // specific context
-        };
-        nar.addHyperedge('Inheritance', ['bird', 'flyer'], penguinBelief);
+        // Mock the context detection to force a split
+        jest.spyOn(nar.contradictionManager, '_determineContradictionContext').mockReturnValue({ type: 'contextual' });
 
-        nar.contradictionManager.detectContradictions(originalId);
-
-        nar.contradictionManager.resolveContradictions();
+        // Add a contradictory belief that will now be treated as contextual
+        nar.api.addHyperedge('Inheritance', ['bird', 'flyer'], { truth: new TruthValue(0.1, 0.99), budget: new Budget(0.95, 0.9, 0.9) });
 
         const originalHyperedge = nar.state.hypergraph.get(originalId);
-
-        // The original belief should now only contain the general truth
-        expect(originalHyperedge.beliefs.length).toBe(1);
-        expect(originalHyperedge.beliefs[0].context).toBe('general');
+        // The original hyperedge should still have its original belief, as the new one was split off
+        expect(originalHyperedge.getStrongestBelief().truth.frequency).toBe(0.9);
 
         // A new hyperedge should be created for the specific context
-        const newConceptId = `${originalId}|penguin_case`;
+        const newConceptId = `${originalId}|context:contextual`;
         const newHyperedge = nar.state.hypergraph.get(newConceptId);
         expect(newHyperedge).toBeDefined();
         expect(newHyperedge.type).toBe('Inheritance');
-        expect(newHyperedge.getTruth().frequency).toBe(0.1);
+        // And it should contain the new belief
+        expect(newHyperedge.getStrongestBelief().truth.frequency).toBe(0.1);
     });
 });

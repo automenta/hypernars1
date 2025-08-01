@@ -49,21 +49,132 @@ export class ExpressionEvaluator {
     return term && term.getTruth().expectation() > 0.5;
   }
 
-  query(pattern, options = { limit: 10 }) {
-    // Placeholder implementation
+  query(pattern, options = {}) {
     const results = [];
-    for (const [id, hyperedge] of this.nar.hypergraph.entries()) {
-        if (id.startsWith(pattern.replace('*', ''))) {
-            results.push({
-                ...hyperedge,
-                truth: hyperedge.getTruth()
-            });
+    const { limit = 10, minExpectation = 0.5 } = options;
+
+    // Parse pattern to identify variables and constraints
+    const parsedPattern = this._parseQueryPattern(pattern);
+    const variables = new Set();
+    const constraints = [];
+
+    // Extract variables and constraints
+    const extractInfo = (node) => {
+      if (node.type === 'Variable') {
+        variables.add(node.args[0]);
+      } else if (node.type === 'Constraint') {
+        constraints.push(node);
+      } else if (node.args && Array.isArray(node.args)) {
+        node.args.forEach(arg => extractInfo(arg));
+      }
+    };
+
+    extractInfo(parsedPattern);
+
+    // Generate all possible bindings
+    const generateBindings = (node, bindings = {}) => {
+      if (node.type === 'Variable') {
+        const varName = node.args[0];
+        if (bindings[varName]) return [bindings];
+
+        // Get possible values for this variable from the hypergraph
+        const possibleValues = this._getPossibleValues(varName, node.constraints);
+        return possibleValues.map(value => ({
+          ...bindings,
+          [varName]: value
+        }));
+      }
+
+      if (!node.args || !Array.isArray(node.args)) return [bindings];
+
+      let allBindings = [bindings];
+      for (const arg of node.args) {
+        const newBindings = [];
+        for (const b of allBindings) {
+          const argBindings = generateBindings(arg, b);
+          newBindings.push(...argBindings);
         }
-        if (results.length >= options.limit) {
-            break;
-        }
+        allBindings = newBindings;
+      }
+      return allBindings;
+    };
+
+    // Apply constraints to filter results
+    const satisfiesConstraints = (bindings) => {
+      return constraints.every(constraint => {
+        const leftVal = this._evaluateConstraint(constraint.args[0], bindings);
+        const rightVal = this._evaluateConstraint(constraint.args[1], bindings);
+        return this._checkConstraint(constraint.operator, leftVal, rightVal);
+      });
+    };
+
+    const allBindings = generateBindings(parsedPattern);
+    const validBindings = allBindings.filter(satisfiesConstraints);
+
+    // Convert to result format
+    for (const bindings of validBindings.slice(0, limit)) {
+      const result = {
+        bindings,
+        expectation: this._calculateBindingExpectation(bindings, parsedPattern)
+      };
+
+      if (result.expectation >= minExpectation) {
+        results.push(result);
+      }
     }
-    return results;
+
+    return results.sort((a, b) => b.expectation - a.expectation);
+  }
+
+  _parseQueryPattern(pattern) {
+    // This should use the main parser but handle query-specific syntax
+    // For now, we'll just use the main parser.
+    return this._parseNALExpression(pattern.replace('?', ''));
+  }
+
+  _getPossibleValues(variableName, constraints) {
+    // In a real implementation, this would be a sophisticated search.
+    // For now, return a few matching concepts from the hypergraph as placeholders.
+    const values = new Set();
+    this.nar.state.hypergraph.forEach((hyperedge, id) => {
+      if (hyperedge.type === 'Term') {
+        values.add(id);
+      }
+      hyperedge.args.forEach(arg => {
+          if (typeof arg === 'string' && !arg.startsWith('$')) {
+              values.add(`Term(${arg})`);
+          }
+      });
+    });
+    return Array.from(values).slice(0, 20); // Limit for performance
+  }
+
+  _calculateBindingExpectation(bindings, parsedPattern) {
+    // Create a concrete NAL statement from the pattern and bindings
+    let statement = JSON.stringify(parsedPattern);
+    for (const [variable, value] of Object.entries(bindings)) {
+        // This is a simplified substitution. A real one would be more careful.
+        statement = statement.replace(new RegExp(JSON.stringify(variable), 'g'), JSON.stringify(value.replace(/Term\((.*)\)/, '$1')));
+    }
+
+    try {
+        const parsedStatement = JSON.parse(statement);
+        const hyperedgeId = this.nar.api.id(parsedStatement.type, parsedStatement.args);
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+        return hyperedge ? hyperedge.getTruth().expectation() : 0.0;
+    } catch (e) {
+        return 0.0;
+    }
+  }
+
+  _evaluateConstraint(arg, bindings) {
+      // Placeholder
+      return bindings[arg] || arg;
+  }
+
+  _checkConstraint(operator, left, right) {
+      // Placeholder
+      return true;
   }
 
   _parseNALExpression(expression) {

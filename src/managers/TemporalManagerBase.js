@@ -10,25 +10,12 @@ export class TemporalManagerBase {
         this.nar = nar;
     }
 
-    /**
-     * Creates a new time interval for a term.
-     */
-    interval(term, start, end, options = {}) {
-        throw new Error("Method 'interval()' must be implemented.");
+    during(term, start, end, options = {}) {
+        throw new Error("Method 'during()' must be implemented.");
     }
 
-    /**
-     * Establishes a temporal relation between two intervals.
-     */
-    temporalRelation(premise, conclusion, relation, options = {}) {
-        throw new Error("Method 'temporalRelation()' must be implemented.");
-    }
-
-    /**
-     * Processes temporal constraints during the reasoning cycle.
-     */
-    processTemporalConstraints(target, activation, budget, pathHash, pathLength, derivationPath) {
-        // This can be a no-op in simple implementations
+    relate(term1, term2, relation, options = {}) {
+        throw new Error("Method 'relate()' must be implemented.");
     }
 
     /**
@@ -38,10 +25,11 @@ export class TemporalManagerBase {
         throw new Error("Method 'getContext()' must be implemented.");
     }
 
-    /**
-     * Predicts future events based on patterns.
-     */
-    predict(term, milliseconds, options = {}) {
+    predict(event, pattern, horizon) {
         throw new Error("Method 'predict()' must be implemented.");
+    }
+
+    adjustTemporalHorizon() {
+        // Optional method
     }
 }

@@ -20,7 +20,7 @@ describe('NARHyper Manager Dependency Injection', () => {
 
     it('should allow overriding with simple managers', () => {
         const nar = new NARHyper({
-            managers: {
+            modules: {
                 ContradictionManager: SimpleContradictionManager,
                 LearningEngine: SimpleLearningEngine,
                 MemoryManager: SimpleMemoryManager,

@@ -10,7 +10,7 @@ describe('AdvancedMemoryManager', () => {
 
     it('should be configurable in NARHyper', () => {
         const nar = new NARHyper({
-            managers: {
+            modules: {
                 MemoryManager: AdvancedMemoryManager,
             }
         });
@@ -20,7 +20,7 @@ describe('AdvancedMemoryManager', () => {
     it('should boost importance scores for concepts in active questions', async () => {
         jest.useFakeTimers();
         const nar = new NARHyper({
-            managers: { MemoryManager: AdvancedMemoryManager }
+            modules: { MemoryManager: AdvancedMemoryManager }
         });
 
         const termId = id('Term', ['important_term.']);
@@ -49,7 +49,7 @@ describe('AdvancedMemoryManager', () => {
 
     it('should adjust belief capacity based on hypergraph size', () => {
         const nar = new NARHyper({
-            managers: { MemoryManager: AdvancedMemoryManager },
+            modules: { MemoryManager: AdvancedMemoryManager },
             beliefCapacity: 8 // Start with a known capacity
         });
 
@@ -81,7 +81,7 @@ describe('AdvancedMemoryManager', () => {
     it('should not forget important concepts', async () => {
         jest.useFakeTimers();
         const nar = new NARHyper({
-            managers: { MemoryManager: AdvancedMemoryManager },
+            modules: { MemoryManager: AdvancedMemoryManager },
             forgettingThreshold: 0.1, // Low threshold to encourage forgetting
         });
 

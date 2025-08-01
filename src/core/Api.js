@@ -104,24 +104,44 @@ export class Api {
     return results;
   }
 
-  revise(hyperedgeId, newTruth, newBudget) {
+  revise(hyperedgeId, newTruth, newBudget, premises = [], derivedBy = null) {
     const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-    if (hyperedge) {
-      const result = hyperedge.revise(newTruth, newBudget || hyperedge.getStrongestBelief().budget, this.nar.config.beliefCapacity);
-      this.nar.notifyListeners('revision', { hyperedgeId, newTruth, newBudget, ...result });
+    if (!hyperedge) return false;
 
-      if (result.needsUpdate) {
-        this.nar.contradictionManager.detectContradictions(hyperedgeId);
-      }
+    // Proactively handle contradictions
+    const resolution = this.nar.contradictionManager.handle(hyperedge, newTruth, newBudget);
 
-      return result.needsUpdate;
+    if (resolution) {
+        switch (resolution.action) {
+            case 'reject':
+                return false; // The new belief is rejected
+            case 'accept':
+                hyperedge.beliefs = []; // Clear old beliefs
+                hyperedge.revise(newTruth, resolution.adjustedBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
+                return true;
+            case 'merge':
+                hyperedge.beliefs = []; // Clear old beliefs
+                hyperedge.revise(resolution.mergedTruth, resolution.adjustedBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
+                return true;
+            case 'split':
+                // The new belief is added to the new concept, original is untouched.
+                const newHyperedge = this.nar.state.hypergraph.get(resolution.newConceptId);
+                if (newHyperedge) {
+                    newHyperedge.revise(newTruth, newBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
+                }
+                return true; // A change was made, do not fall through
+        }
     }
-    return false;
+
+    // No contradiction, proceed with normal revision
+    hyperedge.revise(newTruth, newBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
+    this.nar.notifyListeners('revision', { hyperedgeId, newTruth, newBudget });
+    return true;
   }
 
   /* ===== CORE: ADDING KNOWLEDGE ===== */
   addHyperedge(type, args, options = {}) {
-    const { truth, budget, priority, premises = [], context = null } = options;
+    const { truth, budget, priority, premises = [], context = null, derivedBy = null } = options;
     const termId = id(type, args);
     const hyperedge = this.nar.state.hypergraph.get(termId) ?? new Hyperedge(termId, type, args);
 
@@ -130,25 +150,36 @@ export class Api {
       this.addToIndex(hyperedge);
     }
 
-    const result = hyperedge.revise(
-      truth || TruthValue.certain(),
-      budget || Budget.full().scale(priority || 1.0),
-      this.nar.config.beliefCapacity,
-      premises,
-      context
-    );
+    const finalTruth = truth || TruthValue.certain();
+    let finalBudget = budget;
 
-    this.nar.propagation.propagate(termId, 1.0, hyperedge.getStrongestBelief().budget, 0, 0, []);
-
-    if (result.newBelief) {
-      this.nar.notifyListeners('belief-added', {
-        hyperedgeId: termId,
-        truth: result.newBelief.truth,
-        budget: result.newBelief.budget,
-        expectation: result.newBelief.truth.expectation()
-      });
-      this.nar.questionHandler.checkQuestionAnswers(termId, result.newBelief);
+    if (finalBudget && !(finalBudget instanceof Budget)) {
+        finalBudget = new Budget(finalBudget.priority, finalBudget.durability, finalBudget.quality);
     }
+
+    if (!finalBudget) {
+        if (this.nar.memoryManager.dynamicBudgetAllocation) {
+            finalBudget = this.nar.memoryManager.dynamicBudgetAllocation({ priority });
+        } else {
+            finalBudget = new Budget(priority || 0.5, 0.5, 0.5);
+        }
+    }
+
+    // Use the new proactive revision logic
+    this.revise(termId, finalTruth, finalBudget, premises, derivedBy);
+
+    const currentBelief = hyperedge.getStrongestBelief();
+    if (!currentBelief) return termId; // Revision was rejected
+
+    this.nar.propagation.propagate(termId, 1.0, currentBelief.budget, 0, 0, []);
+
+    this.nar.notifyListeners('belief-added', {
+      hyperedgeId: termId,
+      truth: currentBelief.truth,
+      budget: currentBelief.budget,
+      expectation: currentBelief.truth.expectation()
+    });
+    this.nar.questionHandler.checkQuestionAnswers(termId, currentBelief);
 
     return termId;
   }

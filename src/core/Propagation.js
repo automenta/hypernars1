@@ -13,7 +13,6 @@ export class Propagation {
       hyperedge.args.forEach(arg =>
         this._propagateToTerm(hyperedge, arg, activation, budget, pathHash, pathLength, derivationPath)
       );
-      this.nar.temporalManager.processTemporalConstraints(target, activation, budget, pathHash, pathLength, derivationPath);
     } else {
       if (typeof target === 'string') {
         (this.nar.state.index.byArg.get(target) || new Set()).forEach(id =>
