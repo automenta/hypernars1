@@ -127,7 +127,7 @@ recordSource(hyperedgeId, source) {
         const lastPerf = this.performanceHistory[this.performanceHistory.length - 1];
         if (!lastPerf) return;
 
-        const { resourcePressure, questionSuccessRate } = lastPerf;
+        const { resourcePressure, questionSuccessRate, contradictionRate } = lastPerf;
         const policy = this.nar.config;
         const adaptationRate = 0.05;
 
@@ -135,6 +135,7 @@ recordSource(hyperedgeId, source) {
         if (questionSuccessRate < 0.6) {
             policy.budgetThreshold = Math.max(0.01, policy.budgetThreshold * (1 - adaptationRate));
             policy.maxPathLength = Math.min(20, policy.maxPathLength + 1);
+            policy.inferenceThreshold = Math.max(0.1, policy.inferenceThreshold * (1 - adaptationRate));
         }
 
         // If pressure is high, be more strict
@@ -143,11 +144,23 @@ recordSource(hyperedgeId, source) {
             policy.maxPathLength = Math.max(8, Math.floor(policy.maxPathLength * (1 - adaptationRate)));
         }
 
+        // If contradiction rate is high, be more cautious
+        if (contradictionRate > 1.5) { // The counter is decayed, so > 1.5 means several recent contradictions
+            policy.inferenceThreshold = Math.min(0.5, policy.inferenceThreshold * (1 + adaptationRate));
+            if (this.nar.learningEngine) {
+                this.nar.learningEngine.learningRate *= 0.9; // Learn more slowly from potentially noisy data
+            }
+        } else {
+             if (this.nar.learningEngine) {
+                this.nar.learningEngine.learningRate = Math.min(0.1, this.nar.learningEngine.learningRate * 1.05); // Gradually restore learning rate
+            }
+        }
+
         // Adapt based on focus
         if (this.currentFocus === 'question-answering') {
             policy.inferenceThreshold *= 0.9; // Be more eager to infer
-        } else {
-            policy.inferenceThreshold = 0.3; // Reset to default
+        } else if (this.currentFocus !== 'contradiction-resolution') {
+            policy.inferenceThreshold = Math.min(0.3, policy.inferenceThreshold * 1.01); // Gradually restore to default
         }
     }
 

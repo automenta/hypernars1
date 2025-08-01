@@ -55,4 +55,25 @@ describe('ExplanationSystem', () => {
         expect(conclusionStep).toBeDefined();
         expect(conclusionStep.derivationRule).toBe('derived');
     });
+
+    it('should explain a derived temporal relation', () => {
+        const nar = new NARHyper();
+        const t1 = nar.temporalManager.interval('event_A', 1000, 2000);
+        const t2 = nar.temporalManager.interval('event_B', 3000, 4000);
+        const t3 = nar.temporalManager.interval('event_C', 5000, 6000);
+
+        const rel1Id = nar.temporalManager.relate(t1, t2);
+        const rel2Id = nar.temporalManager.relate(t2, t3);
+
+        const conclusionId = nar.api.addHyperedge('TemporalRelation', [t1, t3, 'before'], {
+            premises: [rel1Id, rel2Id],
+            derivedBy: 'TransitiveTemporal'
+        });
+
+        const explanation = nar.explain(conclusionId, { format: 'detailed' });
+
+        expect(explanation).toContain('CONCLUSION: TimeInterval before TimeInterval');
+        expect(explanation).toContain('[TransitiveTemporal] TimeInterval before TimeInterval');
+        expect(explanation).toContain('[assertion] TimeInterval before TimeInterval');
+    });
 });

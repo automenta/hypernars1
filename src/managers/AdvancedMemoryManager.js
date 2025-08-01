@@ -147,28 +147,88 @@ export class AdvancedMemoryManager extends MemoryManager {
      * @param {object} [context={}] - Context about the task (e.g., novelty, importance).
      * @returns {Budget} A new budget object.
      */
-    dynamicBudgetAllocation(context = {}) {
-        let { priority = 0.5, durability = 0.5, quality = 0.5 } = context;
+    dynamicBudgetAllocation(task, context = {}) {
+        // Base priority on task type
+        let basePriority = 0.5;
+        if (task) {
+            switch (task.type) {
+                case 'question': basePriority = 0.9; break;
+                case 'critical-event': basePriority = 0.95; break;
+                case 'derivation': basePriority = 0.6; break;
+                case 'revision': basePriority = 0.7; break;
+            }
+        }
+
+        // Adjust based on context from MetaReasoner or other sources
+        if (context.urgency) {
+            basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
+        }
+        if (context.importance) {
+            basePriority = Math.min(1.0, basePriority + context.importance * 0.2);
+        }
+        if (context.noveltyScore) {
+            basePriority = Math.min(1.0, basePriority + context.noveltyScore * 0.15);
+        }
 
         // Adjust based on system load
         const queueSize = this.nar.state.eventQueue.heap.length;
-        const systemLoad = Math.min(queueSize / 1000, 1.0); // Normalize to 0-1, 1000 is high load
+        const systemLoad = Math.min(queueSize / 1000, 1.0);
+        const availability = Math.max(0.1, 1.0 - systemLoad * 0.7);
+        const priority = basePriority * availability;
 
-        // Reduce priority for low-value tasks when system is busy
-        if (systemLoad > 0.7 && priority < 0.5) {
-            priority *= (1 - (systemLoad - 0.7));
+        // Determine durability based on task nature
+        let durability;
+        if (task && (task.type === 'question' || task.type === 'critical-event')) {
+            durability = 0.9; // Need sustained attention
+        } else {
+            durability = 0.6; // Shorter attention span for derivations
         }
 
-        // Adjust based on novelty of information
-        if (context.noveltyScore) {
-            priority = Math.min(priority + context.noveltyScore * 0.15, 1.0);
-            quality = Math.min(quality + context.noveltyScore * 0.1, 1.0);
-        }
+        // Quality depends on resource availability
+        const quality = Math.sqrt(availability);
 
-        // Apply minimum thresholds to prevent starvation
-        priority = Math.max(priority, this.nar.config.minPriorityThreshold || 0.01);
-        durability = Math.max(durability, this.nar.config.minDurabilityThreshold || 0.01);
+        return new this.nar.Budget(
+            Math.max(priority, this.nar.config.minPriorityThreshold || 0.01),
+            Math.max(durability, this.nar.config.minDurabilityThreshold || 0.01),
+            quality
+        );
+    }
 
-        return new this.nar.Budget(priority, durability, quality);
+    /**
+     * Calculate comprehensive priority score for a task, for competition resolution.
+     */
+    _calculatePriorityScore(task) {
+        const { budget, activation, pathLength = 1, temporalUrgency = 0 } = task;
+
+        // Base priority components
+        const priorityComponent = budget.priority * 0.4;
+        const activationComponent = (activation || 0) * 0.3;
+        const qualityComponent = budget.quality * 0.2;
+        const urgencyComponent = temporalUrgency * 0.1;
+
+        // Path length penalty (shorter paths preferred)
+        const pathPenalty = 1 / (1 + pathLength * 0.1);
+
+        return (priorityComponent + activationComponent + qualityComponent + urgencyComponent) *
+            pathPenalty *
+            this._calculateNoveltyBonus(task);
+    }
+
+    /**
+     * Calculate novelty bonus for potentially new information.
+     */
+    _calculateNoveltyBonus(task) {
+        if (!task.target) return 1.0;
+        const hyperedge = this.nar.state.hypergraph.get(task.target);
+        if (!hyperedge || hyperedge.beliefs.length === 0) return 1.2; // New concept gets bonus
+
+        // Check if this would create a significantly different belief
+        const existingFrequencies = hyperedge.beliefs.map(b => b.truth.frequency);
+        const newFrequency = task.truth ? task.truth.frequency : 0.5;
+
+        const maxDiff = Math.max(...existingFrequencies.map(f => Math.abs(f - newFrequency)));
+        if (maxDiff > 0.3) return 1.1; // Significant difference gets bonus
+
+        return 1.0; // No bonus for similar beliefs
     }
 }

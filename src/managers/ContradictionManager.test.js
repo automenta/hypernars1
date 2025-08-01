@@ -77,4 +77,31 @@ describe('AdvancedContradictionManager', () => {
         // And it should contain the new belief
         expect(newHyperedge.getStrongestBelief().truth.frequency).toBe(0.1);
     });
+
+    it('should accept a newer belief in a temporal context', () => {
+        const nar = new NARHyper();
+        const termId = id('Term', ['d']);
+        const originalTime = Date.now();
+
+        // Mock Date.now to control timestamps
+        const dateSpy = jest.spyOn(Date, 'now');
+
+        // Add the first belief at an "old" time
+        dateSpy.mockReturnValue(originalTime);
+        nar.api.addHyperedge('Term', ['d'], { truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
+
+        // Add the second, contradictory belief at a "newer" time
+        dateSpy.mockReturnValue(originalTime + 2000); // 2 seconds later
+        nar.api.addHyperedge('Term', ['d'], { truth: new TruthValue(0.1, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
+
+        const hyperedge = nar.state.hypergraph.get(termId);
+        const finalBelief = hyperedge.getStrongestBelief();
+
+        // The newer belief (frequency 0.1) should have been accepted
+        expect(finalBelief.truth.frequency).toBe(0.1);
+        expect(hyperedge.beliefs.length).toBe(1);
+
+        // Restore the spy
+        dateSpy.mockRestore();
+    });
 });

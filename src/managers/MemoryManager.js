@@ -68,24 +68,39 @@ export class MemoryManager extends MemoryManagerBase {
     }
 
     _selectivelyForget() {
+        const now = Date.now();
         const candidates = [];
+
         this.nar.state.hypergraph.forEach((hyperedge, id) => {
             if (this._isImportantConcept(id)) {
-                return;
+                return; // Don't forget important concepts
             }
 
-            const relevance = this.beliefRelevance.get(id)?.baseRelevance || 0;
-            const beliefStrength = hyperedge.getTruthExpectation();
+            const activation = this.nar.api.getActivation(id) || 0;
+            const relevance = this.beliefRelevance.get(id);
+            const lastAccessed = relevance ? relevance.lastAccess : 0;
+            const timeSinceAccess = (now - lastAccessed);
 
-            if (relevance < this.forgettingThreshold && beliefStrength < 0.5) {
-                candidates.push({ id, score: relevance + beliefStrength });
+            // Recency factor decays over the activity window (e.g., 5 minutes)
+            const recencyFactor = Math.exp(-(timeSinceAccess / this.activityWindow));
+
+            // Utility is based on the belief's quality and confidence
+            const utility = hyperedge.getTruthExpectation();
+
+            // Final priority score for forgetting, weighting different factors
+            const priority = activation * 0.4 + recencyFactor * 0.3 + utility * 0.3;
+
+            if (priority < this.forgettingThreshold) {
+                candidates.push({ id, score: priority });
             }
         });
 
         if (candidates.length === 0) return;
 
+        // Sort by lowest priority first
         candidates.sort((a, b) => a.score - b.score);
 
+        // Prune a small percentage of the least valuable concepts
         const pruneCount = Math.min(10, Math.floor(candidates.length * 0.05));
         for (let i = 0; i < pruneCount; i++) {
             this._removeHyperedge(candidates[i].id);

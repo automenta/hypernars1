@@ -109,7 +109,19 @@ export class ExplanationSystem {
 
     _formatHyperedge(hyperedge) {
         if (!hyperedge) return "unknown step";
-        return `${hyperedge.type}(${hyperedge.args.join(', ')})`;
+
+        switch(hyperedge.type) {
+            case 'TemporalRelation':
+                // Attempt to make the interval IDs more concise for readability
+                const term1 = hyperedge.args[0].split('(')[0];
+                const term2 = hyperedge.args[1].split('(')[0];
+                const relation = hyperedge.args[2];
+                return `${term1} ${relation} ${term2}`;
+            case 'TimeInterval':
+                return `TimeInterval for ${hyperedge.args[0]}`;
+            default:
+                return `${hyperedge.type}(${hyperedge.args.join(', ')})`;
+        }
     }
 
     _formatTermForStory(step) {
@@ -121,6 +133,10 @@ export class ExplanationSystem {
                 return `${step.args[0]} is similar to ${step.args[1]}`;
             case 'Implication':
                 return `if ${step.args[0]}, then ${step.args[1]}`;
+            case 'TemporalRelation':
+                return `the event ${step.args[0].split('(')[0]} happens ${step.args[2]} the event ${step.args[1].split('(')[0]}`;
+            case 'TimeInterval':
+                return `the event ${step.args[0]} occurring`;
             default:
                 return `the concept of ${step.type} involving ${step.args.join(' and ')}`;
         }

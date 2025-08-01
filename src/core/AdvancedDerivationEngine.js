@@ -232,22 +232,27 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   }
 
   _deriveTemporalRelation({ args: [premise, conclusion, relation] }, event, ruleName) {
-      // Look for transitive relations
-      (this.nar.state.index.byType.get('TemporalRelation') || new Set()).forEach(termId => {
-          const middle = this.nar.state.hypergraph.get(termId);
-          if (!middle) return;
+      const premiseId = getArgId(premise);
+      const eventHyperedge = this.nar.state.hypergraph.get(event.target);
+      if (!eventHyperedge) return;
 
-          // A -> B, and we are B (conclusion)
-          if (getArgId(middle.args[1]) === getArgId(premise)) {
-              // Now look for B -> C
-              const composed = this._composeTemporalRelations(middle.args[2], relation);
-              if (composed) {
-                  composed.forEach(newRelation => {
-                      const eventHyperedge = this.nar.state.hypergraph.get(event.target);
-                      if (!eventHyperedge) return;
-                      this.nar.api.addHyperedge('TemporalRelation', [middle.args[0], conclusion, newRelation], {
+      // Find all temporal relations that conclude with our premise: (X --rel1--> P)
+      (this.nar.state.index.byArg.get(premiseId) || new Set()).forEach(termId => {
+          const middle = this.nar.state.hypergraph.get(termId);
+
+          // Ensure it's a temporal relation ending in our premise
+          if (middle?.type === 'TemporalRelation' && getArgId(middle.args[1]) === premiseId) {
+              const firstTerm = middle.args[0];
+              const firstRelation = middle.args[2];
+
+              const composedRelations = this._composeTemporalRelations(firstRelation, relation);
+              if (composedRelations) {
+                  composedRelations.forEach(newRelation => {
+                      // Derive the new transitive relation: (firstTerm --new_relation--> conclusion)
+                      this.nar.api.addHyperedge('TemporalRelation', [firstTerm, conclusion, newRelation], {
                           truth: TruthValue.transitive(middle.getTruth(), eventHyperedge.getTruth()),
                           budget: event.budget.scale(0.7),
+                          premises: [middle.id, eventHyperedge.id],
                           derivedBy: 'TransitiveTemporal'
                       });
                   });
@@ -257,26 +262,52 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   }
 
   _getInverseTemporalRelation(relation) {
-    const inverses = {
-        'before': 'after', 'after': 'before', 'meets': 'metBy', 'metBy': 'meets',
-        'overlaps': 'overlappedBy', 'overlappedBy': 'overlaps', 'during': 'contains', 'contains': 'during',
-        'starts': 'startedBy', 'startedBy': 'starts', 'finishes': 'finishedBy', 'finishedBy': 'finishes',
-        'equals': 'equals'
-    };
-    return inverses[relation];
+      const inverses = {
+          'before': 'after', 'after': 'before',
+          'meets': 'metBy', 'metBy': 'meets',
+          'overlaps': 'overlappedBy', 'overlappedBy': 'overlaps',
+          'during': 'contains', 'contains': 'during',
+          'starts': 'startedBy', 'startedBy': 'starts',
+          'finishes': 'finishedBy', 'finishedBy': 'finishes',
+          'equals': 'equals'
+      };
+      return inverses[relation];
   }
 
   _composeTemporalRelations(rel1, rel2) {
       const table = {
-          'before': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['before'], 'starts': ['before'], 'during': ['before'] },
-          'meets': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['before'], 'starts': ['before'], 'during': ['before'] },
-          'overlaps': { 'before': ['before'], 'meets': ['before'], 'overlaps': ['before', 'meets', 'overlaps'] },
-          'starts': { 'during': ['during'], 'finishes': ['during'] },
-          'during': { 'finishes': ['during'] },
+          'before': {
+              'before': ['before'], 'meets': ['before'], 'overlaps': ['before'],
+              'starts': ['before'], 'during': ['before'], 'finishes': ['before', 'meets', 'overlaps', 'starts', 'during']
+          },
+          'meets': {
+              'before': ['before'], 'meets': ['before'], 'overlaps': ['before'],
+              'starts': ['starts'], 'during': ['during']
+          },
+          'overlaps': {
+              'before': ['before'], 'meets': ['before'], 'overlaps': ['before', 'meets', 'overlaps'],
+              'starts': ['overlaps'], 'during': ['during', 'overlaps', 'finishes']
+          },
+          'starts': {
+              'starts': ['starts'], 'during': ['during'], 'finishes': ['finishes', 'during', 'overlaps']
+          },
+          'during': {
+              'during': ['during'], 'finishes': ['finishes']
+          },
+          'finishes': {
+              'finishes': ['finishes']
+          },
+          'equals': {
+              'before': ['before'], 'meets': ['meets'], 'overlaps': ['overlaps'],
+              'starts': ['starts'], 'during': ['during'], 'finishes': ['finishes'],
+              'equals': ['equals']
+          }
       };
-      const composed = table[rel1]?.[rel2];
+
+      let composed = table[rel1]?.[rel2];
       if (composed) return composed;
 
+      // Try composing with inverse relations if a direct entry is not found
       const inv_r1 = this._getInverseTemporalRelation(rel1);
       const inv_r2 = this._getInverseTemporalRelation(rel2);
       if (inv_r1 && inv_r2) {

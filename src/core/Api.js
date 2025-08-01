@@ -108,42 +108,21 @@ export class Api {
     const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
     if (!hyperedge) return false;
 
-    // Proactively handle contradictions
-    const resolution = this.nar.contradictionManager.handle(hyperedge, newTruth, newBudget);
+    // The responsibility for contradiction handling is now moved to Hyperedge.revise
+    const result = hyperedge.revise(newTruth, newBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
 
-    if (resolution) {
-        switch (resolution.action) {
-            case 'reject':
-                return false; // The new belief is rejected
-            case 'accept':
-                hyperedge.beliefs = []; // Clear old beliefs
-                hyperedge.revise(newTruth, resolution.adjustedBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
-                return true;
-            case 'merge':
-                hyperedge.beliefs = []; // Clear old beliefs
-                hyperedge.revise(resolution.mergedTruth, resolution.adjustedBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
-                return true;
-            case 'split':
-                // The new belief is added to the new concept, original is untouched.
-                const newHyperedge = this.nar.state.hypergraph.get(resolution.newConceptId);
-                if (newHyperedge) {
-                    newHyperedge.revise(newTruth, newBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
-                }
-                return true; // A change was made, do not fall through
-        }
+    if (result.needsUpdate) {
+        this.nar.notifyListeners('revision', { hyperedgeId, newTruth, newBudget });
     }
 
-    // No contradiction, proceed with normal revision
-    hyperedge.revise(newTruth, newBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
-    this.nar.notifyListeners('revision', { hyperedgeId, newTruth, newBudget });
-    return true;
+    return result.needsUpdate;
   }
 
   /* ===== CORE: ADDING KNOWLEDGE ===== */
   addHyperedge(type, args, options = {}) {
     const { truth, budget, priority, premises = [], context = null, derivedBy = null } = options;
     const termId = id(type, args);
-    const hyperedge = this.nar.state.hypergraph.get(termId) ?? new Hyperedge(termId, type, args);
+    const hyperedge = this.nar.state.hypergraph.get(termId) ?? new Hyperedge(this.nar, termId, type, args);
 
     if (!this.nar.state.hypergraph.has(termId)) {
       this.nar.state.hypergraph.set(termId, hyperedge);
@@ -159,7 +138,9 @@ export class Api {
 
     if (!finalBudget) {
         if (this.nar.memoryManager.dynamicBudgetAllocation) {
-            finalBudget = this.nar.memoryManager.dynamicBudgetAllocation({ priority });
+            const task = { type: 'revision', hyperedgeType: type };
+            const context = { importance: priority };
+            finalBudget = this.nar.memoryManager.dynamicBudgetAllocation(task, context);
         } else {
             finalBudget = new Budget(priority || 0.5, 0.5, 0.5);
         }

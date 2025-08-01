@@ -122,23 +122,44 @@ export class QuestionHandler {
     if (!hyperedge) return;
 
     this.nar.state.questionPromises.forEach((_, questionId) => {
-      const { type, args } = this.nar.expressionEvaluator.parseQuestionPattern(questionId.replace(/^Question\(|\|.*$/g, ''));
+      const questionPattern = questionId.replace(/^Question\(|\)\|.*$/g, '');
 
-      if (type === hyperedge.type) {
-        const matches = args.every((pattern, i) =>
-          pattern === '*' ||
-          pattern === hyperedge.args[i] ||
-          (pattern.startsWith('$') && hyperedge.args[i])
-        );
-
-        if (matches) {
+      // First, try a direct string match for simple, non-variable questions.
+      // This is more robust than relying on the parser for complex nested structures.
+      if (!questionPattern.includes('$') && !questionPattern.includes('*') && questionPattern === hyperedgeId) {
           this._answerQuestion(questionId, {
-            type: hyperedge.type,
-            args: hyperedge.args,
-            truth: belief.truth
+              type: hyperedge.type,
+              args: hyperedge.args,
+              truth: belief.truth,
+              derivationPath: belief.premises,
           });
           this.nar.learningEngine.recordSuccess?.(hyperedgeId);
+          return; // Move to the next question
+      }
+
+      // Fallback to the parser-based logic for questions with variables/wildcards.
+      try {
+        const { type, args } = this.nar.expressionEvaluator.parseQuestionPattern(questionPattern);
+
+        if (type === hyperedge.type) {
+          const matches = args.every((pattern, i) =>
+            pattern === '*' ||
+            pattern === hyperedge.args[i] ||
+            (pattern.startsWith('$') && hyperedge.args[i] !== undefined)
+          );
+
+          if (matches) {
+            this._answerQuestion(questionId, {
+              type: hyperedge.type,
+              args: hyperedge.args,
+              truth: belief.truth,
+              derivationPath: belief.premises,
+            });
+            this.nar.learningEngine.recordSuccess?.(hyperedgeId);
+          }
         }
+      } catch(e) {
+          // Ignore parsing errors for patterns that don't match
       }
     });
   }

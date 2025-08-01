@@ -2,8 +2,9 @@ import { TruthValue } from './TruthValue.js';
 import { Budget } from './Budget.js';
 
 export class TimeInterval {
-  constructor(id, start, end, options = {}) {
+  constructor(id, term, start, end, options = {}) {
     this.id = id;
+    this.term = term;
     this.start = start;
     this.end = end;
     this.duration = end - start;

@@ -1,5 +1,6 @@
 import { id } from '../support/utils.js';
 import { TruthValue } from '../support/TruthValue.js';
+import { Budget } from '../support/Budget.js';
 import { LearningEngineBase } from './LearningEngineBase.js';
 
 export class AdvancedLearningEngine extends LearningEngineBase {
@@ -16,14 +17,30 @@ export class AdvancedLearningEngine extends LearningEngineBase {
      * This method now also provides feedback to the derivation engine.
      * @param {string} hyperedgeId
      */
-    recordSuccess(hyperedgeId) {
+    recordSuccess(hyperedgeId, depth = 0, visited = new Set()) {
+        if (depth > 5 || visited.has(hyperedgeId)) {
+            return; // Stop recursion
+        }
+        visited.add(hyperedgeId);
+
         this.recentSuccesses.add(hyperedgeId);
 
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         const belief = hyperedge?.getStrongestBelief();
+        if (!belief) return;
 
-        if (belief?.derivedBy && this.nar.derivationEngine.boostRuleSuccessRate) {
-            this.nar.derivationEngine.boostRuleSuccessRate(belief.derivedBy);
+        // Boost the success rate of the rule that derived this belief
+        if (belief.derivedBy && this.nar.derivationEngine.boostRuleSuccessRate) {
+            // The boost factor decays with depth, giving more credit to recent derivations
+            const boostFactor = 0.1 * Math.pow(0.8, depth);
+            this.nar.derivationEngine.boostRuleSuccessRate(belief.derivedBy, boostFactor);
+        }
+
+        // Recursively give credit to the premises
+        if (belief.premises && belief.premises.length > 0) {
+            belief.premises.forEach(premiseId => {
+                this.recordSuccess(premiseId, depth + 1, visited);
+            });
         }
 
         // Automatically prune old successes to keep the set relevant
@@ -151,7 +168,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         if (!this.nar.state.hypergraph.has(shortcutId)) {
             this.nar.api.addHyperedge('Implication', [premiseConjunctionId, conclusionId], {
                 truth: new TruthValue(0.9, confidence),
-                budget: this.nar.api.budget(0.9, 0.9, 0.9),
+                budget: new Budget(0.9, 0.9, 0.9),
                 premises: [] // Learned rules are atomic
             });
             this.nar.notifyListeners('shortcut-created', { from: premiseConjunctionId, to: conclusionId, confidence });
