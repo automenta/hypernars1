@@ -1,19 +1,13 @@
-import { DerivationEngineBase } from './DerivationEngineBase.js';
+import {DerivationEngineBase} from './DerivationEngineBase.js';
 
 /**
- * A simple, no-op implementation of a derivation engine.
- * It does not perform any inference.
+ * TODO
  */
 export class SimpleDerivationEngine extends DerivationEngineBase {
     constructor(nar) {
         super(nar);
     }
 
-    /**
-     * No-op.
-     * @param {object} event
-     */
     applyDerivationRules(event) {
-        // Does nothing.
     }
 }

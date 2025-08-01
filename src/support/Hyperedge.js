@@ -1,5 +1,4 @@
-import { TruthValue } from './TruthValue.js';
-import { Budget } from './Budget.js';
+import {TruthValue} from './TruthValue.js';
 
 export class Hyperedge {
   constructor(nar, id, type, args) {

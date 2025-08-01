@@ -1,4 +1,4 @@
-import { NARHyper } from './src/NARHyper.js';
+import {NARHyper} from './NARHyper.js';
 
 async function main() {
     console.log("Initializing NARHyper...");

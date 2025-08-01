@@ -1,8 +1,7 @@
-import { TemporalManagerBase } from './TemporalManagerBase.js';
+import {TemporalManagerBase} from './TemporalManagerBase.js';
 
 /**
- * A simple, no-op implementation of a temporal manager.
- * It fulfills the interface but performs no temporal reasoning.
+ * TODO
  */
 export class SimpleTemporalManager extends TemporalManagerBase {
     constructor(nar) {
@@ -20,7 +19,6 @@ export class SimpleTemporalManager extends TemporalManagerBase {
     }
 
     processTemporalConstraints(target, activation, budget, pathHash, pathLength, derivationPath) {
-        // No-op
     }
 
     getContext() {

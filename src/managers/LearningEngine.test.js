@@ -1,9 +1,8 @@
-import { describe, it, expect } from '@jest/globals';
-import { NARHyper } from '../NARHyper.js';
-import { id } from '../support/utils.js';
+import {describe, expect, it} from '@jest/globals';
+import {NARHyper} from '../NARHyper.js';
+import {id} from '../support/utils.js';
 
-import { Budget } from '../support/Budget.js';
-import { TruthValue } from '../support/TruthValue.js';
+import {Budget} from '../support/Budget.js';
 
 describe('LearningEngine', () => {
     it('should create a shortcut rule from a frequently successful reasoning path', () => {

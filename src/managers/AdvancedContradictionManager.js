@@ -1,8 +1,7 @@
-import { ContradictionManagerBase } from './ContradictionManagerBase.js';
-import { Hyperedge } from '../support/Hyperedge.js';
-import { id } from '../support/utils.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { Budget } from '../support/Budget.js';
+import {ContradictionManagerBase} from './ContradictionManagerBase.js';
+import {Hyperedge} from '../support/Hyperedge.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {Budget} from '../support/Budget.js';
 
 /**
  * A robust contradiction manager that resolves conflicts by either

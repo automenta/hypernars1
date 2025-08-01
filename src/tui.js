@@ -1,5 +1,5 @@
 import blessed from 'neo-blessed';
-import { NARHyper } from './src/NARHyper.js';
+import {NARHyper} from './NARHyper.js';
 
 class Tui {
   constructor() {

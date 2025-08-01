@@ -1,7 +1,6 @@
-import { TemporalManagerBase } from './TemporalManagerBase.js';
-import { TimeInterval } from '../support/TimeInterval.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { id } from '../support/utils.js';
+import {TemporalManagerBase} from './TemporalManagerBase.js';
+import {TimeInterval} from '../support/TimeInterval.js';
+import {id} from '../support/utils.js';
 
 /**
  * An advanced temporal manager that implements Allen's Interval Algebra

@@ -1,19 +1,17 @@
-import { ExpressionEvaluator } from './evaluator/ExpressionEvaluator.js';
-import { MemoryManager } from './managers/MemoryManager.js';
-import { ContradictionManager } from './managers/ContradictionManager.js';
-import { MetaReasoner } from './managers/MetaReasoner.js';
-import { LearningEngine } from './managers/LearningEngine.js';
-import { ExplanationSystem } from './managers/ExplanationSystem.js';
-import { TemporalManager } from './managers/TemporalManager.js';
-import { id } from './support/utils.js';
+import {ExpressionEvaluator} from './evaluator/ExpressionEvaluator.js';
+import {MemoryManager} from './managers/MemoryManager.js';
+import {ContradictionManager} from './managers/ContradictionManager.js';
+import {MetaReasoner} from './managers/MetaReasoner.js';
+import {LearningEngine} from './managers/LearningEngine.js';
+import {ExplanationSystem} from './managers/ExplanationSystem.js';
+import {TemporalManager} from './managers/TemporalManager.js';
 
-import { State } from './core/State.js';
-import { Api } from './core/Api.js';
-import { DerivationEngine } from './core/DerivationEngine.js';
-import { SimpleDerivationEngine } from './core/SimpleDerivationEngine.js';
-import { Propagation } from './core/Propagation.js';
-import { QuestionHandler } from './core/QuestionHandler.js';
-import { System } from './core/System.js';
+import {State} from './core/State.js';
+import {Api} from './core/Api.js';
+import {DerivationEngine} from './core/DerivationEngine.js';
+import {Propagation} from './core/Propagation.js';
+import {QuestionHandler} from './core/QuestionHandler.js';
+import {System} from './core/System.js';
 
 
 export class NARHyper {

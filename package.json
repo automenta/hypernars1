@@ -6,8 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "start:example": "node example.js",
-    "start:tui": "node tui.js"
+    "start:example": "node src/example.js",
+    "start:tui": "node src/tui.js"
   },
   "keywords": [
     "nars",

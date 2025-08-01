@@ -1,14 +1,11 @@
-import { describe, it, expect, jest } from '@jest/globals';
-import { NARHyper } from '../NARHyper.js';
-import { ContradictionManager } from './ContradictionManager.js';
-import { SimpleContradictionManager } from './SimpleContradictionManager.js';
-import { LearningEngine } from './LearningEngine.js';
-import { SimpleLearningEngine } from './SimpleLearningEngine.js';
-import { MemoryManager } from './MemoryManager.js';
-import { SimpleMemoryManager } from './SimpleMemoryManager.js';
-import { id } from '../support/utils.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { Budget } from '../support/Budget.js';
+import {describe, expect, it} from '@jest/globals';
+import {NARHyper} from '../NARHyper.js';
+import {ContradictionManager} from './ContradictionManager.js';
+import {SimpleContradictionManager} from './SimpleContradictionManager.js';
+import {LearningEngine} from './LearningEngine.js';
+import {SimpleLearningEngine} from './SimpleLearningEngine.js';
+import {MemoryManager} from './MemoryManager.js';
+import {SimpleMemoryManager} from './SimpleMemoryManager.js';
 
 describe('NARHyper Manager Dependency Injection', () => {
     it('should use enhanced managers by default', () => {

@@ -1,6 +1,5 @@
-import { describe, it, expect } from '@jest/globals';
-import { NARHyper } from '../NARHyper.js';
-import { id } from '../support/utils.js';
+import {describe, expect, it} from '@jest/globals';
+import {NARHyper} from '../NARHyper.js';
 
 describe('ExplanationSystem', () => {
     it('should identify a direct assertion', () => {

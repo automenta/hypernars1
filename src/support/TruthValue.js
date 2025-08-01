@@ -1,4 +1,4 @@
-import { clamp } from './utils.js';
+import {clamp} from './utils.js';
 
 export class TruthValue {
   constructor(frequency, confidence, priority = 1.0) {
@@ -43,6 +43,7 @@ export class TruthValue {
     const f1 = t1.frequency, c1 = t1.confidence;
     const f2 = t2.frequency, c2 = t2.confidence;
 
+      //TODO check this
     const frequency = (f1 + f2) / 2;
     const confidence = c1 * c2 * (1 - Math.abs(f1 - f2));
 
@@ -54,7 +55,7 @@ export class TruthValue {
     const f2 = t2.frequency, c2 = t2.confidence;
 
     const frequency = f2;
-    const confidence = c1 * c2;
+      const confidence = c1 * c2 * f1;
 
     return new TruthValue(frequency, confidence, Math.min(t1.priority, t2.priority) * 0.7);
   }
@@ -63,8 +64,8 @@ export class TruthValue {
     const f1 = t1.frequency, c1 = t1.confidence;
     const f2 = t2.frequency, c2 = t2.confidence;
 
-    const frequency = f2;
-    const confidence = c1 * c2;
+      const frequency = f1 * f2;
+      const confidence = c1 * c2 * f2;
 
     return new TruthValue(frequency, confidence, Math.min(t1.priority, t2.priority) * 0.7);
   }

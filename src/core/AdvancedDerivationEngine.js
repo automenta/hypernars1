@@ -1,7 +1,7 @@
-import { DerivationEngineBase } from './DerivationEngineBase.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { id } from '../support/utils.js';
-import { getArgId } from './utils.js';
+import {DerivationEngineBase} from './DerivationEngineBase.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {id} from '../support/utils.js';
+import {getArgId} from './utils.js';
 
 export class AdvancedDerivationEngine extends DerivationEngineBase {
   constructor(nar) {
@@ -62,9 +62,8 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   }
 
   _sortRules() {
-    const sorted = new Map([...this.rules.entries()]
-      .sort(([,a], [,b]) => b.priority - a.priority));
-    this.rules = sorted;
+      this.rules = new Map([...this.rules.entries()]
+          .sort(([, a], [, b]) => b.priority - a.priority));
   }
 
   _registerDefaultRules() {

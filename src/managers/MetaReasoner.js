@@ -173,11 +173,9 @@ recordSource(hyperedgeId, source) {
             ruleEffectiveness[rule] = this.getStrategyEffectiveness(`derive_${rule}`);
         });
 
-        const sortedRules = Object.entries(ruleEffectiveness)
+        // This can be used by the derivation system to prioritize rules
+        this.nar.config.derivationPriority = Object.entries(ruleEffectiveness)
             .sort((a, b) => b[1] - a[1])
             .map(([rule]) => rule);
-
-        // This can be used by the derivation system to prioritize rules
-        this.nar.config.derivationPriority = sortedRules;
     }
 }
