@@ -19,7 +19,7 @@ describe('AdvancedLearningEngine', () => {
 
         const initialConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
 
-        learningEngine.recordOutcome(conclusionId, { success: true });
+        learningEngine.recordExperience(conclusionId, { success: true });
 
         const finalConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
         expect(finalConfidence).toBeGreaterThan(initialConfidence);
@@ -31,7 +31,7 @@ describe('AdvancedLearningEngine', () => {
 
         const initialConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
 
-        learningEngine.recordOutcome(conclusionId, { success: false });
+        learningEngine.recordExperience(conclusionId, { success: false });
 
         const finalConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
         expect(finalConfidence).toBeLessThan(initialConfidence);
@@ -43,7 +43,7 @@ describe('AdvancedLearningEngine', () => {
         const conclusionId = nar.api.inheritance('tweety', 'animal', { premises: [premiseId], derivedBy: 'transitivity' });
 
         // Record a successful outcome
-        learningEngine.recordOutcome(conclusionId, { success: true });
+        learningEngine.recordExperience(conclusionId, { success: true });
 
         const transitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
         expect(transitivityStats).toBeDefined();
@@ -52,7 +52,7 @@ describe('AdvancedLearningEngine', () => {
 
         // Record a failed outcome
         const conclusion2Id = nar.api.inheritance('penguin', 'flyer', { premises: [premiseId], derivedBy: 'transitivity' });
-        learningEngine.recordOutcome(conclusion2Id, { success: false });
+        learningEngine.recordExperience(conclusion2Id, { success: false });
 
         const updatedTransitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
         expect(updatedTransitivityStats.successes).toBe(1);

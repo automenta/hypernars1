@@ -1,89 +1,51 @@
-import { id } from '../support/utils.js';
-
+/**
+ * An enhanced explanation system that combines the multi-format capabilities
+ * of the existing system with the structured templating and confidence
+ * reporting from the enhancement proposals (`enhance.b.md`, `enhance.f.md`).
+ */
 export class ExplanationSystem {
     constructor(nar) {
         this.nar = nar;
+        this.explanationTemplates = {
+            'assertion': "It is a direct assertion that {conclusion}.",
+            'transitivity': "Because {premise1} and {premise2}, it follows through transitivity that {conclusion}.",
+            'analogy': "By analogy, since {premise1} and {premise2}, it is likely that {conclusion}.",
+            'induction': "Observing that {premise1} and {premise2} are related, we can induce that {conclusion}.",
+            'derived': "From the premise {premise1}, it was derived that {conclusion}.",
+            'default': "It is believed that {conclusion}, based on the premise {premise1}.",
+        };
     }
 
+    /**
+     * Main entry point for generating explanations.
+     * @param {string} hyperedgeId - The ID of the concept to explain.
+     * @param {Object} [options] - Configuration for the explanation.
+     * @param {number} [options.depth=3] - How deep to trace the derivation.
+     * @param {string} [options.format='detailed'] - The desired format ('detailed', 'concise', 'json', 'story', 'technical').
+     * @returns {string|Object} The formatted explanation.
+     */
     explain(hyperedgeId, options = {}) {
-        const { depth = 3, format = 'detailed', includeConfidence = true, maxAlternatives = 2 } = options;
+        const { depth = 3, format = 'detailed' } = options;
         const path = [];
         this._traceDerivation(hyperedgeId, path, depth, new Set());
+
+        if (path.length === 0) {
+            return `No derivation path found for ${hyperedgeId}. It might be a base premise.`;
+        }
 
         switch (format) {
             case 'json':
                 return JSON.stringify(path, null, 2);
             case 'story':
-                return this._generateStoryExplanation(hyperedgeId, path);
+                return this._generateStoryExplanation(path);
             case 'concise':
-                return this._formatConciseExplanation(path);
+                return path.map(step => this._formatHyperedge(step)).join(' -> ');
             case 'technical':
                 return this._formatTechnicalExplanation(path);
-            // New formats from enhancement spec
-            case 'evidence-based':
-                return this._generateEvidenceBasedExplanation(hyperedgeId);
-            case 'causal':
-                return this._generateCausalExplanation(path);
             case 'detailed':
             default:
-                return this._formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives);
+                return this._formatDetailedExplanation(hyperedgeId, path, options);
         }
-    }
-
-    /**
-     * Generates a justification for a belief, highlighting key evidence.
-     * @param {string} hyperedgeId
-     * @returns {string}
-     */
-    justify(hyperedgeId) {
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        if (!hyperedge) return `No information available for ${hyperedgeId}`;
-
-        const strongestBelief = hyperedge.getStrongestBelief();
-        if (!strongestBelief) return `No belief found for ${hyperedgeId}`;
-
-        let explanation = `Belief in ${this._formatHyperedge(hyperedge)} is justified by:\n`;
-
-        if (strongestBelief.premises && strongestBelief.premises.length > 0) {
-            explanation += `\nSupporting premises:\n`;
-            strongestBelief.premises.forEach((premiseId, i) => {
-                const premiseEdge = this.nar.state.hypergraph.get(premiseId);
-                explanation += `${i + 1}. ${this._formatHyperedge(premiseEdge)}\n`;
-            });
-        } else {
-            explanation += `\nIt is a direct assertion (a premise).\n`;
-        }
-
-        const truth = strongestBelief.truth;
-        explanation += `\nOverall confidence: ${truth.expectation().toFixed(2)} (f: ${truth.frequency.toFixed(2)}, c: ${truth.confidence.toFixed(2)})`;
-
-        return explanation;
-    }
-
-    /**
-     * Generates a counterfactual explanation.
-     * @param {string} hyperedgeId - The ID of the belief to explain.
-     * @param {string} alternativeId - The ID of the alternative outcome.
-     * @returns {string}
-     */
-    counterfactual(hyperedgeId, alternativeId) {
-        const originalEdge = this.nar.state.hypergraph.get(hyperedgeId);
-        const alternativeEdge = this.nar.state.hypergraph.get(alternativeId);
-
-        if (!originalEdge || !alternativeEdge) {
-            return "Cannot generate counterfactual: one or both concepts not found.";
-        }
-
-        const originalPath = [];
-        this._traceDerivation(hyperedgeId, originalPath, 3, new Set());
-        const originalPremises = new Set(originalPath.map(p => p.id));
-
-        let explanation = `For "${this._formatHyperedge(alternativeEdge)}" to be true instead of "${this._formatHyperedge(originalEdge)}", `;
-        explanation += `the system would need to have different supporting evidence. `;
-        explanation += `The current conclusion is based on premises like ${Array.from(originalPremises).map(p => `"${p}"`).join(', ')}. `;
-        explanation += `A different set of initial beliefs would be required to reach the alternative conclusion.`;
-
-        return explanation;
     }
 
     // --- Private Helper Methods ---
@@ -99,193 +61,86 @@ export class ExplanationSystem {
         if (!strongestBelief) return;
 
         const premises = strongestBelief.premises || [];
-        const derivationRule = strongestBelief.derivedBy || this._identifyDerivationRule(hyperedge, premises);
+        const derivationRule = strongestBelief.derivedBy || 'assertion';
 
+        // Add current step to the front of the path
         path.unshift({
             id: hyperedge.id,
             type: hyperedge.type,
             args: hyperedge.args,
             truth: strongestBelief.truth,
-            derivationRule: derivationRule,
-            premises: premises
+            derivationRule,
+            premises
         });
 
-        for (const premiseId of premises) {
-            this._traceDerivation(premiseId, path, depth - 1, visited);
+        // Recurse on the first premise to build a linear path for simplicity
+        if (premises.length > 0) {
+            this._traceDerivation(premises[0], path, depth - 1, visited);
         }
     }
 
-    _identifyDerivationRule(conclusion, premises) {
-        if (premises.length === 0) return 'assertion';
-
-        // Simplified check for transitivity: A->B, B->C => A->C
-        if (conclusion.type === 'Inheritance' && premises.length === 2) {
-            const premiseEdges = premises.map(p => this.nar.state.hypergraph.get(p)).filter(Boolean);
-            if (premiseEdges.length === 2 && premiseEdges.every(p => p.type === 'Inheritance')) {
-                if (premiseEdges[0].args[1] === premiseEdges[1].args[0] &&
-                    premiseEdges[0].args[0] === conclusion.args[0] &&
-                    premiseEdges[1].args[1] === conclusion.args[1]) {
-                    return 'transitivity';
-                }
-            }
-        }
-
-        // Simplified check for analogy: A<->B, A-->C => B-->C
-        if (conclusion.type === 'Inheritance' && premises.length === 2) {
-            const premiseEdges = premises.map(p => this.nar.state.hypergraph.get(p)).filter(Boolean);
-            const sim = premiseEdges.find(p => p.type === 'Similarity');
-            const inh = premiseEdges.find(p => p.type === 'Inheritance');
-            if (sim && inh) {
-                // This is a simplified check and may not cover all cases
-                return 'analogy';
-            }
-        }
-
-        return 'derived'; // Default for other cases
-    }
-
-    _formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives) {
+    _formatDetailedExplanation(hyperedgeId, path, options) {
+        const { includeConfidence = true, maxAlternatives = 2 } = options;
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return "Hyperedge not found";
 
-        let explanation = `CONCLUSION: ${this._formatHyperedge(hyperedge)}\n`;
+        const conclusion = path[path.length - 1];
+        let explanation = `CONCLUSION: ${this._formatHyperedge(conclusion)}\n`;
+
         if (includeConfidence) {
-            const truth = hyperedge.getTruth();
-            explanation += `Confidence: ${truth.expectation().toFixed(2)} ` +
-                `(frequency: ${truth.frequency.toFixed(2)}, ` +
-                `confidence: ${truth.confidence.toFixed(2)})\n\n`;
+            explanation += `Confidence: ${this._formatConfidence(conclusion.truth.confidence)}\n\n`;
         }
 
         explanation += "PRIMARY REASONING PATH:\n";
         path.forEach((step, i) => {
-            explanation += `${i + 1}. [${step.derivationRule}] ${this._formatHyperedge(step)}\n`;
+            const rule = step.derivationRule || 'assertion';
+            const template = this.explanationTemplates[rule] || this.explanationTemplates['default'];
+
+            const premise1 = step.premises?.[0] ? this._formatHyperedge(this.nar.state.hypergraph.get(step.premises[0])) : 'a previous belief';
+            const premise2 = step.premises?.[1] ? this._formatHyperedge(this.nar.state.hypergraph.get(step.premises[1])) : 'another belief';
+
+            const formattedStep = template
+                .replace('{conclusion}', this._formatHyperedge(step))
+                .replace('{premise1}', premise1)
+                .replace('{premise2}', premise2);
+
+            explanation += `${i + 1}. ${formattedStep}\n`;
         });
 
-        if (hyperedge.beliefs && hyperedge.beliefs.length > 1) {
-            const alternatives = hyperedge.beliefs
-                .slice(1, maxAlternatives + 1)
-                .map((belief, idx) => ({
-                    belief,
-                    path: this._findAlternativePath(hyperedgeId, belief)
-                }));
-
-            if (alternatives.length > 0) {
-                explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1}):\n`;
-                alternatives.forEach((alt, i) => {
-                    explanation += `${i + 1}. Based on different evidence:\n`;
-                    explanation += `   Confidence: ${alt.belief.truth.expectation().toFixed(2)}\n`;
-                    if (alt.path && alt.path.length > 0) {
-                        explanation += `   Reasoning path: ${alt.path.map(s => this._formatHyperedge(s)).join(' → ')}\n`;
-                    }
-                });
-            }
-        }
-
-        const temporalContext = this.nar.temporalManager.getContext();
-        if (temporalContext.currentPeriod) {
-            explanation += `\nTEMPORAL CONTEXT: ${temporalContext.currentPeriod}`;
-            if (temporalContext.season) explanation += `, ${temporalContext.season}`;
+        // Add contradiction info
+        const contradiction = this.nar.contradictionManager.contradictions.get(hyperedgeId);
+        if (contradiction && contradiction.resolved) {
+            explanation += `\nNOTE: This belief was part of a contradiction that was resolved using the '${contradiction.resolutionStrategy}' strategy.\n`;
         }
 
         return explanation;
     }
 
     _formatTechnicalExplanation(path) {
-        if (!path || path.length === 0) return "No technical explanation available.";
-        let explanation = "TECHNICAL REASONING TRACE:\n";
-        path.forEach((step, i) => {
-            explanation += `Step ${i + 1}:\n`;
-            explanation += `  ID: ${step.id}\n`;
-            explanation += `  Type: ${step.type}\n`;
-            explanation += `  Truth: { f: ${step.truth.frequency.toFixed(3)}, c: ${step.truth.confidence.toFixed(3)} }\n`;
-            explanation += `  DerivedBy: ${step.derivationRule}\n`;
-            explanation += `  Premises: ${step.premises.join(', ') || 'N/A'}\n\n`;
-        });
-        return explanation;
+        return path.map((step, i) =>
+            `Step ${i + 1}: [${step.id}] ${step.type}(${step.args.join(', ')}) | ` +
+            `Truth(f: ${step.truth.frequency.toFixed(2)}, c: ${step.truth.confidence.toFixed(2)}) | ` +
+            `Rule: ${step.derivationRule} | Premises: [${step.premises.join(', ')}]`
+        ).join('\n');
     }
 
-    _findAlternativePath(hyperedgeId, belief) {
-        // Placeholder implementation. A real implementation would need to
-        // trace the derivation path for a specific belief, which is complex.
-        const path = [];
-        if (belief.premises && belief.premises.length > 0) {
-            this._traceDerivation(belief.premises[0], path, 2, new Set());
-        }
-        return path;
-    }
+    _generateStoryExplanation(path) {
+        if (!path || path.length === 0) return "I don't have a story for that.";
+        const conclusion = path[path.length - 1];
 
-    _generateEvidenceBasedExplanation(hyperedgeId) {
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        if (!hyperedge) return "No evidence found: concept does not exist.";
-
-        let explanation = `Evidence report for ${this._formatHyperedge(hyperedge)}:\n`;
-        hyperedge.beliefs.forEach((belief, i) => {
-            explanation += `\nBelief ${i+1}: Expectation ${belief.truth.expectation().toFixed(2)}\n`;
-            explanation += `  - Source: ${belief.derivedBy || 'assertion'}\n`;
-            if (belief.premises && belief.premises.length > 0) {
-                explanation += `  - Premises: ${belief.premises.join(', ')}\n`;
-            }
-        });
-        return explanation;
-    }
-
-    _generateCausalExplanation(path) {
-        if (!path || path.length === 0) return "No causal path found.";
-        // This is a simplified causal explanation, treating implication as causality.
-        const implications = path.filter(step => step.type === 'Implication');
-        if (implications.length === 0) {
-            return "The reasoning path does not contain clear causal (implication) steps.";
-        }
-        const causes = implications.map(step => this._formatHyperedge(step.args[0]));
-        const effects = implications.map(step => this._formatHyperedge(step.args[1]));
-        return `The conclusion is reached because ${causes.join(' and ')} are believed to cause ${effects.join(' and ')}.`;
-    }
-
-    _formatConciseExplanation(path) {
-        if (!path || path.length === 0) return "No explanation available.";
-        return path.map(step => this._formatHyperedge(step)).join(' -> ');
-    }
-
-    _generateStoryExplanation(hyperedgeId, path) {
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        if (!hyperedge) return "I don't have a story for that.";
-
-        const conclusion = this._formatTermForStory(hyperedge);
-        let story = `Let me tell you how I came to believe that ${conclusion}. `;
-
+        let story = `Let me tell you how I came to believe that ${this._formatTermForStory(conclusion)}. `;
         if (path.length > 1) {
             const premises = path.slice(0, -1).map(p => this._formatTermForStory(p));
-            if (premises.length > 0) {
-                story += `It's based on a few things I know. For instance, I know that ${premises.join(' and that ')}. `;
-            }
+            story += `It's based on a few things I know. For instance, I know that ${premises.join(' and that ')}. `;
         }
-        story += `From this, it is reasonable to conclude that ${conclusion}.`;
+        story += `From this, it is reasonable to conclude that ${this._formatTermForStory(conclusion)}.`;
         return story;
     }
 
     _formatHyperedge(hyperedge) {
-        if (!hyperedge) return "unknown step";
-
-        // If an argument is a complex object from parsing, format it recursively
-        const formatArg = (arg) => {
-            if (typeof arg === 'string') return arg;
-            if (arg && arg.type && arg.args) return this._formatHyperedge(arg);
-            return JSON.stringify(arg);
-        };
-
-        const args = hyperedge.args ? hyperedge.args.map(formatArg).join(', ') : '';
-
-        switch(hyperedge.type) {
-            case 'TemporalRelation':
-                const term1 = hyperedge.args[0].split('(')[0];
-                const term2 = hyperedge.args[1].split('(')[0];
-                const relation = hyperedge.args[2];
-                return `${term1} ${relation} ${term2}`;
-            case 'TimeInterval':
-                return `TimeInterval for ${hyperedge.args[0]}`;
-            default:
-                return `${hyperedge.type}(${args})`;
-        }
+        if (!hyperedge) return "an unknown concept";
+        const args = hyperedge.args ? hyperedge.args.join(', ') : '';
+        return `${hyperedge.type}(${args})`;
     }
 
     _formatTermForStory(step) {
@@ -300,5 +155,13 @@ export class ExplanationSystem {
             default:
                 return `the concept of ${step.type} involving ${step.args.join(' and ')}`;
         }
+    }
+
+    _formatConfidence(confidence) {
+        if (confidence >= 0.9) return `Very High (${(confidence * 100).toFixed(0)}%)`;
+        if (confidence >= 0.75) return `High (${(confidence * 100).toFixed(0)}%)`;
+        if (confidence >= 0.5) return `Moderate (${(confidence * 100).toFixed(0)}%)`;
+        if (confidence >= 0.25) return `Low (${(confidence * 100).toFixed(0)}%)`;
+        return `Very Low (${(confidence * 100).toFixed(0)}%)`;
     }
 }

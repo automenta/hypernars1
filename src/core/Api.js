@@ -158,6 +158,23 @@ export class Api {
     return { baseRule, exceptionRule };
   }
 
+  /* ===== PUBLIC API: TEMPORAL OPERATIONS ===== */
+  temporalInterval(term, start, end, options = {}) {
+    return this.nar.temporalManager.interval(term, start, end, options);
+  }
+
+  temporalConstraint(event1, event2, relation, options = {}) {
+    return this.nar.temporalManager.addConstraint(event1, event2, relation, options);
+  }
+
+  inferTemporalRelationship(event1, event2) {
+    return this.nar.temporalManager.inferRelationship(event1, event2);
+  }
+
+  projectTemporal(term, milliseconds) {
+    return this.nar.temporalManager.project(term, milliseconds);
+  }
+
   /* ===== PUBLIC API: STRUCTURAL OPERATIONS ===== */
   term(name, options = {}) { return this.addHyperedge('Term', [name], options); }
   inheritance(subject, predicate, options = {}) { return this.addHyperedge('Inheritance', [subject, predicate], options); }
@@ -236,6 +253,16 @@ export class Api {
    * @param {string} hyperedgeId The ID of the hyperedge to revise.
    * @param {Object} options Options including truth and budget.
    */
+  /**
+   * Reports the outcome of an action or reasoning process to the Learning Engine.
+   * @param {string} conclusionId - The ID of the hyperedge representing the action or conclusion.
+   * @param {Object} outcomeDetails - Details about the outcome.
+   * @param {boolean} outcomeDetails.success - Whether the outcome was successful.
+   */
+  outcome(conclusionId, outcomeDetails) {
+    this.nar.learningEngine.recordExperience(conclusionId, outcomeDetails);
+  }
+
   revise(hyperedgeId, options = {}) {
     const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
     if (!hyperedge) {
@@ -267,6 +294,7 @@ export class Api {
     });
 
     if (revisionResult.needsUpdate) {
+        this.nar.contradictionManager.detectContradiction(hyperedgeId);
         this.nar.notifyListeners('revision', { hyperedgeId, newTruth: finalTruth, newBudget: finalBudget });
         this.nar.propagation.propagate(hyperedgeId, 1.0, finalBudget, 0, 0, []);
     }

@@ -173,6 +173,20 @@ export class TemporalReasoner extends TemporalManagerBase {
     }
 
     /**
+     * Defines that an event happens during a specific interval.
+     * This is a helper for compatibility with other managers and tests.
+     * @param {string} eventTerm - The event that occurs.
+     * @param {number} start - The start time of the interval.
+     * @param {number} end - The end time of the interval.
+     * @param {object} options - Truth and budget options.
+     */
+    during(eventTerm, start, end, options = {}) {
+        const intervalTerm = `interval_${start}_${end}`;
+        const intervalId = this.interval(intervalTerm, start, end, options);
+        return this.addConstraint(eventTerm, intervalId, 'during', options);
+    }
+
+    /**
      * Finds intervals related to a subject with optional temporal constraints.
      */
     query(subject, constraints = {}) {

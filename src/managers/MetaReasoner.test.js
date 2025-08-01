@@ -40,7 +40,7 @@ describe('MetaReasoner', () => {
         nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.1, 0.9) });
         nar.contradictionManager.addEvidence(termId, { source: 'A', strength: 0.9, beliefIndex: 0 });
         nar.contradictionManager.addEvidence(termId, { source: 'B', strength: 0.2, beliefIndex: 1 });
-        nar.contradictionManager.resolve(termId); // This should emit the 'contradiction-resolved' event
+        nar.contradictionManager.manualResolve(termId, 'default'); // This should emit the 'contradiction-resolved' event
 
         // We need to wait a bit for the async event listener to fire and for time to pass
         // This is not ideal, but for this test setup it's necessary.
@@ -63,9 +63,12 @@ describe('MetaReasoner', () => {
         const nar = new NARHyper(config);
         const initialInferenceThreshold = nar.config.inferenceThreshold; // Should be 0.3
 
-        // Mock the metric calculators to force ONLY the desired issue
-        jest.spyOn(nar.metaReasoner, '_calculateContradictionRate').mockReturnValue(0.5); // high-contradictions
-        jest.spyOn(nar.metaReasoner, '_calculateInferenceRate').mockReturnValue(0.5); // normal inference rate
+        // Mock the entire metrics calculation to force a specific issue
+        jest.spyOn(nar.metaReasoner, '_calculateMetrics').mockReturnValue({
+            contradictionRate: 0.5, // high-contradictions
+            inferenceRate: 0.5, // normal
+            resourceUtilization: 0.5 // normal
+        });
 
         nar.metaReasoner.selfMonitor();
 
@@ -83,7 +86,9 @@ describe('MetaReasoner', () => {
             const termId = id('Term', [`contradiction_${i}`]);
             nar.api.addHyperedge('Term', [`contradiction_${i}`], { truth: new TruthValue(1.0, 0.9) });
             nar.api.addHyperedge('Term', [`contradiction_${i}`], { truth: new TruthValue(0.0, 0.9) });
-            nar.contradictionManager.resolve(termId);
+            // The new manager detects automatically, but we can manually resolve for testing
+            nar.contradictionManager.detectContradiction(termId);
+            nar.contradictionManager.manualResolve(termId, 'default');
         }
 
         // Wait for a second to ensure the time delta is > 1 for the contradiction rate calculation

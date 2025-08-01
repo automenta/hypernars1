@@ -4,7 +4,7 @@ import {AdvancedContradictionManager} from './managers/AdvancedContradictionMana
 import {MetaReasoner} from './managers/MetaReasoner.js';
 import {AdvancedLearningEngine} from './managers/AdvancedLearningEngine.js';
 import {ExplanationSystem} from './managers/ExplanationSystem.js';
-import {AdvancedTemporalManager} from './managers/AdvancedTemporalManager.js';
+import {TemporalManager} from './managers/TemporalManager.js';
 
 import {State} from './core/State.js';
 import {Api} from './core/Api.js';
@@ -55,7 +55,7 @@ export class NARHyper {
         MetaReasoner,
         LearningEngine: AdvancedLearningEngine,
         ExplanationSystem,
-        TemporalManager: AdvancedTemporalManager,
+        TemporalManager: TemporalManager,
         ...(config.modules || {})
     };
 
