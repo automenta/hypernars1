@@ -174,8 +174,15 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         const newConfidence = Math.max(0.01, Math.min(0.99, belief.truth.confidence * adjustmentFactor));
         const newTruth = new TruthValue(belief.truth.frequency, newConfidence);
 
+        // Create a new budget with slightly higher priority to ensure it becomes the new strongest belief
+        const newBudget = new Budget(
+            Math.min(1.0, belief.budget.priority * 1.01),
+            belief.budget.durability,
+            belief.budget.quality
+        );
+
         // Use the revise method to properly update the belief, passing a single options object
-        hyperedge.revise({ truth: newTruth, budget: belief.budget });
+        hyperedge.revise({ truth: newTruth, budget: newBudget });
 
         // Recursively adjust the premises
         if (belief.premises && belief.premises.length > 0) {

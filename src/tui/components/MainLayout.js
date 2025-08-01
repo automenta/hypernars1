@@ -6,6 +6,7 @@ import LogView from './LogView.js';
 import MemoryView from './MemoryView.js';
 import QueueView from './QueueView.js';
 import SystemView from './SystemView.js';
+import ContradictionView from './ContradictionView.js';
 import ControlView from './ControlView.js';
 import ParameterView from './ParameterView.js';
 import InteractionView from './InteractionView.js';
@@ -24,6 +25,7 @@ const MainLayout = () => {
         switch (activeTab) {
             case 'queue': return <QueueView />;
             case 'system': return <SystemView />;
+            case 'contradictions': return <ContradictionView />;
             case 'memory':
             default:
                 return <MemoryView />;
@@ -42,6 +44,7 @@ const MainLayout = () => {
                             <Tab label="[1] Memory" isActive={activeTab === 'memory'} />
                             <Tab label="[2] Queue" isActive={activeTab === 'queue'} />
                             <Tab label="[3] System" isActive={activeTab === 'system'} />
+                            <Tab label="[4] Contradictions" isActive={activeTab === 'contradictions'} />
                         </Box>
                         <Box borderStyle="single" borderColor="cyan" flexGrow={1}>
                             {renderActiveTab()}

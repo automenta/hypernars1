@@ -4,9 +4,50 @@ import { Hyperedge } from '../support/Hyperedge.js';
 import { Budget } from '../support/Budget.js';
 
 /**
- * Advanced contradiction management system based on the proposal in enhance.f.md.
- * This manager detects, tracks, and resolves contradictions using a configurable
- * set of strategies, including evidence-weighting, recency, and source reliability.
+ * @file Advanced Contradiction Manager for HyperNAR
+ * @description Implements the comprehensive contradiction handling system for HyperNAR.
+ *
+ * At its core, HyperNAR's approach to contradictions is fundamentally different from
+ * traditional logic systems. Instead of treating contradictions as errors that invalidate
+ * the system, it views them as a natural and essential part of reasoning with incomplete
+ * and uncertain real-world knowledge. Contradictions are valuable signals that point to
+ * areas of conflict in the system's knowledge that need refinement.
+ *
+ * The process can be broken down into four main stages:
+ *
+ * ### 1. Detection
+ * A contradiction is detected when two beliefs about the **same concept** have strongly
+ * opposing truth values (e.g., one has a high frequency, the other has a low frequency,
+ * and both are held with high confidence). This detection happens automatically whenever
+ * a belief is revised with new evidence.
+ *
+ * ### 2. Analysis
+ * Once a contradiction is detected, the system performs a detailed analysis. It gathers
+ * all available information: the conflicting beliefs, their truth values, their budgets
+ * (priority/importance), and any supporting evidence. It calculates an "evidence strength"
+ * for each conflicting belief and then suggests a resolution strategy.
+ *
+ * ### 3. Resolution
+ * The system has a sophisticated toolkit of strategies to resolve the contradiction, which
+ * can be triggered automatically or manually. The main strategies include:
+ *
+ * - **Dominant Evidence:** If one belief is backed by significantly stronger evidence,
+ *   it "wins," and the weaker belief is suppressed.
+ * - **Merge:** If the conflicting beliefs have similar strength, they can be merged. This
+ *   typically results in a new belief with a revised truth value that reflects the
+ *   uncertainty of the conflict.
+ * - **Specialize (Contextualization):** If the beliefs might be true in different contexts,
+ *   the system can create a new, more specific concept. For example, faced with the
+ *   contradiction that "birds fly" but "penguins don't fly," it can create a specialized
+ *   belief: `<(bird, context:penguin) --> NOT flyer>`. This adds nuance rather than deleting knowledge.
+ * - **Recency-Biased:** This strategy resolves a conflict by favoring the most recent information,
+ *   leveraging the timestamp attached to every belief.
+ *
+ * ### 4. Learning
+ * The system learns from this entire process. The LearningEngine observes which resolution
+ * strategies lead to successful outcomes (e.g., better predictions). Over time, it can learn
+ * to automatically choose the best strategy for a given type of conflict, making its
+ * reasoning more robust and efficient.
  */
 export class AdvancedContradictionManager extends ContradictionManagerBase {
     constructor(nar) {

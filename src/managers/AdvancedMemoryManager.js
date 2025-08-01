@@ -1,6 +1,7 @@
 import { MemoryManagerBase } from './MemoryManagerBase.js';
 import { OptimizedIndex } from './OptimizedIndex.js';
 import { Budget } from '../support/Budget.js';
+import { id } from '../support/utils.js';
 
 /**
  * An advanced memory manager that uses an OptimizedIndex for efficient
@@ -131,29 +132,55 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
      * Enhances relevance calculation with more sophisticated importance scores.
      */
     _isImportantConcept(hyperedgeId) {
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        // Extract the core term name, e.g., 'my_term' from 'Term(my_term)'
-        const termName = hyperedge?.args[0];
-
-        // Is it part of an active question?
-        if (termName) {
-            for (const questionId of this.nar.state.questionPromises.keys()) {
-                // A more robust check: does the question string contain the term name?
-                if (questionId.includes(termName)) {
-                    return true;
-                }
+        // Method 1: Check if the concept is part of any active question.
+        // This is the most reliable way to determine immediate importance.
+        const importantTermsInQuestions = new Set();
+        const extractTerms = (parsed) => {
+            if (!parsed) return;
+            // We are interested in the ID of the term itself, which is a hyperedge
+            if (parsed.type === 'Term') {
+                importantTermsInQuestions.add(id(parsed.type, parsed.args));
             }
+            if (parsed.args) {
+                parsed.args.forEach(arg => {
+                    // Recursively extract from complex arguments
+                    if (typeof arg === 'object' && arg !== null) {
+                        extractTerms(arg);
+                    }
+                });
+            }
+        };
+
+        this.nar.state.questionPromises.forEach((promise, questionId) => {
+            try {
+                // Questions are stored with a "Question(...)" wrapper
+                const match = questionId.match(/^Question\((.*)\)$/);
+                if (match) {
+                    const questionContent = match[1];
+                    // Use the system's own parser to robustly find terms
+                    const parsedQuestion = this.nar.expressionEvaluator.parse(questionContent);
+                    extractTerms(parsedQuestion);
+                }
+            } catch (e) {
+                // Ignore parsing errors, as some questions might be malformed during testing.
+            }
+        });
+
+        if (importantTermsInQuestions.has(hyperedgeId)) {
+            return true;
         }
 
-        // Is it being actively tracked by the index?
+        // Method 2: Check if it's being actively tracked by the index.
         if (this.index.activeConcepts.has(hyperedgeId)) {
             return true;
         }
-        // Does it have high importance?
+
+        // Method 3: Check if it has a high importance score from past activity.
         const importance = this.importanceScores.get(hyperedgeId) || 0;
         if (importance > 0.8) {
             return true;
         }
+
         return false;
     }
 

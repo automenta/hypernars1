@@ -50,6 +50,7 @@ const App = ({ nar }) => {
         else if (input === '1') setActiveTab('memory');
         else if (input === '2') setActiveTab('queue');
         else if (input === '3') setActiveTab('system');
+        else if (input === '4') setActiveTab('contradictions');
         else if (key.escape) process.exit();
     });
 
@@ -60,6 +61,19 @@ const App = ({ nar }) => {
                 case 'quit': process.exit(0); break;
                 case 'run': nar.run(parseInt(args[0], 10) || 1); break;
                 case 'ask': nar.ask(args.join(' ')).then(a => log(`Answer: ${JSON.stringify(a)}`)).catch(e => log(`Error: ${e.message}`)); break;
+                case 'contradict':
+                    if (args.length === 2) {
+                        const [belief1, belief2] = args;
+                        const result = nar.contradictionManager.contradict(belief1, belief2);
+                        if (result) {
+                            log(`Flagged contradiction between ${belief1} and ${belief2}. ID: ${result}`);
+                        } else {
+                            log(`Failed to flag contradiction between ${belief1} and ${belief2}.`);
+                        }
+                    } else {
+                        log('Usage: /contradict <belief1_id> <belief2_id>');
+                    }
+                    break;
                 default: log(`Unknown command: ${command}`);
             }
         } else {
