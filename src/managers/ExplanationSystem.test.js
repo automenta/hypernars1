@@ -75,4 +75,51 @@ describe('ExplanationSystem', () => {
         expect(explanation).toContain('[TransitiveTemporal] TimeInterval before TimeInterval');
         expect(explanation).toContain('[assertion] TimeInterval before TimeInterval');
     });
+
+    describe('Explanation Formats', () => {
+        let nar;
+        let conclusionId;
+
+        beforeEach(() => {
+            nar = new NARHyper();
+            const p1 = nar.inheritance('A', 'B', { derivedBy: 'assertion' });
+            const p2 = nar.inheritance('B', 'C', { derivedBy: 'assertion' });
+            conclusionId = nar.inheritance('A', 'C', { premises: [p1, p2], derivedBy: 'transitivity' });
+        });
+
+        it('should generate a detailed explanation', () => {
+            const explanation = nar.explain(conclusionId, { format: 'detailed' });
+            expect(explanation).toContain('CONCLUSION: Inheritance(A, C)');
+            expect(explanation).toContain('PRIMARY REASONING PATH:');
+            expect(explanation).toContain('[transitivity] Inheritance(A, C)');
+            expect(explanation).toContain('[assertion] Inheritance(A, B)');
+            expect(explanation).toContain('[assertion] Inheritance(B, C)');
+        });
+
+        it('should generate a concise explanation', () => {
+            const explanation = nar.explain(conclusionId, { format: 'concise' });
+            // Check for the components, as premise order isn't guaranteed
+            expect(explanation).toContain('Inheritance(A, B)');
+            expect(explanation).toContain('Inheritance(B, C)');
+            expect(explanation).toContain('Inheritance(A, C)');
+            expect(explanation).toContain('->');
+        });
+
+        it('should generate a technical explanation', () => {
+            const explanation = nar.explain(conclusionId, { format: 'technical' });
+            expect(explanation).toContain('TECHNICAL REASONING TRACE:');
+            expect(explanation).toContain('ID: Inheritance(A,C)');
+            expect(explanation).toContain('DerivedBy: transitivity');
+            expect(explanation).toContain('ID: Inheritance(A,B)');
+            expect(explanation).toContain('DerivedBy: assertion');
+        });
+
+        it('should generate a story explanation', () => {
+            const explanation = nar.explain(conclusionId, { format: 'story' });
+            expect(explanation).toContain('Let me tell you how I came to believe that A is a kind of C.');
+            // Check for the core content of the premises, as order and joining words can vary
+            expect(explanation).toContain('A is a kind of B');
+            expect(explanation).toContain('B is a kind of C');
+        });
+    });
 });

@@ -187,7 +187,14 @@ export class Api {
     }
 
     // Delegate revision and contradiction handling to the hyperedge itself
-    const revisionResult = hyperedge.revise(finalTruth, finalBudget, this.nar.config.beliefCapacity, premises, options.context, derivedBy);
+    const revisionResult = hyperedge.revise({
+        truth: finalTruth,
+        budget: finalBudget,
+        beliefCapacity: this.nar.config.beliefCapacity,
+        premises,
+        context: options.context,
+        derivedBy
+    });
 
     if (revisionResult.needsUpdate) {
         this.nar.notifyListeners('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });
@@ -221,5 +228,47 @@ export class Api {
     this.addHyperedge('atLocation', [term, location], {
         truth: TruthValue.certain()
     });
+  }
+
+  /**
+   * Revises a belief on an existing hyperedge.
+   * This is a more direct way to update a belief than addHyperedge.
+   * @param {string} hyperedgeId The ID of the hyperedge to revise.
+   * @param {Object} options Options including truth and budget.
+   */
+  revise(hyperedgeId, options = {}) {
+    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+    if (!hyperedge) {
+      // console.warn(`revise called on non-existent hyperedge: ${hyperedgeId}`);
+      return;
+    }
+
+    const { truth, budget } = options;
+    const strongestBelief = hyperedge.getStrongestBelief();
+
+    const finalTruth = truth || strongestBelief?.truth;
+    let finalBudget = budget || strongestBelief?.budget;
+
+    if (!finalTruth || !finalBudget) {
+        // Cannot revise without both truth and budget
+        return;
+    }
+
+    if (finalBudget && !(finalBudget instanceof Budget)) {
+        finalBudget = new Budget(finalBudget.priority, finalBudget.durability, finalBudget.quality);
+    }
+
+    const revisionResult = hyperedge.revise({
+        truth: finalTruth,
+        budget: finalBudget,
+        beliefCapacity: this.nar.config.beliefCapacity,
+        premises: strongestBelief?.premises, // Carry over premises
+        derivedBy: 'revision'
+    });
+
+    if (revisionResult.needsUpdate) {
+        this.nar.notifyListeners('revision', { hyperedgeId, newTruth: finalTruth, newBudget: finalBudget });
+        this.nar.propagation.propagate(hyperedgeId, 1.0, finalBudget, 0, 0, []);
+    }
   }
 }

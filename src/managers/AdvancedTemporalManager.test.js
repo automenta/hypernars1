@@ -79,4 +79,48 @@ describe('AdvancedTemporalManager', () => {
         const derivedRelation = nar.state.hypergraph.get(derivedRelationId);
         expect(derivedRelation).toBeDefined();
     });
+
+    test('should handle "during" with a pattern', () => {
+        const intervalId = nar.temporalManager.during('meeting', '9:00-10:00', 'daily');
+        const expectedId = id('TimeInterval', ['meeting', '9:00-10:00', 'daily']);
+        expect(intervalId).toBe(expectedId);
+
+        const hyperedge = nar.state.hypergraph.get(intervalId);
+        expect(hyperedge).toBeDefined();
+        expect(hyperedge.type).toBe('TimeInterval');
+        expect(hyperedge.args).toEqual(['meeting', '9:00-10:00', 'daily']);
+    });
+
+    test('should prune old projections with adjustTemporalHorizon', () => {
+        // Manually add a projection that is already expired
+        const oldProjectionId = nar.temporalManager._addTemporalProjection('old_event', 'some_pattern', -1);
+        expect(nar.temporalManager.projections.has(oldProjectionId)).toBe(true);
+
+        nar.temporalManager.adjustTemporalHorizon();
+
+        expect(nar.temporalManager.projections.has(oldProjectionId)).toBe(false);
+    });
+
+    // This test checks a more complex temporal composition rule
+    test('should derive transitive temporal relations (overlaps -> starts)', async () => {
+        nar.temporalManager.relate('event_A', 'event_B', 'overlaps');
+        nar.temporalManager.relate('event_B', 'event_C', 'starts');
+
+        // According to Allen's interval algebra composition table,
+        // A overlaps B and B starts C implies A overlaps C.
+        const derivedRelationId = id('TemporalRelation', ['event_A', 'event_C', 'overlaps']);
+        const answerPromise = nar.ask(derivedRelationId, { minExpectation: 0.5 });
+
+        nar.run(40); // Run for more steps just in case
+
+        const answer = await answerPromise;
+
+        expect(answer).not.toBeNull();
+        if (answer) { // Guard against null answer
+            expect(answer.truth.confidence).toBeGreaterThan(0.4); // Composition can lower confidence
+        }
+
+        const derivedRelation = nar.state.hypergraph.get(derivedRelationId);
+        expect(derivedRelation).toBeDefined();
+    });
 });

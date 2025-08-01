@@ -256,23 +256,33 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
             return 0;
         }
 
-        const pathsToPrune = [];
+        const originalSize = eventQueue.heap.length;
+        const pathsToKeep = [];
         for (const event of eventQueue.heap) {
-            if (event.budget.total() < threshold) {
-                pathsToPrune.push(event);
+            if (event.budget.total() >= threshold) {
+                pathsToKeep.push(event);
             }
         }
 
-        if (pathsToPrune.length > 0) {
-            for (const event of pathsToPrune) {
-                eventQueue.remove(event);
+        const prunedCount = originalSize - pathsToKeep.length;
+
+        if (prunedCount > 0) {
+            // Rebuild the heap. This is simpler and safer than implementing a `remove`
+            // method for the PriorityQueue.
+            eventQueue.heap = pathsToKeep;
+
+            // We need to restore the heap property. A simple way is to sift down from the top.
+            // A full re-heapify would be more correct, but sifting the first half is sufficient.
+            for (let i = Math.floor(eventQueue.heap.length / 2) - 1; i >= 0; i--) {
+                eventQueue._siftDown(i); // Assuming _siftDown can take an index
             }
+
             this.nar.notifyListeners('pruning', {
                 type: 'low-value-paths',
-                count: pathsToPrune.length
+                count: prunedCount
             });
         }
 
-        return pathsToPrune.length;
+        return prunedCount;
     }
 }

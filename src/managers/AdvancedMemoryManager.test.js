@@ -122,4 +122,43 @@ describe('AdvancedMemoryManager', () => {
         jest.runAllTimers();
         await questionPromise.catch(() => {});
     });
+
+    it('should allocate a higher budget for a question than for a derivation', () => {
+        const nar = new NARHyper({ modules: { MemoryManager: AdvancedMemoryManager } });
+        const manager = nar.memoryManager;
+
+        const questionTask = { type: 'question' };
+        const derivationTask = { type: 'derivation' };
+
+        const questionBudget = manager.allocateResources(questionTask);
+        const derivationBudget = manager.allocateResources(derivationTask);
+
+        expect(questionBudget.priority).toBeGreaterThan(derivationBudget.priority);
+        expect(questionBudget.durability).toBeGreaterThan(derivationBudget.durability);
+    });
+
+    it('should prune low-value paths from the event queue', () => {
+        const nar = new NARHyper({ modules: { MemoryManager: AdvancedMemoryManager } });
+        const manager = nar.memoryManager;
+        const queue = nar.state.eventQueue;
+
+        // Add events with varying budget totals
+        queue.push({ id: 'high_budget', budget: { priority: 0.8, durability: 0.8, quality: 0.8, total: () => 0.8 } });
+        queue.push({ id: 'medium_budget', budget: { priority: 0.3, durability: 0.3, quality: 0.3, total: () => 0.3 } });
+        queue.push({ id: 'low_budget_1', budget: { priority: 0.1, durability: 0.1, quality: 0.1, total: () => 0.1 } });
+        queue.push({ id: 'low_budget_2', budget: { priority: 0.05, durability: 0.05, quality: 0.05, total: () => 0.05 } });
+
+        expect(queue.heap.length).toBe(4);
+
+        const prunedCount = manager.pruneLowValuePaths(0.2); // Threshold is 0.2
+
+        expect(prunedCount).toBe(2);
+        expect(queue.heap.length).toBe(2);
+
+        const remainingIds = queue.heap.map(event => event.id);
+        expect(remainingIds).toContain('high_budget');
+        expect(remainingIds).toContain('medium_budget');
+        expect(remainingIds).not.toContain('low_budget_1');
+        expect(remainingIds).not.toContain('low_budget_2');
+    });
 });

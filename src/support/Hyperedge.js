@@ -9,7 +9,16 @@ export class Hyperedge {
     this.beliefs = [];
   }
 
-  revise(truth, budget, beliefCapacity = 8, premises = [], context = null, derivedBy = null) {
+  revise(options) {
+    const {
+        truth,
+        budget,
+        beliefCapacity = 8,
+        premises = [],
+        context = null,
+        derivedBy = null
+    } = options;
+
     const newBelief = {
         truth,
         budget,

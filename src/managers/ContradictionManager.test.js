@@ -110,4 +110,38 @@ describe('AdvancedContradictionManager', () => {
         expect(analysis.resolutionSuggestion.resolved).toBe(true);
         expect(analysis.resolutionSuggestion.reason).toBe('dominant_evidence');
     });
+
+    it('should find and resolve the most significant contradiction via resolveContradictions()', () => {
+        const nar = new NARHyper(config);
+
+        // Concept 1: Mild contradiction
+        const termId1 = id('Term', ['d']);
+        nar.api.addHyperedge('Term', ['d'], { truth: new TruthValue(0.8, 0.9), budget: new Budget(0.8, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['d'], { truth: new TruthValue(0.3, 0.9), budget: new Budget(0.7, 0.9, 0.9) });
+        nar.contradictionManager.addEvidence(termId1, { source: 'A', strength: 0.7, beliefIndex: 0 });
+        nar.contradictionManager.addEvidence(termId1, { source: 'B', strength: 0.5, beliefIndex: 1 });
+
+        // Concept 2: Strong contradiction (similar evidence strength, high belief count potential)
+        const termId2 = id('Term', ['e']);
+        nar.api.addHyperedge('Term', ['e'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['e'], { truth: new TruthValue(0.2, 0.9), budget: new Budget(0.88, 0.9, 0.9) });
+        nar.contradictionManager.addEvidence(termId2, { source: 'C', strength: 0.8, beliefIndex: 0 });
+        nar.contradictionManager.addEvidence(termId2, { source: 'D', strength: 0.78, beliefIndex: 1 });
+
+        const hyperedge1_before = nar.state.hypergraph.get(termId1);
+        const hyperedge2_before = nar.state.hypergraph.get(termId2);
+        expect(hyperedge1_before.beliefs.length).toBe(2);
+        expect(hyperedge2_before.beliefs.length).toBe(2);
+
+        // Run the global resolution
+        nar.contradictionManager.resolveContradictions();
+
+        const hyperedge1_after = nar.state.hypergraph.get(termId1);
+        const hyperedge2_after = nar.state.hypergraph.get(termId2);
+
+        // Expect that concept 2 (the more significant contradiction) was resolved
+        expect(hyperedge2_after.beliefs.length).toBe(1);
+        // And concept 1 was left alone
+        expect(hyperedge1_after.beliefs.length).toBe(2);
+    });
 });

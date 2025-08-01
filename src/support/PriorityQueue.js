@@ -32,10 +32,9 @@ export class PriorityQueue {
     }
   }
 
-  _siftDown() {
-    let idx = 0;
+  _siftDown(idx = 0) {
     const length = this.heap.length;
-    const element = this.heap[0];
+    const element = this.heap[idx];
 
     while (true) {
       let swap = null;

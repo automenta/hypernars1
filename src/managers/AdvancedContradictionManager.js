@@ -83,48 +83,69 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const strongest = beliefsWithEvidence[0];
         const nextStrongest = beliefsWithEvidence[1];
 
+        // Strategy 1: Resolve by dominant evidence
         if (strongest.evidenceStrength > (nextStrongest.evidenceStrength * 1.5)) {
-            if (!suggestOnly) {
-                hyperedge.beliefs = [strongest.belief];
-                this.nar.notifyListeners('contradiction-resolved', { hyperedgeId, resolution: 'dominant_evidence' });
-            }
-            return {
-                resolved: true,
-                reason: 'dominant_evidence',
-                primaryBelief: strongest.belief,
-                evidenceStrength: strongest.evidenceStrength
-            };
-        } else {
-            const conflictingBelief = nextStrongest.belief;
-            const evidence = hyperedge.evidence?.find(e => e.beliefIndex === nextStrongest.index);
-            const context = evidence?.source || 'alternative_context';
-            const newHyperedgeId = `${hyperedge.id}|context:${context}`;
-
-            if (!suggestOnly) {
-                this._createContextualSpecialization(hyperedge, conflictingBelief, context);
-                hyperedge.beliefs = hyperedge.beliefs.filter(b => b !== conflictingBelief);
-            }
-
-            return {
-                resolved: true,
-                reason: 'specialized',
-                originalHyperedge: hyperedgeId,
-                newHyperedge: newHyperedgeId,
-                context
-            };
+            return this._resolveByDominantEvidence(hyperedge, strongest, suggestOnly);
         }
+
+        // Strategy 2: Resolve by creating a contextual specialization
+        return this._resolveBySpecialization(hyperedge, nextStrongest, suggestOnly);
+    }
+
+    _resolveByDominantEvidence(hyperedge, strongestBelief, suggestOnly) {
+        if (!suggestOnly) {
+            hyperedge.beliefs = [strongestBelief.belief];
+            this.nar.notifyListeners('contradiction-resolved', { hyperedgeId: hyperedge.id, resolution: 'dominant_evidence' });
+        }
+        return {
+            resolved: true,
+            reason: 'dominant_evidence',
+            primaryBelief: strongestBelief.belief,
+            evidenceStrength: strongestBelief.evidenceStrength
+        };
+    }
+
+    _resolveBySpecialization(hyperedge, conflictingBeliefData, suggestOnly) {
+        const conflictingBelief = conflictingBeliefData.belief;
+        const evidence = hyperedge.evidence?.find(e => e.beliefIndex === conflictingBeliefData.index);
+        const context = evidence?.source || 'alternative_context';
+        const newHyperedgeId = `${hyperedge.id}|context:${context}`;
+
+        if (!suggestOnly) {
+            this._createContextualSpecialization(hyperedge, conflictingBelief, context);
+            hyperedge.beliefs = hyperedge.beliefs.filter(b => b !== conflictingBelief);
+            this.nar.notifyListeners('contradiction-resolved', { hyperedgeId: hyperedge.id, resolution: 'specialized' });
+        }
+
+        return {
+            resolved: true,
+            reason: 'specialized',
+            originalHyperedge: hyperedge.id,
+            newHyperedge: newHyperedgeId,
+            context
+        };
     }
 
     _createContextualSpecialization(originalHyperedge, conflictingBelief, context) {
         const newId = `${originalHyperedge.id}|context:${context}`;
         if (this.nar.state.hypergraph.has(newId)) {
             const existingSpecialization = this.nar.state.hypergraph.get(newId);
-            existingSpecialization.revise(conflictingBelief.truth, conflictingBelief.budget, this.nar.config.beliefCapacity, conflictingBelief.premises);
+            existingSpecialization.revise({
+                truth: conflictingBelief.truth,
+                budget: conflictingBelief.budget,
+                beliefCapacity: this.nar.config.beliefCapacity,
+                premises: conflictingBelief.premises
+            });
             return newId;
         }
         const newArgs = [...originalHyperedge.args, `context:${context}`];
         const specialization = new Hyperedge(this.nar, newId, originalHyperedge.type, newArgs);
-        specialization.revise(conflictingBelief.truth, conflictingBelief.budget, this.nar.config.beliefCapacity, conflictingBelief.premises);
+        specialization.revise({
+            truth: conflictingBelief.truth,
+            budget: conflictingBelief.budget,
+            beliefCapacity: this.nar.config.beliefCapacity,
+            premises: conflictingBelief.premises
+        });
         this.nar.state.hypergraph.set(newId, specialization);
         this.nar.notifyListeners('concept-split', {
             originalId: originalHyperedge.id,

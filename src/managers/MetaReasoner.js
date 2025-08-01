@@ -166,9 +166,9 @@ export class MetaReasoner {
             policy.inferenceThreshold = Math.min(0.6, policy.inferenceThreshold * (1 + adaptationRate));
             // In a more advanced system, we could change the active strategy here.
             this.configureStrategy({ context: 'high-uncertainty', strategy: 'skeptical', priority: 10 });
-        }
-        if (issues.includes('low-inference-rate')) {
+        } else if (issues.includes('low-inference-rate')) {
             // If inference is low, be more eager and allocate more budget.
+            // This is an 'else if' because we don't want to undo the skepticism from high contradictions.
             this.addToTrace({ type: 'adaptation-detail', message: 'Low inference rate detected. Becoming more eager.' });
             policy.inferenceThreshold = Math.max(0.05, policy.inferenceThreshold * (1 - adaptationRate));
             policy.budgetThreshold = Math.max(0.01, policy.budgetThreshold * (1 - adaptationRate * 0.5));

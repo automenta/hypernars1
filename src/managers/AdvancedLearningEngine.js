@@ -221,7 +221,10 @@ export class AdvancedLearningEngine extends LearningEngineBase {
                     currentTruth.frequency,
                     currentTruth.confidence * (1 - learningFactor) // Reduce confidence
                 );
-                this.nar.api.revise(event.target, newTruth, belief.budget.scale(0.9));
+                this.nar.api.revise(event.target, {
+                    truth: newTruth,
+                    budget: belief.budget.scale(0.9)
+                });
             }
         });
     }
@@ -245,7 +248,10 @@ export class AdvancedLearningEngine extends LearningEngineBase {
                     currentTruth.frequency,
                     Math.min(0.99, currentTruth.confidence * (1 + learningFactor)) // Increase confidence
                 );
-                this.nar.api.revise(event.target, newTruth, belief.budget.scale(1.05));
+                this.nar.api.revise(event.target, {
+                    truth: newTruth,
+                    budget: belief.budget.scale(1.05)
+                });
             }
         });
     }

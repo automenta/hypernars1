@@ -74,6 +74,30 @@ describe('MetaReasoner', () => {
         expect(nar.config.inferenceThreshold).toBeCloseTo(0.33);
     });
 
+    it('should adapt to a real high-contradiction scenario', async () => {
+        const nar = new NARHyper(config);
+        const initialThreshold = nar.config.inferenceThreshold;
+
+        // Create many contradictions quickly
+        for (let i = 0; i < 5; i++) {
+            const termId = id('Term', [`contradiction_${i}`]);
+            nar.api.addHyperedge('Term', [`contradiction_${i}`], { truth: new TruthValue(1.0, 0.9) });
+            nar.api.addHyperedge('Term', [`contradiction_${i}`], { truth: new TruthValue(0.0, 0.9) });
+            nar.contradictionManager.resolve(termId);
+        }
+
+        // Wait for a second to ensure the time delta is > 1 for the contradiction rate calculation
+        await new Promise(resolve => setTimeout(resolve, 1050));
+
+        // Mock getAndResetInferenceCount to return a non-zero value to avoid division by zero
+        jest.spyOn(nar.derivationEngine, 'getAndResetInferenceCount').mockReturnValue(10);
+
+        nar.metaReasoner.selfMonitor();
+
+        // The system should have detected a 'high-contradictions' issue and increased the threshold
+        expect(nar.config.inferenceThreshold).toBeGreaterThan(initialThreshold);
+    });
+
     it('should provide a reasoning trace', () => {
         const nar = new NARHyper(config);
 
