@@ -11,12 +11,12 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     constructor(nar) {
         super(nar);
         this.operators = [
-            { symbol: '==>', precedence: 1, type: 'Implication' },
-            { symbol: '<=>', precedence: 1, type: 'Equivalence' },
+            { symbol: '==>', precedence: 4, type: 'Implication' },
+            { symbol: '<=>', precedence: 4, type: 'Equivalence' },
+            { symbol: '-->', precedence: 3, type: 'Inheritance' },
             { symbol: '&&', precedence: 2, type: 'Conjunction' },
             { symbol: '||', precedence: 2, type: 'Disjunction' },
-            { symbol: '-->', precedence: 3, type: 'Inheritance' },
-            { symbol: '<->', precedence: 3, type: 'Similarity' }
+            { symbol: '<->', precedence: 1, type: 'Similarity' }
         ];
     }
 
@@ -98,40 +98,87 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     _parseRecursive(content, truth, priority) {
         content = content.trim();
 
+        // Explicitly treat angle-bracketed content as a single term.
+        if (content.startsWith('<') && content.endsWith('>')) {
+            return this._parseTerm(content, truth, priority);
+        }
+
         if (content.startsWith('¬')) {
             const negatedContent = content.substring(1).trim();
             const parsed = this._parseRecursive(negatedContent, truth, priority);
             if (parsed) {
-                parsed.truth = parsed.truth.negate();
+                // Invert the frequency for negation
+                const newTruth = new TruthValue(1.0 - parsed.truth.frequency, parsed.truth.confidence);
+                return { ...parsed, truth: newTruth };
             }
             return parsed;
         }
 
-        // Strip outer brackets first. This is a simplification that ignores precedence
-        // but is more robust for the common cases.
-        if (content.startsWith('<') && content.endsWith('>')) {
-            content = content.slice(1, -1).trim();
-        } else if (content.startsWith('(') && content.endsWith(')')) {
-            content = content.slice(1, -1).trim();
-        }
+        // Handle parenthesis stripping and check for balanced parentheses
+        if (content.startsWith('(') && content.endsWith(')')) {
+            let balance = 0;
+            let a = 0;
+            for (const i in content) {
+                if (content[i] == '(') {
+                    balance++;
+                } else if (content[i] == ')') {
+                    balance--;
+                }
 
-        // Find the first operator from left to right.
-        // This is a simplification and does not handle precedence correctly for complex cases.
-        for (const op of this.operators) {
-            const index = content.indexOf(op.symbol);
-            if (index !== -1) {
-                const left = content.substring(0, index);
-                const right = content.substring(index + op.symbol.length);
-                return {
-                    type: op.type,
-                    args: [this._parseRecursive(left, truth, priority), this._parseRecursive(right, truth, priority)],
-                    truth,
-                    priority
-                };
+                if (balance == 0 && i < content.length - 1) {
+                    a = 1;
+                    break;
+                }
+            }
+            if (a == 0) {
+                content = content.slice(1, -1).trim();
             }
         }
 
-        // Base case: no operators found.
+        let bestOp = null;
+        let depth = 0;
+
+        for (let i = 0; i < content.length; i++) {
+            if (content[i] === '(') {
+                depth++;
+            } else if (content[i] === ')') {
+                depth--;
+            }
+
+            if (depth === 0) {
+                // Find the operator with the lowest precedence (highest number)
+                for (const op of this.operators) {
+                    if (content.substring(i, i + op.symbol.length) === op.symbol) {
+                        if (!bestOp || op.precedence >= bestOp.precedence) {
+                            bestOp = { ...op, position: i };
+                        }
+                    }
+                }
+            }
+        }
+
+        if (bestOp) {
+            const left = content.substring(0, bestOp.position).trim();
+            const right = content.substring(bestOp.position + bestOp.symbol.length).trim();
+            return {
+                type: bestOp.type,
+                args: [
+                    this._parseRecursive(left, truth, priority),
+                    this._parseRecursive(right, truth, priority)
+                ],
+                truth,
+                priority
+            };
+        }
+
+        // Base case: no operators, just a term or variable
+        return this._parseTerm(content, truth, priority);
+    }
+
+    _parseTerm(content, truth, priority) {
+        if (content.startsWith('$') || content.startsWith('?')) {
+            return { type: 'Variable', args: [content], truth, priority };
+        }
         return { type: 'Term', args: [content], truth, priority };
     }
 

@@ -154,9 +154,9 @@ class Tui {
 
   runDemo1() {
     this.logOutput.log("\n===== 1. ADVANCED NAL PARSING & BASIC INFERENCE =====");
-    this.nar.nal('<(bird * animal) --> flyer>. %0.9;0.8%');
-    this.nar.nal('<penguin --> (bird * !flyer)>. #0.95#');
-    this.nar.nal('<tweety --> bird>.');
+    this.nar.nal('((bird * animal) --> flyer). %0.9;0.8%');
+    this.nar.nal('(penguin --> (bird * !flyer)). #0.95#');
+    this.nar.nal('(tweety --> bird).');
     this.logOutput.log("Initial beliefs added.");
     this.nar.run(50);
     const tweetyIsAnimalId = this.nar.inheritance('tweety', 'animal');
@@ -168,7 +168,7 @@ class Tui {
   runDemo2() {
     this.logOutput.log("\n===== 2. CONTRADICTION & RESOLUTION =====");
     this.logOutput.log("\nIntroducing belief that Tweety is a penguin...");
-    this.nar.nal('<tweety --> penguin>. %0.99;0.99%');
+    this.nar.nal('(tweety --> penguin). %0.99;0.99%');
     this.nar.run(100);
     const tweetyIsFlyerId = this.nar.inheritance('tweety', 'flyer');
     this.logOutput.log(`\nNew belief that Tweety is a flyer: ${this.nar.getBeliefs(tweetyIsFlyerId)[0]?.truth.expectation().toFixed(3)}`);
@@ -185,8 +185,8 @@ class Tui {
   runDemo4() {
     this.logOutput.log("\n===== 4. META-REASONING & ADAPTATION =====");
     this.logOutput.log(`Current resource policy (budgetThreshold): ${this.nar.config.budgetThreshold.toFixed(4)}`);
-    this.nar.ask('<tweety --> ?x>?').catch(e => {});
-    this.nar.ask('<penguin --> ?x>?').catch(e => {});
+    this.nar.ask('(tweety --> ?x)?').catch(e => {});
+    this.nar.ask('(penguin --> ?x)?').catch(e => {});
     this.nar.run(120);
     this.logOutput.log(`New resource policy (budgetThreshold): ${this.nar.config.budgetThreshold.toFixed(4)}`);
   }

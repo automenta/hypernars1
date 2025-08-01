@@ -104,5 +104,12 @@ describe('AdvancedExpressionEvaluator', () => {
             expect(result.args[0].args[0].type).toBe('Variable');
             expect(result.args[0].args[0].args[0]).toBe('$x');
         });
+
+        it('should not parse angle-bracket syntax', () => {
+            const result = nar.expressionEvaluator.parse('<a --> b>');
+            // The parser should now treat the whole thing as a single term because it doesn't recognize the brackets.
+            expect(result.type).toBe('Term');
+            expect(result.args[0]).toBe('<a --> b>');
+        });
     });
 });

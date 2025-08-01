@@ -21,9 +21,9 @@ async function main() {
     });
 
     console.log("\\n===== 1. ADVANCED NAL PARSING & BASIC INFERENCE =====");
-    nar.nal('<(bird * animal) --> flyer>. %0.9;0.8%');
-    nar.nal('<penguin --> (bird * !flyer)>. #0.95#'); // Using priority instead of truth
-    nar.nal('<tweety --> bird>.');
+    nar.nal('((bird * animal) --> flyer). %0.9;0.8%');
+    nar.nal('(penguin --> (bird * !flyer)). #0.95#'); // Using priority instead of truth
+    nar.nal('(tweety --> bird).');
     console.log("Initial beliefs added.");
 
     console.log("\nRunning system for 50 steps to allow initial inferences...");
@@ -37,7 +37,7 @@ async function main() {
 
     console.log("\\n===== 2. CONTRADICTION & RESOLUTION =====");
     console.log("\nIntroducing belief that Tweety is a penguin...");
-    nar.nal('<tweety --> penguin>. %0.99;0.99%');
+    nar.nal('(tweety --> penguin). %0.99;0.99%');
 
     console.log("Running system for 100 steps to process the new information and resolve contradictions...");
     nar.run(100);
@@ -67,10 +67,10 @@ async function main() {
     console.log("Simulating high question load to trigger adaptation...");
 
     // Ask a series of questions to increase pressure
-    nar.ask('<tweety --> ?x>?').catch(e => {});
-    nar.ask('<penguin --> ?x>?').catch(e => {});
-    nar.ask('<bird --> ?x>?').catch(e => {});
-    nar.ask('<animal --> ?x>?').catch(e => {});
+    nar.ask('(tweety --> ?x)?').catch(e => {});
+    nar.ask('(penguin --> ?x)?').catch(e => {});
+    nar.ask('(bird --> ?x)?').catch(e => {});
+    nar.ask('(animal --> ?x)?').catch(e => {});
 
     console.log("Running system for 120 steps...");
     nar.run(120); // This will trigger the maintenance cycle which includes meta-reasoning
