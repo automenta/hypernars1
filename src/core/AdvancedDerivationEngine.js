@@ -1,6 +1,6 @@
 import {DerivationEngineBase} from './DerivationEngineBase.js';
 import {TruthValue} from '../support/TruthValue.js';
-import {id, getArgId} from '../support/utils.js';
+import {id, getArgId, hash} from '../support/utils.js';
 
 export class AdvancedDerivationEngine extends DerivationEngineBase {
   constructor(nar) {
@@ -260,8 +260,14 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     const term2Id = getArgId(term2);
     const { activation, budget, pathHash, pathLength, derivationPath } = event;
 
-    this.nar.propagation.propagate(id('Similarity', [term2, term1]),
-      activation, budget.scale(0.9), pathHash, pathLength + 1, [...derivationPath, 'symmetry']);
+    this.nar.propagation.propagate({
+        target: id('Similarity', [term2, term1]),
+        activation,
+        budget: budget.scale(0.9),
+        pathHash: pathHash ^ hash(String(id('Similarity', [term2, term1]))),
+        pathLength: pathLength + 1,
+        derivationPath: [...derivationPath, 'symmetry']
+    });
 
     (this.nar.state.index.byArg.get(term1Id) || new Set()).forEach(termId => {
       const premise = this.nar.state.hypergraph.get(termId);

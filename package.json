@@ -7,7 +7,9 @@
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
     "start:example": "node src/example.js",
-    "start:tui": "node src/tui.js"
+    "build": "babel src --out-dir dist --copy-files --extensions .js",
+    "prestart:tui": "npm run build",
+    "start:tui": "node dist/tui.js"
   },
   "keywords": [
     "nars",
@@ -17,8 +19,16 @@
   ],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "ink": "^5.0.1",
+    "ink-select-input": "^5.0.0",
+    "ink-text-input": "^5.0.1",
+    "react": "^18.3.1"
+  },
   "devDependencies": {
-    "jest": "^30.0.5",
-    "neo-blessed": "^0.2.0"
+    "@babel/cli": "^7.24.7",
+    "@babel/core": "^7.24.7",
+    "@babel/preset-react": "^7.24.7",
+    "jest": "^30.0.5"
   }
 }
