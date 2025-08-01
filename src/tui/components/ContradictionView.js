@@ -12,10 +12,14 @@ const ContradictionView = () => {
     const updateContradictions = useCallback(() => {
         const contradictionMap = nar.contradictionManager?.contradictions;
         if (contradictionMap) {
-            const contradictionList = Array.from(contradictionMap.entries()).map(([id, data]) => ({
-                id,
-                ...data
-            }));
+            const contradictionList = Array.from(contradictionMap.entries()).map(([id, data]) => {
+                const analysis = nar.contradictionManager.analyze(id);
+                return {
+                    id,
+                    ...data,
+                    analysis: analysis,
+                };
+            });
             setContradictions(contradictionList);
         }
     }, [nar]);
@@ -59,7 +63,10 @@ const ContradictionView = () => {
                     <Box key={contra.id} borderStyle={index === selectedIndex ? 'single' : 'hidden'} paddingX={1}>
                         <Text color={index === selectedIndex ? 'cyan' : 'white'}>
                             {`${contra.id} (${contra.pairs.length} conflicting pair(s))`}
-                            {contra.resolved ? ' - Resolved' : ''}
+                            {contra.resolved
+                                ? <Text color="green"> - Resolved: {contra.resolutionStrategy}</Text>
+                                : <Text color="yellow"> - Suggests: {contra.analysis?.resolutionSuggestion?.strategy || 'N/A'}</Text>
+                            }
                         </Text>
                     </Box>
                 ))

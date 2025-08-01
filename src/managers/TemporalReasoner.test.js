@@ -67,4 +67,24 @@ describe('TemporalReasoner', () => {
         const description = temporalReasoner.describeTemporalRelationship(event1, event2);
         expect(description).toBe('The event "meeting_starts" happens after the event "presentation_due".');
     });
+
+    it('should return an array of possible relations for ambiguous compositions', () => {
+        const eventA = 'eventA';
+        const eventB = 'eventB';
+        const eventC = 'eventC';
+
+        // A is before B
+        temporalReasoner.addConstraint(eventA, eventB, 'before');
+        // B is during C
+        temporalReasoner.addConstraint(eventB, eventC, 'during');
+
+        // The relationship between A and C is ambiguous
+        const inferred = temporalReasoner.inferRelationship(eventA, eventC);
+        expect(inferred).not.toBeNull();
+
+        const expectedRelations = ['before', 'meets', 'overlaps', 'starts', 'during'];
+        expect(Array.isArray(inferred.relation)).toBe(true);
+        expect(inferred.relation).toHaveLength(expectedRelations.length);
+        expect(inferred.relation.sort()).toEqual(expectedRelations.sort());
+    });
 });

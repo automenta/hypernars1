@@ -4,7 +4,7 @@ import {AdvancedContradictionManager} from './managers/AdvancedContradictionMana
 import {MetaReasoner} from './managers/MetaReasoner.js';
 import {AdvancedLearningEngine} from './managers/AdvancedLearningEngine.js';
 import {ExplanationSystem} from './managers/ExplanationSystem.js';
-import {TemporalManager} from './managers/TemporalManager.js';
+import {TemporalReasoner} from './managers/TemporalReasoner.js';
 
 import {State} from './core/State.js';
 import {Api} from './core/Api.js';
@@ -57,7 +57,7 @@ export class NARHyper extends EventEmitter {
         MetaReasoner,
         LearningEngine: AdvancedLearningEngine,
         ExplanationSystem,
-        TemporalManager: TemporalManager,
+        TemporalManager: TemporalReasoner,
         ...(config.modules || {})
     };
 

@@ -414,19 +414,39 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const strongest = beliefsWithEvidence[0];
         const nextStrongest = beliefsWithEvidence[1];
 
+        // Strategy 1: If one belief has significantly stronger evidence, it dominates.
         if (this._hasDominantEvidence(strongest, nextStrongest)) {
             return 'dominant_evidence';
         }
 
+        // Strategy 2: If beliefs might be true in different contexts, specialize.
         if (this._hasDistinctContexts(hyperedge, strongest, nextStrongest)) {
             return 'specialize';
         }
 
+        // Strategy 3: If source reliability is a factor and sources are different and reliable.
+        const source1 = this._getSource(strongest.belief);
+        const source2 = this._getSource(nextStrongest.belief);
+        if (this.nar.config.useSourceReliability && source1 !== source2) {
+            const reliability1 = this.nar.state.sourceReliability?.get(source1) || 0.5;
+            const reliability2 = this.nar.state.sourceReliability?.get(source2) || 0.5;
+            if (Math.abs(reliability1 - reliability2) > 0.3) { // Significant difference in reliability
+                return 'source-reliability';
+            }
+        }
+
+        // Strategy 4: If configured, favor the most recent information.
         if (this._isRecencyBiased(strongest, nextStrongest)) {
             return 'recency-biased';
         }
 
-        return 'merge'; // Default strategy
+        // Strategy 5: If there are multiple pieces of evidence, weigh them.
+        if (hyperedge.evidence && hyperedge.evidence.length > 2) {
+            return 'evidence-weighted';
+        }
+
+        // Default Strategy: Merge the two strongest conflicting beliefs.
+        return 'merge';
     }
 
     _hasDominantEvidence(strongest, nextStrongest) {
@@ -509,11 +529,18 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     }
 
     _areContradictory(truth1, truth2) {
-        // Contradictory if their frequencies are on opposite sides of 0.5
-        // and their combined confidence is high.
+        // More nuanced contradiction detection based on `enhance.b.md`
         const freqDiff = Math.abs(truth1.frequency - truth2.frequency);
+        const confDiff = Math.abs(truth1.confidence - truth2.confidence);
         const avgConfidence = (truth1.confidence + truth2.confidence) / 2;
-        return freqDiff > 0.5 && avgConfidence > 0.5;
+
+        // A strong contradiction occurs if frequencies are very different and confidence is high.
+        const isStrongContradiction = freqDiff > (this.nar.config.contradictionThreshold || 0.7) && avgConfidence > 0.6;
+
+        // A moderate contradiction can occur with smaller frequency differences if confidence is also divergent.
+        const isModerateContradiction = freqDiff > 0.3 && confDiff > 0.4 && avgConfidence > 0.5;
+
+        return isStrongContradiction || isModerateContradiction;
     }
 
     _contradictionSeverity(truth1, truth2) {

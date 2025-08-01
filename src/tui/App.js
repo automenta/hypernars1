@@ -51,6 +51,7 @@ const App = ({ nar }) => {
         else if (input === '2') setActiveTab('queue');
         else if (input === '3') setActiveTab('system');
         else if (input === '4') setActiveTab('contradictions');
+        else if (input === '5') setActiveTab('temporal');
         else if (key.escape) process.exit();
     });
 
@@ -72,6 +73,19 @@ const App = ({ nar }) => {
                         }
                     } else {
                         log('Usage: /contradict <belief1_id> <belief2_id>');
+                    }
+                    break;
+                case 'resolve':
+                    if (args.length >= 1) {
+                        const [hyperedgeId, strategy] = args;
+                        const result = nar.contradictionManager.manualResolve(hyperedgeId, strategy || 'default');
+                        if (result) {
+                            log(`Resolved ${hyperedgeId} with strategy ${strategy || 'default'}. Reason: ${result.reason}`);
+                        } else {
+                            log(`Failed to resolve ${hyperedgeId}.`);
+                        }
+                    } else {
+                        log('Usage: /resolve <hyperedge_id> [strategy]');
                     }
                     break;
                 default: log(`Unknown command: ${command}`);

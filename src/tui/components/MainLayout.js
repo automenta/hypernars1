@@ -7,13 +7,14 @@ import MemoryView from './MemoryView.js';
 import QueueView from './QueueView.js';
 import SystemView from './SystemView.js';
 import ContradictionView from './ContradictionView.js';
+import TemporalView from './TemporalView.js';
 import ControlView from './ControlView.js';
 import ParameterView from './ParameterView.js';
 import InteractionView from './InteractionView.js';
 import StatusView from './StatusView.js';
 
 const Tab = ({ label, isActive }) => (
-    <Box marginRight={2} borderStyle={isActive ? 'single' : 'hidden'} paddingX={1}>
+    <Box marginRight={2} borderStyle={isActive ? 'single' : undefined} paddingX={1}>
         <Text bold color={isActive ? 'cyan' : 'gray'}>{label}</Text>
     </Box>
 );
@@ -26,6 +27,7 @@ const MainLayout = () => {
             case 'queue': return <QueueView />;
             case 'system': return <SystemView />;
             case 'contradictions': return <ContradictionView />;
+            case 'temporal': return <TemporalView />;
             case 'memory':
             default:
                 return <MemoryView />;
@@ -45,6 +47,7 @@ const MainLayout = () => {
                             <Tab label="[2] Queue" isActive={activeTab === 'queue'} />
                             <Tab label="[3] System" isActive={activeTab === 'system'} />
                             <Tab label="[4] Contradictions" isActive={activeTab === 'contradictions'} />
+                            <Tab label="[5] Temporal" isActive={activeTab === 'temporal'} />
                         </Box>
                         <Box borderStyle="single" borderColor="cyan" flexGrow={1}>
                             {renderActiveTab()}

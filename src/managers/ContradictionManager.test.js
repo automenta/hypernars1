@@ -43,9 +43,9 @@ describe('AdvancedContradictionManager', () => {
         const nar = new NARHyper(config);
         const termId = id('Term', ['b']);
 
-        // Add two contradictory beliefs
+        // Add two contradictory beliefs, making them clearly contradictory under the new rules
         nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
-        nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.2, 0.9), budget: new Budget(0.85, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.2, 0.4), budget: new Budget(0.85, 0.9, 0.9) });
 
         const hyperedge = nar.state.hypergraph.get(termId);
 

@@ -287,31 +287,55 @@ export class TemporalReasoner extends TemporalManagerBase {
 
     /**
      * Propagates a new constraint through the network to infer new relationships.
+     * This is now an iterative process to ensure full propagation.
      */
-    _propagateConstraint(newConstraint) {
-        const toAdd = [];
+    _propagateConstraint(initialConstraint) {
+        const propagationQueue = [initialConstraint];
+        const maxIterations = this.temporalConstraints.size; // Safety break
+        let iterations = 0;
 
-        // Infer new relations: if (A rel1 B) and (B rel2 C), then infer (A rel3 C)
-        this.temporalConstraints.forEach(existingConstraint => {
-            if (newConstraint.event2 === existingConstraint.event1) {
-                const composed = this._composeRelationships(newConstraint.relation, existingConstraint.relation);
-                if (composed && !Array.isArray(composed)) {
-                    toAdd.push({ event1: newConstraint.event1, event2: existingConstraint.event2, relation: composed, premises: [newConstraint.id, existingConstraint.id] });
-                }
-            }
-            if (newConstraint.event1 === existingConstraint.event2) {
-                const composed = this._composeRelationships(existingConstraint.relation, newConstraint.relation);
-                if (composed && !Array.isArray(composed)) {
-                    toAdd.push({ event1: existingConstraint.event1, event2: newConstraint.event2, relation: composed, premises: [existingConstraint.id, newConstraint.id] });
-                }
-            }
-        });
+        while (propagationQueue.length > 0 && iterations < maxIterations) {
+            const newConstraint = propagationQueue.shift();
+            iterations++;
 
-        toAdd.forEach(c => {
-            const newId = this.nar.api.addHyperedge('TemporalRelation', [c.event1, c.event2, c.relation], { premises: c.premises, derivedBy: 'TransitiveTemporal' });
-            const newConstraint = { id: newId, event1: c.event1, event2: c.event2, relation: c.relation, premises: c.premises };
-            this.temporalConstraints.set(newId, newConstraint);
-        });
+            const inferredRelations = [];
+
+            // Infer new relations: if (A rel1 B) and (B rel2 C), then infer (A rel3 C)
+            this.temporalConstraints.forEach(existingConstraint => {
+                // Case 1: newConstraint is (A, B), existingConstraint is (B, C) -> infer (A, C)
+                if (newConstraint.event2 === existingConstraint.event1) {
+                    const composed = this._composeRelationships(newConstraint.relation, existingConstraint.relation);
+                    if (composed) {
+                        inferredRelations.push({ event1: newConstraint.event1, event2: existingConstraint.event2, relation: composed, premises: [newConstraint.id, existingConstraint.id] });
+                    }
+                }
+                // Case 2: newConstraint is (B, C), existingConstraint is (A, B) -> infer (A, C)
+                if (newConstraint.event1 === existingConstraint.event2) {
+                    const composed = this._composeRelationships(existingConstraint.relation, newConstraint.relation);
+                    if (composed) {
+                        inferredRelations.push({ event1: existingConstraint.event1, event2: newConstraint.event2, relation: composed, premises: [existingConstraint.id, newConstraint.id] });
+                    }
+                }
+            });
+
+            inferredRelations.forEach(c => {
+                // Don't add a constraint if an equal or more specific one already exists.
+                const existing = this.inferRelationship(c.event1, c.event2);
+                if (existing && JSON.stringify(existing.relation) === JSON.stringify(c.relation)) {
+                    return;
+                }
+
+                const newId = this.nar.api.addHyperedge('TemporalRelation', [c.event1, c.event2, c.relation], { premises: c.premises, derivedBy: 'TransitiveTemporal' });
+                const newlyAddedConstraint = { id: newId, event1: c.event1, event2: c.event2, relation: c.relation, premises: c.premises };
+
+                this.temporalConstraints.set(newId, newlyAddedConstraint);
+                propagationQueue.push(newlyAddedConstraint); // Add to queue for further propagation
+            });
+        }
+
+        if (iterations >= maxIterations && maxIterations > 0) {
+            this.nar.emit('log', { message: 'Temporal propagation reached max iterations.', level: 'warn' });
+        }
     }
 
     _composeRelationships(rel1, rel2) {
@@ -343,8 +367,9 @@ export class TemporalReasoner extends TemporalManagerBase {
         let composedRelation = path[0].relation;
         for (let i = 1; i < path.length; i++) {
             composedRelation = this._composeRelationships(composedRelation, path[i].relation);
-            if (!composedRelation || Array.isArray(composedRelation)) {
-                return { relation: 'ambiguous' }; // Path leads to ambiguity
+            if (!composedRelation) {
+                // If at any point the composition is impossible, the path is invalid.
+                return null;
             }
         }
         return {
