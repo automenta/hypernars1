@@ -10,8 +10,8 @@ describe('NARHyper Core', () => {
 
         const results = nar.query('Term(*)', { limit: 5 });
         expect(results.length).toBe(2);
-        expect(results.map(r => r.id)).toContain('Term(term1.)');
-        expect(results.map(r => r.id)).toContain('Term(term2.)');
+        expect(results.map(r => r.id)).toContain('Term(term1)');
+        expect(results.map(r => r.id)).toContain('Term(term2)');
 
         const allResults = nar.query('*', { limit: 5 });
         expect(allResults.length).toBe(3);

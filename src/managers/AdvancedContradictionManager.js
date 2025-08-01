@@ -21,6 +21,61 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             'source-reliability': this._sourceReliabilityResolution.bind(this),
             'default': this._defaultResolution.bind(this)
         };
+
+        // Circuit breaker state for contradiction resolution
+        this.circuitBreaker = {
+            failures: 0,
+            lastFailure: 0,
+            openUntil: 0,
+            threshold: 5, // 5 failures in a short period
+            duration: 30000 // 30 seconds
+        };
+    }
+
+    /**
+     * Explicitly marks a contradiction between two beliefs, as proposed in `enhance.g.md`.
+     * This can be used to flag known inconsistencies for the system to resolve.
+     * @param {string} belief1Id - ID of the first hyperedge in the contradiction.
+     * @param {string} belief2Id - ID of the second hyperedge.
+     * @param {object} [options={}] - Options like context and strength.
+     * @returns {string|null} The ID of the created contradiction record, or null if beliefs are invalid.
+     */
+    contradict(belief1Id, belief2Id, { strength = 0.7, context = null } = {}) {
+        const belief1 = this.nar.state.hypergraph.get(belief1Id);
+        const belief2 = this.nar.state.hypergraph.get(belief2Id);
+
+        if (!belief1 || !belief2) {
+            this.nar.emit('log', { message: 'Cannot create contradiction: one or both beliefs not found.', level: 'warn' });
+            return null;
+        }
+
+        // A contradiction is typically about the same concept having opposing truths.
+        // We'll use the ID of the first belief as the primary key for the contradiction.
+        const hyperedgeId = belief1Id;
+        const contradictionId = this.nar.api.id('Contradiction', [belief1Id, belief2Id, context]);
+
+        const contradictionData = {
+            id: contradictionId,
+            belief1: belief1.getStrongestBelief(),
+            belief2: belief2.getStrongestBelief(),
+            strength,
+            context,
+            resolved: false,
+            timestamp: Date.now()
+        };
+
+        this.contradictions.set(hyperedgeId, {
+            timestamp: Date.now(),
+            pairs: [contradictionData], // Simplified for explicit contradiction
+            resolved: false
+        });
+
+        this.nar.emit('contradiction-detected', { hyperedgeId, contradictions: [contradictionData] });
+
+        // Optionally trigger immediate resolution
+        this.resolveContradictions();
+
+        return contradictionId;
     }
 
     /**
@@ -96,16 +151,41 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     /**
      * Iterates through tracked contradictions and resolves them using the best strategy.
      * This is intended to be called periodically by the main system loop.
+     * Includes a circuit breaker to prevent runaway resolution processes.
      */
     resolveContradictions() {
+        // Check circuit breaker
+        const now = Date.now();
+        if (now < this.circuitBreaker.openUntil) {
+            this.nar.emit('log', { message: 'Contradiction resolution circuit breaker is open.', level: 'warn' });
+            return;
+        }
+
         const contradictionsToResolve = Array.from(this.contradictions.keys());
+        let failuresThisRun = 0;
 
         for (const hyperedgeId of contradictionsToResolve) {
             const contradictionData = this.contradictions.get(hyperedgeId);
             if (contradictionData && !contradictionData.resolved) {
                 const strategyName = this._selectResolutionStrategy(hyperedgeId, contradictionData);
-                this.manualResolve(hyperedgeId, strategyName);
+                const resolution = this.manualResolve(hyperedgeId, strategyName);
+                if (!resolution) {
+                    failuresThisRun++;
+                }
             }
+        }
+
+        // Update circuit breaker state
+        if (failuresThisRun > 0) {
+            this.circuitBreaker.failures += failuresThisRun;
+            this.circuitBreaker.lastFailure = now;
+            if (this.circuitBreaker.failures >= this.circuitBreaker.threshold) {
+                this.circuitBreaker.openUntil = now + this.circuitBreaker.duration;
+                this.nar.emit('log', { message: `Contradiction resolution circuit breaker tripped for ${this.circuitBreaker.duration}ms.`, level: 'error' });
+            }
+        } else {
+            // Reset failures on a successful run
+            this.circuitBreaker.failures = 0;
         }
     }
 
@@ -114,26 +194,30 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
      * @param {string} hyperedgeId - The ID of the hyperedge with the contradiction.
      * @param {string} strategyName - The name of the strategy to use.
      * @param {Object} [customParams={}] - Custom parameters for the strategy.
-     * @returns {boolean} True if the resolution was successful.
+     * @returns {object|null} The resolution result or null if failed.
      */
     manualResolve(hyperedgeId, strategyName, customParams = {}) {
         const contradiction = this.contradictions.get(hyperedgeId);
-        if (!contradiction) return null; // Already resolved and removed
+        if (!contradiction) return null;
         if (contradiction.resolved) return contradiction.resolvedValue;
 
         const strategy = this.resolutionStrategies[strategyName] || this.resolutionStrategies['default'];
         const resolution = strategy(hyperedgeId, contradiction, customParams);
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
 
-        if (resolution) {
+        let outcome = 'failure';
+        if (resolution && hyperedge) {
             contradiction.resolved = true;
             contradiction.resolutionStrategy = strategyName;
             contradiction.resolvedValue = resolution;
 
-            const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
             if (resolution.primaryBelief) {
                 hyperedge.beliefs = [resolution.primaryBelief];
             } else if (resolution.newBelief) {
                 hyperedge.beliefs = [resolution.newBelief];
+            } else {
+                // If the resolution was to specialize, the original hyperedge might be modified differently
+                // For now, we assume specialization handles the belief list itself.
             }
 
             this.nar.emit('contradiction-resolved', {
@@ -141,10 +225,19 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                 strategy: strategyName,
                 resolution
             });
-
-            return resolution;
+            outcome = 'success';
         }
-        return null;
+
+        // Report outcome to Learning Engine
+        if (this.nar.learningEngine) {
+            this.nar.learningEngine.recordExperience({
+                operation: 'contradiction_resolution',
+                strategy: strategyName,
+                hyperedgeId: hyperedgeId,
+            }, { success: outcome === 'success' });
+        }
+
+        return resolution || null;
     }
 
     // ===== RESOLUTION STRATEGIES =====

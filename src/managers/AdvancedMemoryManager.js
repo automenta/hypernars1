@@ -131,12 +131,20 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
      * Enhances relevance calculation with more sophisticated importance scores.
      */
     _isImportantConcept(hyperedgeId) {
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+        // Extract the core term name, e.g., 'my_term' from 'Term(my_term)'
+        const termName = hyperedge?.args[0];
+
         // Is it part of an active question?
-        for (const questionId of this.nar.state.questionPromises.keys()) {
-            if (questionId.includes(hyperedgeId)) {
-                return true;
+        if (termName) {
+            for (const questionId of this.nar.state.questionPromises.keys()) {
+                // A more robust check: does the question string contain the term name?
+                if (questionId.includes(termName)) {
+                    return true;
+                }
             }
         }
+
         // Is it being actively tracked by the index?
         if (this.index.activeConcepts.has(hyperedgeId)) {
             return true;

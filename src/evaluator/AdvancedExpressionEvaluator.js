@@ -2,9 +2,19 @@ import { ExpressionEvaluatorBase } from './ExpressionEvaluatorBase.js';
 import { TruthValue } from '../support/TruthValue.js';
 import { id } from '../support/utils.js';
 
+// Custom error classes for precise error handling, as per `enhance.c.md`
+class NALParserError extends Error {
+    constructor(message, details = {}) {
+        super(message);
+        this.name = 'NALParserError';
+        this.details = details;
+    }
+}
+
 /**
  * An advanced expression evaluator that merges the recursive parser from
- * `enhance.b.md` with the query/question handling from the original implementation.
+ * `enhance.b.md` with the query/question handling from the original implementation,
+ * and adds robust error handling from `enhance.c.md`.
  */
 export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     constructor(nar) {
@@ -90,33 +100,56 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     parse(expression) {
+        if (typeof expression !== 'string' || !expression.trim()) {
+            throw new NALParserError('Input must be a non-empty string.', { expression });
+        }
+
         let truth = new TruthValue(1.0, 0.9);
         let priority = 1.0;
         let content = expression.trim();
 
-        // Match various truth value formats: %f;c%, %f;c;p%, #priority#
-        const truthMatch = content.match(/(?:%([\d.]+);([\d.]+)(?:;([\d.]+))?%|#([\d.]+)#)$/);
+        // Match truth value and priority, which can be at the end
+        const truthMatch = content.match(/(?:%([\d.]+);([\d.]+)(?:;([\d.]+))?%|#([\d.]+)#)\s*$/);
         if (truthMatch) {
-            if (truthMatch[0].startsWith('%')) {
-                truth = new TruthValue(
-                    parseFloat(truthMatch[1]),
-                    parseFloat(truthMatch[2]),
-                );
-                if (truthMatch[3]) {
-                    priority = parseFloat(truthMatch[3]);
+            const freqStr = truthMatch[1];
+            const confStr = truthMatch[2];
+            if (freqStr !== undefined && confStr !== undefined) {
+                const frequency = parseFloat(freqStr);
+                const confidence = parseFloat(confStr);
+                if (isNaN(frequency) || frequency < 0 || frequency > 1) {
+                    throw new NALParserError('Invalid truth frequency value.', { value: freqStr });
                 }
-            } else {
-                priority = parseFloat(truthMatch[4]);
+                if (isNaN(confidence) || confidence < 0 || confidence > 1) {
+                    throw new NALParserError('Invalid truth confidence value.', { value: confStr });
+                }
+                truth = new TruthValue(frequency, confidence);
             }
-            content = content.replace(truthMatch[0], '').trim();
+
+            if (truthMatch[3]) priority = parseFloat(truthMatch[3]); // Priority from truth value
+            if (truthMatch[4]) priority = parseFloat(truthMatch[4]); // Priority from hash syntax
+
+            content = content.substring(0, truthMatch.index).trim();
         }
 
-        // Strip outer angle brackets for parsing, e.g., <bird --> flyer>
+        // Handle sentence punctuation (e.g., belief assertions ending in '.')
+        if (content.endsWith('.')) {
+            content = content.slice(0, -1).trim();
+        }
+
+        // Handle statements enclosed in <...>
         if (content.startsWith('<') && content.endsWith('>')) {
             content = content.slice(1, -1).trim();
         }
 
-        return this._parseRecursive(content, truth, priority);
+        try {
+            return this._parseRecursive(content, truth, priority);
+        } catch (e) {
+            if (e instanceof NALParserError) {
+                throw e; // Re-throw our custom errors
+            }
+            // Wrap other errors for consistency
+            throw new NALParserError(`Failed to parse expression: ${e.message}`, { content });
+        }
     }
 
     _parseRecursive(content, truth, priority) {
@@ -216,11 +249,33 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         }
 
         if (content.startsWith('$') || content.startsWith('?')) {
-            return { type: 'Variable', args: [content], truth, priority };
+            const match = content.match(/^([$?]\w+)(?:\{(.*)\})?$/);
+            if (match) {
+                const [, varName, constraintsStr] = match;
+                const constraints = constraintsStr ? this._parseConstraints(constraintsStr) : {};
+                return { type: 'Variable', args: [varName], constraints, truth, priority };
+            }
+            // Fallback for simple variables without constraints
+            return { type: 'Variable', args: [content], constraints: {}, truth, priority };
         }
 
         // Default to a simple term
         return { type: 'Term', args: [content], truth, priority };
+    }
+
+    _parseConstraints(constraintsStr) {
+        const constraints = {};
+        const constraintPairs = constraintsStr.split(',');
+        for (const pair of constraintPairs) {
+            const parts = pair.split('=');
+            if (parts.length === 2) {
+                const key = parts[0].trim();
+                const value = parts[1].trim();
+                // A more advanced implementation would parse the value type (number, bool, etc.)
+                constraints[key] = value;
+            }
+        }
+        return constraints;
     }
 
     _addParsedStructure(parsed, options) {

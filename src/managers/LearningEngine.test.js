@@ -14,11 +14,11 @@ describe('AdvancedLearningEngine', () => {
 
     test('should reinforce premises of a successful outcome', () => {
         const premiseId = nar.api.inheritance('A', 'B', { truth: new TruthValue(0.8, 0.8) });
-        const actionId = nar.api.inheritance('A', 'C', { premises: [premiseId] });
+        const conclusionId = nar.api.inheritance('A', 'C', { premises: [premiseId] });
 
         const initialConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
 
-        learningEngine.recordExperience(actionId, { success: true });
+        learningEngine.recordExperience({ conclusionId }, { success: true });
 
         const finalConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
         expect(finalConfidence).toBeGreaterThan(initialConfidence);
@@ -26,11 +26,11 @@ describe('AdvancedLearningEngine', () => {
 
     test('should weaken premises of a failed outcome', () => {
         const premiseId = nar.api.inheritance('X', 'Y', { truth: new TruthValue(0.8, 0.8) });
-        const actionId = nar.api.inheritance('X', 'Z', { premises: [premiseId] });
+        const conclusionId = nar.api.inheritance('X', 'Z', { premises: [premiseId] });
 
         const initialConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
 
-        learningEngine.recordExperience(actionId, { success: false });
+        learningEngine.recordExperience({ conclusionId }, { success: false });
 
         const finalConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
         expect(finalConfidence).toBeLessThan(initialConfidence);
@@ -38,11 +38,11 @@ describe('AdvancedLearningEngine', () => {
 
     test('should update rule productivity stats', () => {
         // Setup a derivation
-        const premiseId = nar.api.inheritance('bird', 'animal', { derivedBy: 'direct_assertion' });
-        const actionId = nar.api.inheritance('tweety', 'animal', { premises: [premiseId], derivedBy: 'transitivity' });
+        const premiseId = nar.api.inheritance('bird', 'animal');
+        const conclusionId = nar.api.inheritance('tweety', 'animal', { premises: [premiseId], derivedBy: 'transitivity' });
 
         // Record a successful outcome
-        learningEngine.recordExperience(actionId, { success: true });
+        learningEngine.recordExperience({ conclusionId }, { success: true });
 
         const transitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
         expect(transitivityStats).toBeDefined();
@@ -50,8 +50,8 @@ describe('AdvancedLearningEngine', () => {
         expect(transitivityStats.attempts).toBe(1);
 
         // Record a failed outcome
-        const action2Id = nar.api.inheritance('penguin', 'flyer', { premises: [premiseId], derivedBy: 'transitivity' });
-        learningEngine.recordExperience(action2Id, { success: false });
+        const conclusion2Id = nar.api.inheritance('penguin', 'flyer', { premises: [premiseId], derivedBy: 'transitivity' });
+        learningEngine.recordExperience({ conclusionId: conclusion2Id }, { success: false });
 
         const updatedTransitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
         expect(updatedTransitivityStats.successes).toBe(1);
@@ -90,11 +90,14 @@ describe('AdvancedLearningEngine', () => {
 
     test('should create an ActionConsequence mapping from an outcome', () => {
         const actionId = nar.api.term('press_button');
-        const consequenceId = nar.api.term('light_turns_on');
+        const consequenceTerm = 'light_turns_on'; // The consequence is just a term
 
-        learningEngine.recordExperience(actionId, { success: true, consequence: consequenceId });
+        const context = { operation: 'action', action: actionId };
+        const outcome = { success: true, consequence: consequenceTerm };
 
-        const mappingId = id('ActionConsequence', [actionId, consequenceId]);
+        learningEngine.recordExperience(context, outcome);
+
+        const mappingId = id('ActionConsequence', [actionId, consequenceTerm]);
         const mappingHyperedge = nar.state.hypergraph.get(mappingId);
 
         expect(mappingHyperedge).toBeDefined();

@@ -26,6 +26,11 @@ export class ExplanationSystem {
      */
     explain(hyperedgeId, options = {}) {
         const { depth = 3, format = 'detailed' } = options;
+
+        if (format === 'justification') {
+            return this._formatJustification(hyperedgeId);
+        }
+
         const path = [];
         this._traceDerivation(hyperedgeId, path, depth, new Set());
 
@@ -48,6 +53,54 @@ export class ExplanationSystem {
             default:
                 return this._formatDetailedExplanation(hyperedgeId, path, options);
         }
+    }
+
+    /**
+     * Generates a justification for a belief, highlighting key supporting and conflicting evidence.
+     * Based on the proposal in `enhance.b.md`.
+     * @param {string} hyperedgeId - The ID of the concept to justify.
+     * @returns {string} The formatted justification.
+     */
+    _formatJustification(hyperedgeId) {
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+        if (!hyperedge) return `No information available for ${hyperedgeId}`;
+
+        const strongestBelief = hyperedge.getStrongestBelief();
+        if (!strongestBelief) return `No belief found for ${hyperedgeId}`;
+
+        let explanation = `Justification for: ${this._formatHyperedge(hyperedge)}\n`;
+        explanation += `Overall Confidence: ${this._formatConfidence(strongestBelief.truth.confidence)} (f: ${strongestBelief.truth.frequency.toFixed(2)})\n\n`;
+
+        // 1. Find supporting evidence from its derivation path
+        const derivationPath = [];
+        this._traceDerivation(hyperedgeId, derivationPath, 3, new Set());
+        const supportingPremises = derivationPath.slice(0, -1);
+
+        if (supportingPremises.length > 0) {
+            explanation += "Supporting Evidence (from derivation):\n";
+            supportingPremises.forEach(premise => {
+                explanation += `  - Because of: ${this._formatHyperedge(premise)} (Confidence: ${this._formatConfidence(premise.truth.confidence)})\n`;
+            });
+        } else {
+            explanation += "Supporting Evidence: This appears to be a base assertion.\n";
+        }
+
+        // 2. Find conflicting evidence (other beliefs on the same hyperedge)
+        const conflictingBeliefs = hyperedge.beliefs.filter(b => b !== strongestBelief);
+        if (conflictingBeliefs.length > 0) {
+            explanation += "\nConflicting Evidence (overridden or merged):\n";
+            conflictingBeliefs.forEach(belief => {
+                explanation += `  - An alternative belief exists with confidence ${this._formatConfidence(belief.truth.confidence)} (f: ${belief.truth.frequency.toFixed(2)})\n`;
+            });
+        }
+
+        // 3. Mention if it was part of a resolved contradiction
+        const contradiction = this.nar.contradictionManager.contradictions.get(hyperedgeId);
+        if (contradiction && contradiction.resolved) {
+            explanation += `\nNote: This belief was part of a contradiction resolved via the '${contradiction.resolutionStrategy}' strategy.\n`;
+        }
+
+        return explanation;
     }
 
     _formatVisualExplanation(path) {

@@ -13,26 +13,19 @@ export class AdvancedLearningEngine extends LearningEngineBase {
     }
 
     /**
-     * Records the outcome of a reasoning process or action.
+     * Records the outcome of a reasoning process or action, based on `enhance.f.md`.
      * This is the primary entry point for providing feedback to the learning engine.
-     * @param {string} conclusionId - The ID of the hyperedge representing the conclusion or action.
+     * @param {Object} context - The context in which the action/reasoning occurred.
      * @param {Object} outcome - Details about the outcome.
-     * @param {boolean} outcome.success - Whether the outcome was successful.
+     * @param {Object} [options={}] - Additional details like derivation path and resource usage.
      */
-    recordExperience(action, outcome) {
-        const { success, consequence, context } = outcome;
-        const conclusionHyperedge = this.nar.state.hypergraph.get(action);
-        const belief = conclusionHyperedge?.getStrongestBelief();
-
+    recordExperience(context, outcome, options = {}) {
         const experience = {
             id: `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             timestamp: Date.now(),
-            action: action,
-            success: success,
-            consequence: consequence,
-            context: context,
-            premises: belief?.premises || [],
-            derivedBy: belief?.derivedBy,
+            context, // e.g., { operation: 'derive', rule: 'Inheritance' }
+            outcome, // e.g., { success: true, accuracy: 0.9 }
+            ...options, // e.g., { derivationPath, resourcesUsed }
         };
 
         this.experienceBuffer.push(experience);
@@ -40,7 +33,30 @@ export class AdvancedLearningEngine extends LearningEngineBase {
             this.experienceBuffer.shift();
         }
 
+        // Process significant experiences immediately for more reactive learning
+        const isSignificant = options.important || (outcome.accuracy !== undefined && Math.abs(outcome.accuracy) < 0.2);
+        if (isSignificant) {
+            this._processSignificantExperience(experience);
+        }
+
         this._processLearningFromOutcome(experience);
+    }
+
+    /**
+     * Processes experiences that are flagged as important or are highly inaccurate,
+     * allowing the system to react quickly to failures or successes.
+     * @param {Object} experience - The significant experience object.
+     */
+    _processSignificantExperience(experience) {
+        // If prediction was very inaccurate, analyze the failure.
+        if (experience.outcome.accuracy !== undefined && experience.outcome.accuracy < 0.3) {
+            this._analyzeFailure(experience);
+        }
+
+        // If prediction was very accurate, reinforce the pattern that led to it.
+        if (experience.outcome.accuracy !== undefined && experience.outcome.accuracy > 0.8) {
+            this._reinforcePattern(experience);
+        }
     }
 
     /**
@@ -50,30 +66,94 @@ export class AdvancedLearningEngine extends LearningEngineBase {
      * @param {Object} experience - The experience object to learn from.
      */
     _processLearningFromOutcome(experience) {
-        const { action, success, consequence, premises } = experience;
+        const { context, outcome, derivationPath } = experience;
+        const { success, consequence } = outcome;
+        const conclusionId = context.conclusionId || context.action;
 
-        // Adjust truth values and rule productivity based on the outcome
+        if (!conclusionId) return;
+
         const adjustmentFactor = success ? 1 + this.learningRate : 1 - this.learningRate;
 
-        // Recursively adjust the premises that led to this conclusion
-        if (premises.length > 0) {
-            this._adjustPremiseConfidence(action, adjustmentFactor, success);
+        // Find the premises that led to the conclusion and adjust their confidence
+        const conclusionHyperedge = this.nar.state.hypergraph.get(conclusionId);
+        const belief = conclusionHyperedge?.getStrongestBelief();
+        const premises = derivationPath ? derivationPath.slice(1).map(p => p.id) : (belief?.premises || []);
+
+        if (premises && premises.length > 0) {
+            premises.forEach(premiseId => {
+                this._adjustPremiseConfidence(premiseId, adjustmentFactor, success);
+            });
+        }
+
+        // Also update the productivity of the rule that led to the conclusion itself
+        if (belief?.derivedBy) {
+            this._updateRuleProductivity(belief.derivedBy, success);
         }
 
         // Learn action-consequence mappings
-        if (consequence) {
-            const consequenceMappingId = id('ActionConsequence', [action, consequence]);
+        if (context.operation === 'action' && consequence) {
+            const actionId = context.action;
+            const consequenceMappingId = id('ActionConsequence', [actionId, consequence]);
             const existingMapping = this.nar.state.hypergraph.get(consequenceMappingId);
 
             const newTruth = existingMapping
                 ? TruthValue.revise(existingMapping.getTruth(), new TruthValue(success ? 1.0 : 0.0, 0.7))
                 : new TruthValue(success ? 0.8 : 0.2, 0.7);
 
-            this.nar.api.addHyperedge('ActionConsequence', [action, consequence], {
+            this.nar.api.addHyperedge('ActionConsequence', [actionId, consequence], {
                 truth: newTruth,
                 budget: new Budget({ priority: 0.7, durability: 0.8, quality: 0.8 })
             });
         }
+    }
+
+    /**
+     * Analyzes a failed reasoning path to identify the likely problematic step.
+     * @param {Object} experience - The failure experience object.
+     */
+    _analyzeFailure(experience) {
+        if (!experience.derivationPath || experience.derivationPath.length < 2) return;
+
+        // The last step before the final, incorrect conclusion is often the culprit.
+        const problematicStep = experience.derivationPath[experience.derivationPath.length - 2];
+        if (!problematicStep) return;
+
+        const hyperedge = this.nar.state.hypergraph.get(problematicStep.id);
+        if (hyperedge) {
+            const belief = hyperedge.getStrongestBelief();
+            if (belief) {
+                // Reduce confidence of the belief that led to the failure
+                belief.truth.confidence *= (1 - this.learningRate * 2); // Penalize failure more heavily
+                this.nar.emit('log', { message: `Reduced confidence of ${problematicStep.id} due to reasoning failure.`, level: 'info' });
+            }
+        }
+
+        // Also reduce the effectiveness of the rule used in that step
+        const ruleName = problematicStep.derivedBy;
+        if (ruleName) {
+            this._updateRuleProductivity(ruleName, false);
+            this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, 'failure', { penalty: 0.2 });
+        }
+    }
+
+    /**
+     * Reinforces a successful reasoning pattern by boosting the confidence of its premises.
+     * @param {Object} experience - The success experience object.
+     */
+    _reinforcePattern(experience) {
+        if (!experience.derivationPath) return;
+
+        experience.derivationPath.forEach((step, index) => {
+            const hyperedge = this.nar.state.hypergraph.get(step.id);
+            if (hyperedge) {
+                const belief = hyperedge.getStrongestBelief();
+                if (belief) {
+                    // Boost confidence, with decay for earlier steps in the path
+                    const boost = (1 + this.learningRate) * Math.pow(0.95, experience.derivationPath.length - 1 - index);
+                    belief.truth.confidence = Math.min(0.99, belief.truth.confidence * boost);
+                }
+            }
+        });
     }
 
     _adjustPremiseConfidence(hyperedgeId, adjustmentFactor, wasSuccessful, depth = 0, visited = new Set()) {
@@ -86,14 +166,16 @@ export class AdvancedLearningEngine extends LearningEngineBase {
 
         const ruleName = belief.derivedBy;
         if (ruleName) {
-            // Update internal productivity stats
             this._updateRuleProductivity(ruleName, wasSuccessful);
-            // Provide feedback to the MetaReasoner
             this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, wasSuccessful ? 'success' : 'failure');
         }
 
-        // Directly modify the confidence of the strongest belief
-        belief.truth.confidence = Math.max(0.01, Math.min(0.99, belief.truth.confidence * adjustmentFactor));
+        // Create a new TruthValue with the adjusted confidence
+        const newConfidence = Math.max(0.01, Math.min(0.99, belief.truth.confidence * adjustmentFactor));
+        const newTruth = new TruthValue(belief.truth.frequency, newConfidence);
+
+        // Use the revise method to properly update the belief, passing a single options object
+        hyperedge.revise({ truth: newTruth, budget: belief.budget });
 
         // Recursively adjust the premises
         if (belief.premises && belief.premises.length > 0) {
