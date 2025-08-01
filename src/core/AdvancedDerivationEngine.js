@@ -6,6 +6,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   constructor(nar) {
     super(nar);
     this.rules = new Map();
+    this.inferenceCount = 0; // For meta-reasoning
     this._registerDefaultRules();
   }
 
@@ -95,13 +96,54 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     const hyperedge = this.nar.state.hypergraph.get(target);
     if (!hyperedge || activation <= this.nar.config.inferenceThreshold || pathLength > this.nar.config.maxDerivationDepth) return;
 
-    const activeRules = this.getActiveRules(event);
+    // Get active rules, but don't sort them here
+    const activeRules = [...this.rules.values()].filter(rule => rule.condition(event));
+
+    if (activeRules.length === 0) return;
+
+    // Probabilistic selection of one rule
+    const totalPriority = activeRules.reduce((sum, rule) => sum + rule.priority, 0);
+    if (totalPriority === 0) return;
+
+    let random = Math.random() * totalPriority;
+    let selectedRule = null;
 
     for (const rule of activeRules) {
-        rule.action(hyperedge, event, rule.name); // Pass rule name to action
-        rule.lastUsed = Date.now();
-        rule.usageCount++;
+        random -= rule.priority;
+        if (random <= 0) {
+            selectedRule = rule;
+            break;
+        }
     }
+
+    // Fallback to the last rule if something goes wrong with floating point math
+    if (!selectedRule) {
+        selectedRule = activeRules[activeRules.length - 1];
+    }
+
+    // Apply only the selected rule
+    if (selectedRule) {
+        // Find the name of the rule to pass to the action
+        for (const [name, ruleObject] of this.rules.entries()) {
+            if (ruleObject === selectedRule) {
+                selectedRule.action(hyperedge, event, name);
+                selectedRule.lastUsed = Date.now();
+                selectedRule.usageCount++;
+                this.inferenceCount++; // Increment inference counter
+                break;
+            }
+        }
+    }
+  }
+
+  /**
+   * Returns the number of inferences made since the last call and resets the counter.
+   * @returns {number}
+   */
+  getAndResetInferenceCount() {
+      const count = this.inferenceCount;
+      this.inferenceCount = 0;
+      return count;
   }
 
   boostRuleSuccessRate(ruleName, factor = 0.1) {

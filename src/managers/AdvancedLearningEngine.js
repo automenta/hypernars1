@@ -10,6 +10,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         this.patternMemory = new Map();
         this.learningRate = 0.1;
         this.recentSuccesses = new Set(); // Tracks IDs of hyperedges that were useful
+        this.ruleProductivity = new Map(); // Tracks successes and attempts for each rule
     }
 
     /**

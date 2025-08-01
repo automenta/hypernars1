@@ -45,35 +45,61 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
     }
 
     /**
-     * Selectively forgets the least important concepts based on the OptimizedIndex's
-     * popularity tracking.
+     * Selectively forgets concepts based on a probabilistic model, considering
+     * their importance, activation, and popularity. This aligns with `enhance.f.md`.
      */
     _selectivelyForget() {
         const totalConcepts = this.nar.state.hypergraph.size;
         if (totalConcepts < 1000) return; // Don't prune small knowledge bases
 
-        // Prune a small percentage of the least valuable concepts
-        const pruneCount = Math.min(50, Math.floor(totalConcepts * 0.01));
+        let prunedCount = 0;
+        // To avoid performance issues on large graphs, only check a random subset of concepts each time.
+        const conceptsToCheck = new Set();
+        const sampleSize = Math.min(totalConcepts, 200);
+        const hypergraphKeys = Array.from(this.nar.state.hypergraph.keys());
 
-        // Get candidates from the index
-        const candidates = this.index.getLeastPopular(pruneCount * 2);
+        for (let i = 0; i < sampleSize; i++) {
+            conceptsToCheck.add(hypergraphKeys[Math.floor(Math.random() * totalConcepts)]);
+        }
 
-        let pruned = 0;
-        for (const [id, score] of candidates) {
-            if (pruned >= pruneCount) break;
+        for (const id of conceptsToCheck) {
+            const hyperedge = this.nar.state.hypergraph.get(id);
+            if (!hyperedge || this._isImportantConcept(id)) {
+                continue;
+            }
 
             const importance = this.importanceScores.get(id) || 0;
             const activation = this.nar.state.activations.get(id) || 0;
-            const combinedScore = score * 0.2 + importance * 0.5 + activation * 0.3;
+            const popularity = this.index.conceptPopularity.get(id) || 0;
 
-            if (combinedScore < this.forgettingThreshold && !this._isImportantConcept(id)) {
-                this._removeHyperedge(id);
-                pruned++;
+            // Normalize popularity - this is a simple heuristic
+            const normalizedPopularity = Math.min(1, popularity / 100);
+
+            // Calculate a score where lower is worse
+            const retentionScore = importance * 0.6 + activation * 0.3 + normalizedPopularity * 0.1;
+
+            // The probability of forgetting increases as the retention score decreases.
+            const forgettingProbability = Math.pow(1 - retentionScore, 2);
+
+            if (Math.random() < forgettingProbability) {
+                // Nuanced forgetting: first, prune weak beliefs.
+                if (hyperedge.beliefs.length > 1) {
+                    // Sort by budget total (priority * quality * durability) to find weakest
+                    hyperedge.beliefs.sort((a, b) => a.budget.total() - b.budget.total());
+                    const weakestBelief = hyperedge.beliefs.shift(); // Remove the weakest
+                    this.nar.notifyListeners('belief-pruned', { hyperedgeId: id, belief: weakestBelief });
+                } else {
+                    // If only one belief is left and its score is low, forget the whole concept.
+                    if (retentionScore < this.forgettingThreshold) {
+                        this._removeHyperedge(id);
+                        prunedCount++;
+                    }
+                }
             }
         }
 
-        if (pruned > 0) {
-            this.nar.notifyListeners('maintenance-info', { message: `Pruned ${pruned} concepts.` });
+        if (prunedCount > 0) {
+            this.nar.notifyListeners('maintenance-info', { message: `Pruned ${prunedCount} concepts.` });
         }
     }
 

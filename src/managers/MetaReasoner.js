@@ -9,12 +9,19 @@ export class MetaReasoner {
         this.strategies = []; // Holds strategy configurations
         this.trace = []; // Holds a trace of recent reasoning steps
         this.metricsHistory = []; // Holds a history of performance metrics
+        this.lastMetricTimestamp = Date.now();
+        this.contradictionCount = 0;
 
         // Add a default strategy
         this.configureStrategy({
             context: 'default',
             strategy: 'balanced',
             priority: 0
+        });
+
+        // Listen for contradictions to calculate rate
+        this.nar.on('contradiction-resolved', () => {
+            this.contradictionCount++;
         });
     }
 
@@ -55,6 +62,8 @@ export class MetaReasoner {
             resourceUtilization: this._calculateResourceUtilization(),
             queueSize: this.nar.state.eventQueue.heap.length,
         };
+        this.lastMetricTimestamp = metrics.timestamp; // Reset timestamp for next interval
+        this.contradictionCount = 0; // Reset for the next interval
         this.metricsHistory.push(metrics);
         if (this.metricsHistory.length > 100) {
             this.metricsHistory.shift();
@@ -114,18 +123,30 @@ export class MetaReasoner {
     }
 
     _calculateInferenceRate() {
-        // Placeholder: A real implementation would track derivations over time.
-        // For now, let's use a proxy based on derivation cache activity.
-        const cache = this.nar.state.index.derivationCache;
-        if (!cache || cache.size === 0) return 0.5;
-        // This is a mock value.
-        return Math.min(1.0, (cache.newThisCycle || 0) / 10.0);
+        const now = Date.now();
+        const timeDelta = (now - this.lastMetricTimestamp) / 1000; // in seconds
+        if (timeDelta < 0.1) return 0; // Avoid division by zero or tiny intervals
+
+        const inferenceCount = this.nar.derivationEngine.getAndResetInferenceCount();
+        const rate = inferenceCount / timeDelta;
+
+        // Normalize the rate to a 0-1 range for metric consistency.
+        // Assumes a target rate of around 100 inferences/sec for a score of 0.5.
+        const normalizedRate = Math.min(1.0, rate / 200);
+
+        return normalizedRate;
     }
 
     _calculateContradictionRate() {
-        // Placeholder: A real implementation would track contradiction events.
-        const contradictionEvents = this.trace.filter(t => t.type === 'contradiction-resolved').length;
-        return Math.min(1.0, contradictionEvents / this.trace.length);
+        const now = Date.now();
+        const timeDelta = (now - this.lastMetricTimestamp) / 1000;
+        if (timeDelta < 1) return 0; // Don't calculate for very short intervals
+
+        const rate = this.contradictionCount / timeDelta;
+        // Don't reset here, reset in selfMonitor after both metrics have used the count.
+
+        // Normalize the rate. Assumes a "high" rate is 5 contradictions/sec.
+        return Math.min(1.0, rate / 5);
     }
 
     _calculateResourceUtilization() {
@@ -137,19 +158,29 @@ export class MetaReasoner {
     _adaptReasoning(issues, metrics) {
         this.addToTrace({ type: 'adaptation', issues, metrics });
         const policy = this.nar.config;
-        const adaptationRate = 0.05;
+        const adaptationRate = 0.1; // Make adaptation slightly more aggressive
 
         if (issues.includes('high-contradictions')) {
-            // Become more skeptical
-            policy.inferenceThreshold = Math.min(0.5, policy.inferenceThreshold * (1 + adaptationRate));
+            // If contradictions are high, become more skeptical and prioritize revision.
+            this.addToTrace({ type: 'adaptation-detail', message: 'High contradictions detected. Increasing skepticism.' });
+            policy.inferenceThreshold = Math.min(0.6, policy.inferenceThreshold * (1 + adaptationRate));
+            // In a more advanced system, we could change the active strategy here.
+            this.configureStrategy({ context: 'high-uncertainty', strategy: 'skeptical', priority: 10 });
         }
         if (issues.includes('low-inference-rate')) {
-            // Be more eager to infer
-            policy.inferenceThreshold = Math.max(0.1, policy.inferenceThreshold * (1 - adaptationRate));
+            // If inference is low, be more eager and allocate more budget.
+            this.addToTrace({ type: 'adaptation-detail', message: 'Low inference rate detected. Becoming more eager.' });
+            policy.inferenceThreshold = Math.max(0.05, policy.inferenceThreshold * (1 - adaptationRate));
+            policy.budgetThreshold = Math.max(0.01, policy.budgetThreshold * (1 - adaptationRate * 0.5));
         }
         if (issues.includes('high-resource-utilization')) {
-            // Be stricter with budget
-            policy.budgetThreshold = Math.min(0.2, policy.budgetThreshold * (1 + adaptationRate));
+            // If resources are strained, be much stricter with budgets and derivation depth.
+            this.addToTrace({ type: 'adaptation-detail', message: 'High resource utilization. Tightening resource limits.' });
+            policy.budgetThreshold = Math.min(0.25, policy.budgetThreshold * (1 + adaptationRate * 2));
+            policy.maxPathLength = Math.max(5, policy.maxPathLength - 1);
+        } else if (policy.maxPathLength < this.nar.config.maxPathLength) {
+            // If resources are not strained, slowly relax the path length limit.
+            policy.maxPathLength++;
         }
     }
 }
