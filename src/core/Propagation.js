@@ -1,5 +1,4 @@
-import { hash } from '../support/utils.js';
-import { getArgId } from './utils.js';
+import { hash, getArgId } from '../support/utils.js';
 
 export class Propagation {
   constructor(nar) {

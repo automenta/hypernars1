@@ -28,7 +28,7 @@ export class QuestionHandler {
 
   _processQuestion(question, questionId) {
     try {
-      const { type, args, options } = this.nar.expressionEvaluator.parseQuestionPattern(question);
+      const { type, args, options } = this.nar.expressionEvaluator.parse(question.replace('?', ''));
 
       if (type === 'Inheritance') {
         const [subject, predicate] = args;
@@ -139,7 +139,7 @@ export class QuestionHandler {
 
       // Fallback to the parser-based logic for questions with variables/wildcards.
       try {
-        const { type, args } = this.nar.expressionEvaluator.parseQuestionPattern(questionPattern);
+        const { type, args } = this.nar.expressionEvaluator.parse(questionPattern);
 
         if (type === hyperedge.type) {
           const matches = args.every((pattern, i) =>

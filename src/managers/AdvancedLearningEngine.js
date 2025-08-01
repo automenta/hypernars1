@@ -162,7 +162,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         if (!premises || premises.length === 0) return;
 
         // Create a conjunction of all premises for a more accurate rule
-        const premiseConjunctionId = this.nar.api.conjunction(...premises);
+        const premiseConjunctionId = this.nar.api.addHyperedge('Conjunction', premises);
 
         const shortcutId = id('LearnedRule', [premiseConjunctionId, conclusionId]);
         if (!this.nar.state.hypergraph.has(shortcutId)) {

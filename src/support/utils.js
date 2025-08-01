@@ -10,7 +10,8 @@ export function clamp(number, lower, upper) {
 }
 
 /**
- * Creates a unique ID for a hyperedge.
+ * Creates a unique ID for a hyperedge or a nested structure.
+ * This is a central utility for identifying concepts.
  * @param {string} type The type of the hyperedge.
  * @param {string[]} args The arguments of the hyperedge.
  * @returns {string} The unique ID.
@@ -19,12 +20,23 @@ export function id(type, args) {
   const stringify = (arg) => {
       if (typeof arg === 'string') return arg;
       if (arg && arg.type && arg.args) return id(arg.type, arg.args);
-      // Handle cases where arg might be a simple object from parsing, e.g. { type: 'Term', args: ['name'] }
       if (arg && arg.type === 'Term' && arg.args.length === 1) return arg.args[0];
-      return String(arg); // fallback for [object Object]
+      return String(arg);
   };
   const stringArgs = args.map(stringify);
   return `${type}(${stringArgs.join(',')})`;
+}
+
+/**
+ * A convenience function to get a string ID from various argument formats.
+ * @param {*} arg The argument to identify.
+ * @returns {string} The string ID of the argument.
+ */
+export function getArgId(arg) {
+    if (typeof arg === 'string') return arg;
+    if (arg && arg.type && arg.args) return id(arg.type, arg.args);
+    if (arg !== null && arg !== undefined) return String(arg);
+    return 'undefined_arg';
 }
 
 /**

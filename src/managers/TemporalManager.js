@@ -1,6 +1,8 @@
-import { AdvancedTemporalManager } from './AdvancedTemporalManager.js';
+import { TemporalReasoner } from './TemporalReasoner.js';
 
 /**
- * Exports the AdvancedTemporalManager as the default TemporalManager.
+ * Exports the TemporalReasoner as the default TemporalManager.
+ * This ensures the system uses the more sophisticated temporal
+ * reasoning capabilities, including constraint propagation.
  */
-export { AdvancedTemporalManager as TemporalManager };
+export { TemporalReasoner as TemporalManager };

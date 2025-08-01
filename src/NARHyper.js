@@ -84,6 +84,9 @@ export class NARHyper {
 
     // Expose explanation system method
     this.explain = this.explanationSystem.explain.bind(this.explanationSystem);
+
+    // Expose evaluator query method
+    this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
   }
 
   on(eventType, callback) {

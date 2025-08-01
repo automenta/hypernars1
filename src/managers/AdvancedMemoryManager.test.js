@@ -34,8 +34,11 @@ describe('AdvancedMemoryManager', () => {
         await Promise.resolve();
         jest.advanceTimersByTime(1);
 
-        // Manually trigger maintenance to update scores
-        nar.memoryManager.maintainMemory();
+        // Run a few steps to allow the system to process the question
+        // and potentially trigger maintenance
+        for (let i = 0; i < 5; i++) {
+            nar.step();
+        }
 
         const importanceScore = nar.memoryManager.importanceScores.get(termId);
         // The score should be boosted. The initial score from activation is low (~0.03), and the boost is +0.2.
@@ -100,9 +103,6 @@ describe('AdvancedMemoryManager', () => {
         }
 
         // Manually set relevance to be very low to force forgetting logic
-        nar.memoryManager.beliefRelevance.forEach((relevance, id) => {
-            relevance.baseRelevance = 0.05; // Below the threshold
-        });
         nar.memoryManager.importanceScores.forEach((score, id) => {
             nar.memoryManager.importanceScores.set(id, 0.05);
         });

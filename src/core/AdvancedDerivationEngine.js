@@ -1,7 +1,6 @@
 import {DerivationEngineBase} from './DerivationEngineBase.js';
 import {TruthValue} from '../support/TruthValue.js';
-import {id} from '../support/utils.js';
-import {getArgId} from './utils.js';
+import {id, getArgId} from '../support/utils.js';
 
 export class AdvancedDerivationEngine extends DerivationEngineBase {
   constructor(nar) {

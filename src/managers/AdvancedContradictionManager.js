@@ -116,13 +116,11 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             return newId; // Already exists
         }
 
-        // Get the nar instance from the hyperedge passed in, to be safe from `this` context issues.
-        const nar = originalHyperedge.nar;
         const newArgs = [...originalHyperedge.args, `context:${contextId}`];
-        const newHyperedge = new Hyperedge(nar, newId, originalHyperedge.type, newArgs);
+        const newHyperedge = new Hyperedge(this.nar, newId, originalHyperedge.type, newArgs);
 
         this.nar.state.hypergraph.set(newId, newHyperedge);
-        this.nar.api.addToIndex(newHyperedge);
+        this.nar.state.index.addToIndex(newHyperedge);
 
         this.nar.api.similarity(newId, originalHyperedge.id, {
             truth: this._calculateContextSimilarity(context),

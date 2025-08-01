@@ -1,204 +1,152 @@
 import { TruthValue } from '../support/TruthValue.js';
 import { Budget } from '../support/Budget.js';
 import { Hyperedge } from '../support/Hyperedge.js';
-import { id } from '../support/utils.js';
-import { getArgId } from './utils.js';
+import { id, getArgId } from '../support/utils.js';
 
 export class Api {
   constructor(nar) {
     this.nar = nar;
   }
 
-  /* ===== MACRO FUNCTIONS ===== */
+  /* ===== ENHANCED MACRO FUNCTIONS (from enhance.b.md) ===== */
+
+  /**
+   * NAL statement creation with automatic context handling.
+   * @example nal('<bird --> flyer>. %0.8;0.75% @context:ornithology')
+   */
   nal(statement, options = {}) {
-    if (!options.timestamp && this.nar.temporalManager) {
-        options.timestamp = Date.now();
+    let context = null;
+    let cleanStatement = statement;
+
+    const contextMatch = statement.match(/@context:([^ ]+)/);
+    if (contextMatch) {
+      context = contextMatch[1];
+      cleanStatement = statement.replace(contextMatch[0], '').trim();
     }
-    if (!options.source && this.nar.metaReasoner) {
-        options.source = this.nar.metaReasoner.getActiveStrategy ? this.nar.metaReasoner.getActiveStrategy() : 'default';
+
+    const result = this.nar.expressionEvaluator.parseAndAdd(cleanStatement, options);
+
+    if (result && context) {
+      // Assuming a general way to associate context. This might need a dedicated manager.
+      this.addHyperedge('hasContext', [result, context], { truth: TruthValue.certain() });
     }
-    return this.nar.expressionEvaluator.parseAndAdd(statement, options);
+
+    return result;
   }
 
   nalq(question, options = {}) {
-    if (!options.urgency) {
-        options.urgency = this._assessQuestionUrgency(question);
-    }
-    if (!options.timeout) {
-        options.timeout = this.nar.config.questionTimeout * (1.5 - Math.min(1.0, options.urgency || 0.5));
-    }
-    return this.nar.expressionEvaluator.parseQuestion(question, options);
+    return this.nar.questionHandler.ask(question, options);
   }
 
-  seq(...terms) {
-    const options = (typeof terms[terms.length-1] === 'object') ?
-      terms.pop() : {};
-    const timestamp = options.timestamp || Date.now();
-    const context = options.context || this.nar.temporalManager?.getContext?.() || {};
-    terms.slice(0, -1).forEach((term, i) => {
-      const stepTimestamp = timestamp + (i * (options.interval || 1000));
-      this.after(term, terms[i + 1], { timestamp: stepTimestamp });
-      if (context.period) {
-        this._addTemporalContext(term, context.period, stepTimestamp);
-      }
-    });
+  /**
+   * Create a contextualized rule that only applies in specific situations.
+   */
+  contextualRule(premise, conclusion, contextId, options = {}) {
+    const ruleId = this.implication(premise, conclusion, options);
+    this.addHyperedge('hasContext', [ruleId, contextId], { truth: TruthValue.certain() });
+    return ruleId;
+  }
+
+  /**
+   * Create a multi-step temporal sequence with automatic timing.
+   * @example temporalSequence('wake_up', 'brush_teeth', 'have_breakfast', { interval: 5, unit: 'minutes' })
+   */
+  temporalSequence(...terms) {
+    const options = (typeof terms[terms.length - 1] === 'object') ? terms.pop() : {};
+    const { interval = 2, unit = 'minutes', timestamp = Date.now() } = options;
+
+    const stepInterval = unit === 'minutes' ? interval * 60000 :
+                        unit === 'hours' ? interval * 3600000 :
+                        interval * 1000; // Default to seconds
+
+    for (let i = 0; i < terms.length - 1; i++) {
+      // Use the temporal reasoner's constraint system
+      this.nar.temporalManager.addConstraint(terms[i], terms[i + 1], 'before', {
+        truth: options.truth || new TruthValue(0.9, 0.9)
+      });
+    }
+
     return id('Sequence', terms);
   }
 
-  _assessQuestionUrgency(question) {
-    if (question.includes('hazard') || question.includes('danger')) return 0.9;
-    if (question.includes('?')) return 0.7;
-    return 0.5;
+  /**
+   * Create a probabilistic rule with uncertainty handling.
+   */
+  probabilisticRule(premise, conclusion, frequency, confidence, options = {}) {
+    return this.implication(premise, conclusion, {
+      ...options,
+      truth: new TruthValue(frequency, confidence)
+    });
   }
 
-  when(premise, conclusion, options = {}) { return this.implication(premise, conclusion, options); }
-  contextualRule(ruleId, contextId) { this._addContextAssociation(ruleId, contextId); return ruleId; }
+  /**
+   * Create a belief with explicit source citation.
+   */
   citedBelief(statement, citation) {
     const beliefId = this.nal(statement);
-    this._storeCitation(beliefId, citation);
     if (citation.source) {
-        this.addHyperedge('hasSource', [beliefId, citation.source], { truth: TruthValue.certain() });
+        this.addHyperedge('hasSource', [beliefId, `Source(${citation.source})`], { truth: TruthValue.certain() });
     }
     return beliefId;
+  }
+
+  /**
+   * Create a conditional rule with exception handling.
+   */
+  robustRule(premise, conclusion, exception, options = {}) {
+    const baseRule = this.implication(premise, conclusion, {
+      ...options,
+      truth: options.truth || new TruthValue(0.9, 0.8)
+    });
+
+    const exceptionPremise = id('Conjunction', [exception, premise]);
+    const negatedConclusion = id('Negation', [conclusion]);
+
+    const exceptionRule = this.implication(exceptionPremise, negatedConclusion, {
+      ...options,
+      truth: new TruthValue(0.95, 0.85)
+    });
+
+    return { baseRule, exceptionRule };
   }
 
   /* ===== PUBLIC API: STRUCTURAL OPERATIONS ===== */
   term(name, options = {}) { return this.addHyperedge('Term', [name], options); }
   inheritance(subject, predicate, options = {}) { return this.addHyperedge('Inheritance', [subject, predicate], options); }
   similarity(term1, term2, options = {}) { return this.addHyperedge('Similarity', [term1, term2], options); }
-  instance(instance, concept, options = {}) { return this.addHyperedge('Instance', [instance, concept], options); }
-  property(concept, property, options = {}) { return this.addHyperedge('Property', [concept, property], options); }
   implication(premise, conclusion, options = {}) { return this.addHyperedge('Implication', [premise, conclusion], options); }
   equivalence(premise, conclusion, options = {}) { return this.addHyperedge('Equivalence', [premise, conclusion], options); }
-  conjunction(...terms) { return this.addHyperedge('Conjunction', terms, { truth: new TruthValue(0.9, 0.9) }); }
-  disjunction(...terms) { return this.addHyperedge('Disjunction', terms, { truth: terms.some(t => t.truth?.frequency > 0.5) ? new TruthValue(0.7, 0.6) : new TruthValue(0.3, 0.4) }); }
-  product(...terms) { return this.addHyperedge('Product', terms, { truth: TruthValue.certain(), budget: Budget.full().scale(0.7) }); }
-
-  /* ===== PUBLIC API: TEMPORAL & PROCEDURAL ===== */
-  after(p, c, o={}) { return this.nar.temporalManager.temporalRelation(p, c, 'after', o); }
-  before(p, c, o={}) { return this.nar.temporalManager.temporalRelation(p, c, 'before', o); }
-  simultaneous(p, c, o={}) { return this.nar.temporalManager.temporalRelation(p, c, 'equals', o); }
-  evaluate(expression, context = {}) { return this.nar.expressionEvaluator.evaluate(expression, context); }
-
-  query(pattern, options = { limit: 10 }) {
-    if (!pattern.includes('*')) {
-        return this.nar.expressionEvaluator.query(pattern, options);
-    }
-
-    const results = [];
-    const regex = new RegExp(pattern.replace(/\*/g, '.*'));
-
-    for (const [id, hyperedge] of this.nar.state.hypergraph.entries()) {
-        if (regex.test(id)) {
-            results.push({
-                id,
-                type: hyperedge.type,
-                args: hyperedge.args,
-                truth: hyperedge.getTruth(),
-            });
-        }
-        if (results.length >= options.limit) {
-            break;
-        }
-    }
-    return results;
-  }
-
-  revise(hyperedgeId, newTruth, newBudget, premises = [], derivedBy = null) {
-    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-    if (!hyperedge) return false;
-
-    // The responsibility for contradiction handling is now moved to Hyperedge.revise
-    const result = hyperedge.revise(newTruth, newBudget, this.nar.config.beliefCapacity, premises, null, derivedBy);
-
-    if (result.needsUpdate) {
-        this.nar.notifyListeners('revision', { hyperedgeId, newTruth, newBudget });
-    }
-
-    return result.needsUpdate;
-  }
 
   /* ===== CORE: ADDING KNOWLEDGE ===== */
   addHyperedge(type, args, options = {}) {
-    const { truth, budget, priority, premises = [], context = null, derivedBy = null } = options;
+    const { truth, budget, priority, premises = [] } = options;
     const termId = id(type, args);
-    const hyperedge = this.nar.state.hypergraph.get(termId) ?? new Hyperedge(this.nar, termId, type, args);
+    let hyperedge = this.nar.state.hypergraph.get(termId);
 
-    if (!this.nar.state.hypergraph.has(termId)) {
+    if (!hyperedge) {
+      hyperedge = new Hyperedge(this.nar, termId, type, args);
       this.nar.state.hypergraph.set(termId, hyperedge);
-      this.addToIndex(hyperedge);
+      this.nar.state.index.addToIndex(hyperedge);
     }
 
-    const finalTruth = truth || TruthValue.certain();
+    const finalTruth = truth || new TruthValue(1.0, 0.9);
     let finalBudget = budget;
 
     if (finalBudget && !(finalBudget instanceof Budget)) {
         finalBudget = new Budget(finalBudget.priority, finalBudget.durability, finalBudget.quality);
+    } else if (!finalBudget) {
+        finalBudget = this.nar.memoryManager.dynamicBudgetAllocation({ type: 'revision' }, { importance: priority });
     }
 
-    if (!finalBudget) {
-        if (this.nar.memoryManager.dynamicBudgetAllocation) {
-            const task = { type: 'revision', hyperedgeType: type };
-            const context = { importance: priority };
-            finalBudget = this.nar.memoryManager.dynamicBudgetAllocation(task, context);
-        } else {
-            finalBudget = new Budget(priority || 0.5, 0.5, 0.5);
-        }
+    // Delegate revision and contradiction handling to the hyperedge itself
+    const revisionResult = hyperedge.revise(finalTruth, finalBudget, this.nar.config.beliefCapacity, premises);
+
+    if (revisionResult.needsUpdate) {
+        this.nar.notifyListeners('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });
+        this.nar.propagation.propagate(termId, 1.0, finalBudget, 0, 0, []);
+        this.nar.questionHandler.checkQuestionAnswers(termId, hyperedge.getStrongestBelief());
     }
-
-    // Use the new proactive revision logic
-    this.revise(termId, finalTruth, finalBudget, premises, derivedBy);
-
-    const currentBelief = hyperedge.getStrongestBelief();
-    if (!currentBelief) return termId; // Revision was rejected
-
-    this.nar.propagation.propagate(termId, 1.0, currentBelief.budget, 0, 0, []);
-
-    this.nar.notifyListeners('belief-added', {
-      hyperedgeId: termId,
-      truth: currentBelief.truth,
-      budget: currentBelief.budget,
-      expectation: currentBelief.truth.expectation()
-    });
-    this.nar.questionHandler.checkQuestionAnswers(termId, currentBelief);
 
     return termId;
-  }
-
-  addToIndex(hyperedge) {
-    if (!this.nar.state.index.byType.has(hyperedge.type)) {
-        this.nar.state.index.byType.set(hyperedge.type, new Set());
-    }
-    this.nar.state.index.byType.get(hyperedge.type).add(hyperedge.id);
-
-    hyperedge.args.forEach(arg => {
-        const argId = getArgId(arg);
-        if (typeof argId === 'string') {
-            this.nar.state.index.byArg.add(argId, hyperedge.id);
-        }
-    });
-
-    this.nar.state.index.structural.add(hyperedge);
-
-    if (hyperedge.args.length > 1) {
-      if (!this.nar.state.index.compound.has(hyperedge.type)) {
-        this.nar.state.index.compound.set(hyperedge.type, new Map());
-      }
-      const compoundIndex = this.nar.state.index.compound.get(hyperedge.type);
-      compoundIndex.set(hyperedge.id, new Set(hyperedge.args.map(arg => getArgId(arg))));
-    }
-  }
-
-  /* ===== HELPERS ===== */
-  getTruth(hyperedgeId) {
-    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-    return hyperedge ? hyperedge.getTruth() : null;
-  }
-  getBeliefs(hyperedgeId) {
-    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-    return hyperedge ? hyperedge.beliefs.map(b => ({ truth: b.truth, budget: b.budget, expectation: b.truth.expectation() })) : [];
-  }
-  getActivation(termId) {
-    return this.nar.state.activations.get(termId) || 0;
   }
 }

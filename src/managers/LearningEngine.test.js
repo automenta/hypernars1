@@ -33,7 +33,7 @@ describe('LearningEngine', () => {
         learningEngine.applyLearning();
 
         // 4. Assert that the shortcut rule was created
-        const conjunctionId = nar.api.conjunction(premise1Id, premise2Id);
+        const conjunctionId = nar.api.addHyperedge('Conjunction', [premise1Id, premise2Id]);
         const shortcutRuleId = id('Implication', [conjunctionId, conclusionId]);
 
         const shortcutRule = nar.state.hypergraph.get(shortcutRuleId);
