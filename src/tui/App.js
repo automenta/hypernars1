@@ -1,24 +1,18 @@
-import React, { createContext, useState, useCallback } from 'react';
-import { Box, useInput } from 'ink';
+import React, { useState, useCallback } from 'react';
+import { useInput } from 'ink';
 
-import LogView from './components/LogView.js';
-import MemoryView from './components/MemoryView.js';
-import ControlView from './components/ControlView.js';
-import ParameterView from './components/ParameterView.js';
-import DemoView from './components/DemoView.js';
-import InputView from './components/InputView.js';
-import StatusView from './components/StatusView.js';
 import ConceptView from './components/ConceptView.js';
-import { useNar } from '../hooks/useNar.js';
-
-export const NarContext = createContext(null);
+import MainLayout from './components/MainLayout.js';
+import { useNarSystem } from '../hooks/useNarSystem.js';
+import { TuiContext } from './contexts/TuiContext.js';
 
 const App = ({ nar }) => {
     const [logs, setLogs] = useState([]);
     const [selectedConceptId, setSelectedConceptId] = useState(null);
+    const [activeTab, setActiveTab] = useState('memory'); // memory, queue, system
 
     const log = useCallback((message) => {
-        setLogs(prev => [...prev, String(message)].slice(-20));
+        setLogs(prev => [...prev, String(message)].slice(-100)); // Increased log history
     }, []);
 
     const {
@@ -30,8 +24,8 @@ const App = ({ nar }) => {
         step,
         clear,
         updateConfig,
-    } = useNar(nar, log);
-
+        sps,
+    } = useNarSystem(nar, log);
 
     const runDemo = (demo) => {
         if (!demo) return;
@@ -45,15 +39,18 @@ const App = ({ nar }) => {
     };
 
     useInput((input, key) => {
-        if (selectedConceptId) return; // Disable global hotkeys when modal is open
+        if (selectedConceptId) return;
 
         if (input === 's') start();
-        if (input === 'p') pause();
-        if (input === 't') step();
-        if (input === 'c') clear();
-        if (input === '+') setRunDelay(d => Math.max(0, d / 2));
-        if (input === '-') setRunDelay(d => d * 2 || 10);
-        if (key.escape) process.exit();
+        else if (input === 'p') pause();
+        else if (input === 't') step();
+        else if (input === 'c') clear();
+        else if (input === '+') setRunDelay(d => Math.max(0, d / 2));
+        else if (input === '-') setRunDelay(d => d * 2 || 10);
+        else if (input === '1') setActiveTab('memory');
+        else if (input === '2') setActiveTab('queue');
+        else if (input === '3') setActiveTab('system');
+        else if (key.escape) process.exit();
     });
 
     const handleCommand = (command) => {
@@ -83,44 +80,23 @@ const App = ({ nar }) => {
     }, []);
 
     const contextValue = {
-        nar, log, handleCommand, start, pause, step, clear, isRunning,
-        runDemo, updateConfig, handleSelectConcept, runDelay, setRunDelay
+        nar, log, logs, handleCommand, start, pause, step, clear, isRunning,
+        runDemo, updateConfig, handleSelectConcept, runDelay, setRunDelay,
+        activeTab, setActiveTab, sps
     };
 
     if (selectedConceptId) {
-        return <ConceptView conceptId={selectedConceptId} onClose={handleCloseConceptView} />;
+        return (
+            <TuiContext.Provider value={contextValue}>
+                <ConceptView conceptId={selectedConceptId} onClose={handleCloseConceptView} />
+            </TuiContext.Provider>
+        );
     }
 
     return (
-        <NarContext.Provider value={contextValue}>
-            <Box flexDirection="column" width="100%" height={30}>
-                <Box height="90%">
-                    <Box width="70%" flexDirection="column">
-                        <Box height="60%" borderStyle="single" borderColor="cyan">
-                            <LogView logs={logs} />
-                        </Box>
-                        <Box height="40%" borderStyle="single" borderColor="cyan">
-                            <MemoryView />
-                        </Box>
-                    </Box>
-                    <Box width="30%" flexDirection="column">
-                        <Box height="34%" borderStyle="single" borderColor="green">
-                            <ControlView />
-                        </Box>
-                        <Box height="33%" borderStyle="single" borderColor="green">
-                            <ParameterView />
-                        </Box>
-                        <Box height="33%" borderStyle="single"borderColor="green">
-                            <DemoView />
-                        </Box>
-                    </Box>
-                </Box>
-                <Box height="10%" flexDirection="column">
-                    <StatusView />
-                    <InputView />
-                </Box>
-            </Box>
-        </NarContext.Provider>
+        <TuiContext.Provider value={contextValue}>
+            <MainLayout />
+        </TuiContext.Provider>
     );
 };
 

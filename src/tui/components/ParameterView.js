@@ -2,10 +2,10 @@ import React, { useState, useContext } from 'react';
 import { Box, Text } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
-import { NarContext } from '../App.jsx';
+import { TuiContext } from '../contexts/TuiContext.js';
 
 const ParameterView = () => {
-    const { nar, updateConfig } = useContext(NarContext);
+    const { nar, updateConfig } = useContext(TuiContext);
     const [editingItem, setEditingItem] = useState(null);
     const [inputValue, setInputValue] = useState('');
 

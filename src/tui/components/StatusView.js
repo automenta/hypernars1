@@ -1,9 +1,9 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { Box, Text } from 'ink';
-import { NarContext } from '../App.jsx';
+import { TuiContext } from '../contexts/TuiContext.js';
 
 const StatusView = () => {
-    const { nar } = useContext(NarContext);
+    const { nar } = useContext(TuiContext);
     const [status, setStatus] = useState('');
 
     useEffect(() => {

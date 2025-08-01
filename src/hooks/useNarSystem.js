@@ -1,9 +1,22 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
-export const useNar = (nar, log) => {
+export const useNarSystem = (nar, log) => {
     const [isRunning, setIsRunning] = useState(false);
     const [runDelay, setRunDelay] = useState(100); // ms
+    const [sps, setSps] = useState(0);
     const runInterval = useRef(null);
+    const stepCountRef = useRef(0);
+
+    useEffect(() => {
+        const spsInterval = setInterval(() => {
+            if (nar) {
+                const currentSteps = nar.state.currentStep;
+                setSps(currentSteps - stepCountRef.current);
+                stepCountRef.current = currentSteps;
+            }
+        }, 1000);
+        return () => clearInterval(spsInterval);
+    }, [nar]);
 
     const pause = useCallback(() => {
         setIsRunning(false);
@@ -57,5 +70,6 @@ export const useNar = (nar, log) => {
         step,
         clear,
         updateConfig,
+        sps,
     };
 };
