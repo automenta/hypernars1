@@ -106,7 +106,7 @@ export class QuestionHandler {
     }
     this.nar.state.index.questionCache.get(questionId).push(answer);
 
-    this.nar.notifyListeners('question-answer', { questionId, answer });
+    this.nar.emit('question-answer', { questionId, answer });
   }
 
   _resolveQuestion(questionId) {

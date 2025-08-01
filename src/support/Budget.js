@@ -37,4 +37,12 @@ export class Budget {
   static full() {
     return new Budget(1.0, 1.0, 1.0);
   }
+
+  toJSON() {
+    return {
+      priority: this.priority,
+      durability: this.durability,
+      quality: this.quality,
+    };
+  }
 }

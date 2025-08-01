@@ -14,7 +14,7 @@ export class System {
     this.nar.derivationEngine.applyDerivationRules(event);
     this.nar.propagation.propagateWave(event);
 
-    this.nar.notifyListeners('step', {
+    this.nar.emit('step', {
       step: this.nar.state.currentStep,
       event,
       activation: this.nar.state.activations.get(event.target),

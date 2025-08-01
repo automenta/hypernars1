@@ -162,7 +162,7 @@ export class MetaReasoner {
             derivedBy: 'shortcut'
         });
 
-        this.nar.notifyListeners('shortcut-created', {
+        this.nar.emit('shortcut-created', {
             premise,
             conclusion,
             reliability

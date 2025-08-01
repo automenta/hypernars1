@@ -24,7 +24,6 @@ export class State {
     this.pathCache = new Map();
     this.activations = new Map();
     this.temporalLinks = new Map();
-    this.listeners = new Set();
     this.questionPromises = new Map();
     this.memoization = new Map();
     this.currentStep = 0;

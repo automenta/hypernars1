@@ -87,7 +87,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
                     // Sort by budget total (priority * quality * durability) to find weakest
                     hyperedge.beliefs.sort((a, b) => a.budget.total() - b.budget.total());
                     const weakestBelief = hyperedge.beliefs.shift(); // Remove the weakest
-                    this.nar.notifyListeners('belief-pruned', { hyperedgeId: id, belief: weakestBelief });
+                    this.nar.emit('belief-pruned', { hyperedgeId: id, belief: weakestBelief });
                 } else {
                     // If only one belief is left and its score is low, forget the whole concept.
                     if (retentionScore < this.forgettingThreshold) {
@@ -99,7 +99,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
         }
 
         if (prunedCount > 0) {
-            this.nar.notifyListeners('maintenance-info', { message: `Pruned ${prunedCount} concepts.` });
+            this.nar.emit('maintenance-info', { message: `Pruned ${prunedCount} concepts.` });
         }
     }
 
@@ -119,7 +119,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
         // Remove from the optimized index
         this.index.removeFromIndex(hyperedge);
 
-        this.nar.notifyListeners('knowledge-pruned', { id, type: hyperedge.type });
+        this.nar.emit('knowledge-pruned', { id, type: hyperedge.type });
     }
 
     // =================================================================================================
@@ -329,7 +329,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
                 eventQueue._siftDown(i); // Assuming _siftDown can take an index
             }
 
-            this.nar.notifyListeners('pruning', {
+            this.nar.emit('pruning', {
                 type: 'low-value-paths',
                 count: prunedCount
             });

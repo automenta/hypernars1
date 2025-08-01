@@ -100,4 +100,12 @@ export class TruthValue {
     return Math.abs(this.frequency - other.frequency) < threshold &&
            Math.abs(this.confidence - other.confidence) < threshold;
   }
+
+  toJSON() {
+    return {
+      frequency: this.frequency,
+      confidence: this.confidence,
+      priority: this.priority,
+    };
+  }
 }

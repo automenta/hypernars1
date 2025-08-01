@@ -1,242 +1,218 @@
 import blessed from 'neo-blessed';
-import {NARHyper} from './NARHyper.js';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+import { NARHyper } from './NARHyper.js';
+import { LogPane } from './tui/LogPane.js';
+import { InputPane } from './tui/InputPane.js';
+import { StatusPane } from './tui/StatusPane.js';
+import { ControlPane } from './tui/ControlPane.js';
+import { DemoPane } from './tui/DemoPane.js';
+import { ParameterPane } from './tui/ParameterPane.js';
+import { MemoryPane } from './tui/MemoryPane.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 class Tui {
   constructor() {
     this.nar = new NARHyper();
+    this.isRunning = false;
+    this.runInterval = null;
+    this.cpuThrottle = 100;
+    this.baseRunDelay = 0;
+    this.demos = [];
+
+    this.screen = blessed.screen({ smartCSR: true, title: 'HyperNARS IDE' });
+
+    const leftPanel = blessed.layout({ parent: this.screen, width: '70%', height: '100%-2', left: 0, top: 0, layout: 'grid' });
+    this.logPane = new LogPane(this.screen, leftPanel, { width: '100%', height: '60%' });
+    this.memoryPane = new MemoryPane(this.screen, leftPanel, { width: '100%', height: '40%' });
+
+    const rightPanel = blessed.layout({ parent: this.screen, width: '30%', height: '100%-2', right: 0, top: 0, layout: 'grid'});
+    this.controlPane = new ControlPane(this.screen, rightPanel, {
+      width: '100%', height: '34%',
+       onStart: () => this.start(), onPause: () => this.pause(), onStep: () => this.step(), onClear: () => this.clear(),
+       onSave: () => this.saveState(), onLoad: () => this.loadState(),
+    });
+    this.parameterPane = new ParameterPane(this.screen, rightPanel, {
+      width: '100%', height: '33%',
+      onParamChanged: (key, value) => this.logPane.log(`[Param] Set ${key} = ${value}`)
+    });
+    this.demoPane = new DemoPane(this.screen, rightPanel, {
+      width: '100%', height: '33%',
+      onRunDemo: (demo) => this.runDemo(demo)
+    });
+
+    this.inputPane = new InputPane(this.screen, this.screen, { onCommand: (cmd) => this.handleCommand(cmd) });
+    this.statusPane = new StatusPane(this.screen, this.screen);
+
+    this.parameterPane.setConfig(this.nar.config);
+    this.setupGlobalKeys();
     this.setupEventListeners();
 
-    this.screen = blessed.screen({
-      smartCSR: true,
-      title: 'HyperNARS TUI'
-    });
+    this.loadDemos().then(() => { this.inputPane.focus(); this.screen.render(); });
+    this.controlPane.setRunState(this.isRunning);
+    setInterval(() => this.tick(), 1000);
+  }
 
-    // Main layout
-    this.grid = new blessed.layout({
-      parent: this.screen,
-      width: '100%',
-      height: '100%'
-    });
-
-    // Output log
-    this.logOutput = blessed.log({
-      parent: this.grid,
-      width: '100%',
-      height: '95%',
-      border: 'line',
-      label: 'Log',
-      scrollable: true,
-      alwaysScroll: true,
-      scrollbar: {
-        ch: ' ',
-        inverse: true
-      },
-      keys: true,
-      vi: true,
-      mouse: true
-    });
-
-    // Input box
-    this.inputBox = blessed.textbox({
-      parent: this.grid,
-      bottom: 0,
-      width: '100%',
-      height: 1,
-      inputOnFocus: true,
-      style: {
-        bg: 'blue'
-      }
-    });
-
-    // Status bar
-    this.statusBar = blessed.box({
-        parent: this.grid,
-        bottom: 1,
-        width: '100%',
-        height: 1,
-        style: {
-            bg: 'gray'
-        }
-    });
-
-    // Event handling
-    this.screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
-    this.inputBox.on('submit', (text) => this.handleCommand(text));
-    this.screen.key(['f1'], () => this.toggleMenu());
-
-    // Menu
-    this.menuItems = [
-      { name: 'Run All Demos', action: () => this.runAllDemos() },
-      { name: 'Demo 1: Basic Inference', action: () => this.runDemo1() },
-      { name: 'Demo 2: Contradiction', action: () => this.runDemo2() },
-      { name: 'Demo 3: Temporal Reasoning', action: () => this.runDemo3() },
-      { name: 'Demo 4: Meta-Reasoning', action: () => this.runDemo4() },
-      { name: 'Demo 5: Explanation', action: () => this.runDemo5() },
-    ];
-
-    this.menu = blessed.list({
-      parent: this.screen,
-      label: 'Demos & Tests (F1 to close)',
-      items: this.menuItems.map(item => item.name),
-      top: 'center',
-      left: 'center',
-      width: '50%',
-      height: '50%',
-      border: 'line',
-      style: {
-        selected: {
-          bg: 'blue'
-        }
-      },
-      keys: true,
-      vi: true,
-      mouse: true,
-      hidden: true
-    });
-
-    this.menu.on('select', (item, index) => {
-        this.menuItems[index].action();
-        this.toggleMenu();
-    });
-
-    this.inputBox.focus();
-    this.screen.render();
-
+  tick() {
     this.updateStatusBar();
-    setInterval(() => this.updateStatusBar(), 1000);
+    this.memoryPane.update(this.nar);
+  }
+
+  showFileManager(title, callback) {
+    const fm = blessed.filemanager({
+      parent: this.screen, label: title, border: 'line', style: { selected: { bg: 'blue' } },
+      height: 'half', width: 'half', top: 'center', left: 'center', cwd: process.cwd(),
+      keys: true, vi: true, mouse: true, scrollable: true,
+    });
+    fm.on('file', (file) => {
+      callback(null, path.join(fm.cwd, file));
+      fm.destroy(); this.screen.render();
+    });
+    fm.on('cancel', () => {
+      callback(new Error('Cancelled.'));
+      fm.destroy(); this.screen.render();
+    });
+    fm.refresh(); fm.focus(); this.screen.render();
+  }
+
+  async saveState() {
+    this.pause();
+    this.showFileManager('Save State As...', async (err, filepath) => {
+      if (err) { this.logPane.log('Save cancelled.'); return; }
+      try {
+        await fs.writeFile(filepath, this.nar.saveState());
+        this.logPane.log(`State saved to ${filepath}`);
+      } catch (e) { this.logPane.log(`Error saving state: ${e.message}`); }
+    });
+  }
+
+  async loadState() {
+    this.pause();
+    this.showFileManager('Load State From...', async (err, filepath) => {
+      if (err) { this.logPane.log('Load cancelled.'); return; }
+      try {
+        const stateJson = await fs.readFile(filepath, 'utf-8');
+        this.nar.loadState(stateJson);
+        this.parameterPane.setConfig(this.nar.config);
+        this.setupEventListeners();
+        this.tick(); // immediate update
+        this.logPane.log(`State loaded from ${filepath}`);
+      } catch (e) { this.logPane.log(`Error loading state: ${e.message}`); }
+    });
+  }
+
+  async loadDemos() {
+    try {
+      const demoDir = path.join(__dirname, 'demos');
+      const files = await fs.readdir(demoDir).then(f => f.filter(x => x.endsWith('.js')).sort());
+      this.demos = await Promise.all(files.map(file => import(path.join(demoDir, file)).then(m => m.default)));
+      this.demoPane.setDemos(this.demos);
+    } catch (e) { this.logPane.log(`Error loading demos: ${e.message}`); }
+  }
+
+  runDemo(demo) {
+    if (!demo) return;
+    try {
+      this.logPane.log(`\n--- Running Demo: ${demo.name} ---`);
+      const result = demo.run(this.nar, (msg) => this.logPane.log(msg));
+      if (result) this.logPane.log(result);
+    } catch (e) { this.logPane.log(`Error in demo "${demo.name}": ${e.message}`); }
+    this.tick();
+  }
+
+  setupGlobalKeys() {
+    this.screen.key(['escape', 'q', 'C-c'], () => process.exit(0));
+    this.screen.key(['f2'], () => this.parameterPane.focus());
+    this.screen.key(['f3'], () => this.memoryPane.focus());
+    this.screen.key(['tab'], () => {
+      if (this.screen.focused === this.inputPane.widget) this.demoPane.focus();
+      else if (this.screen.focused === this.demoPane.list) this.parameterPane.focus();
+      else if (this.screen.focused === this.parameterPane.list) this.memoryPane.focus();
+      else this.inputPane.focus();
+    });
   }
 
   updateStatusBar() {
     const concepts = this.nar.state.hypergraph.size;
     const queue = this.nar.state.eventQueue.heap.length;
     const step = this.nar.state.currentStep;
-    const focus = this.nar.metaReasoner.currentFocus;
-
-    const statusText = `Concepts: ${concepts} | Event Queue: ${queue} | Step: ${step} | Focus: ${focus} | (F1 for Menu)`;
-    this.statusBar.setContent(statusText);
-    this.screen.render();
-  }
-
-  toggleMenu() {
-    this.menu.toggle();
-    if (!this.menu.hidden) {
-      this.menu.focus();
-    } else {
-      this.inputBox.focus();
-    }
-    this.screen.render();
+    const statusText = `Concepts: ${concepts} | Queue: ${queue} | Step: ${step} | F2:Param F3:Mem Tab:Cycle`;
+    this.statusPane.setContent(statusText);
   }
 
   setupEventListeners() {
-    this.nar.on('belief-added', (data) => {
-        this.logOutput.log(`[Belief Added] ${data.hyperedgeId} - f:${data.truth.frequency.toFixed(2)} c:${data.truth.confidence.toFixed(2)}`);
-        this.screen.render();
-    });
-    this.nar.on('contradiction-resolved', (data) => {
-        this.logOutput.log(`\n[!] Contradiction Resolved for ${data.hyperedgeId} via ${data.strategy}`);
-        this.screen.render();
-    });
-    this.nar.on('focus-changed', (data) => {
-        this.logOutput.log(`\n[*] Meta-Reasoner changed focus to: ${data.newFocus}`);
-        this.screen.render();
-    });
+    this.nar.removeAllListeners?.(); // a bit of a hack for now
+    this.nar.on('belief-added', (data) => this.logPane.log(`[Belief] ${data.hyperedgeId.substring(0,20)} f:${data.truth.frequency.toFixed(2)} c:${data.truth.confidence.toFixed(2)}`));
+    this.nar.on('contradiction-resolved', (data) => this.logPane.log(`[!] Contradiction for ${data.hyperedgeId.substring(0,20)}`));
+    this.nar.on('focus-changed', (data) => this.logPane.log(`[*] Focus: ${data.newFocus.substring(0,20)}`));
   }
 
-  runAllDemos() {
-    this.logOutput.log('--- Running all demos ---');
-    this.runDemo1();
-    this.runDemo2();
-    this.runDemo3();
-    this.runDemo4();
-    this.runDemo5();
-    this.updateStatusBar();
+  start() {
+    if (this.isRunning) return;
+    this.isRunning = true;
+    this.controlPane.setRunState(true);
+    this.logPane.log('== Reasoner Started ==');
+    const stepFn = () => {
+        if (!this.isRunning) return;
+        this.nar.step();
+        this.runInterval = (this.baseRunDelay > 0) ? setTimeout(stepFn, this.baseRunDelay) : setImmediate(stepFn);
+    };
+    stepFn();
   }
 
-  runDemo1() {
-    this.logOutput.log("\n===== 1. ADVANCED NAL PARSING & BASIC INFERENCE =====");
-    this.nar.nal('((bird * animal) --> flyer). %0.9;0.8%');
-    this.nar.nal('(penguin --> (bird * !flyer)). #0.95#');
-    this.nar.nal('(tweety --> bird).');
-    this.logOutput.log("Initial beliefs added.");
-    this.nar.run(50);
-    const tweetyIsAnimalId = this.nar.inheritance('tweety', 'animal');
-    const tweetyIsFlyerId = this.nar.inheritance('tweety', 'flyer');
-    this.logOutput.log(`Belief that Tweety is an animal: ${this.nar.getBeliefs(tweetyIsAnimalId)[0]?.truth.expectation().toFixed(3)}`);
-    this.logOutput.log(`Belief that Tweety is a flyer: ${this.nar.getBeliefs(tweetyIsFlyerId)[0]?.truth.expectation().toFixed(3)}`);
+  pause() {
+    if (!this.isRunning) return;
+    this.isRunning = false;
+    this.controlPane.setRunState(false);
+    if(this.runInterval) { clearTimeout(this.runInterval); this.runInterval = null; }
+    this.logPane.log('== Reasoner Paused ==');
   }
 
-  runDemo2() {
-    this.logOutput.log("\n===== 2. CONTRADICTION & RESOLUTION =====");
-    this.logOutput.log("\nIntroducing belief that Tweety is a penguin...");
-    this.nar.nal('(tweety --> penguin). %0.99;0.99%');
-    this.nar.run(100);
-    const tweetyIsFlyerId = this.nar.inheritance('tweety', 'flyer');
-    this.logOutput.log(`\nNew belief that Tweety is a flyer: ${this.nar.getBeliefs(tweetyIsFlyerId)[0]?.truth.expectation().toFixed(3)}`);
+  step() {
+    if(this.isRunning) this.pause();
+    this.nar.step();
+    this.logPane.log('-- Stepped --');
+    this.tick();
   }
 
-  runDemo3() {
-    this.logOutput.log("\n===== 3. TEMPORAL REASONING =====");
-    const morning = this.nar.temporalManager.interval('daytime_event', Date.now(), Date.now() + 4 * 3600 * 1000);
-    const meeting = this.nar.temporalManager.interval('important_meeting', Date.now() + 1 * 3600 * 1000, Date.now() + 2 * 3600 * 1000);
-    const relId = this.nar.temporalManager.temporalRelation(meeting, morning, 'during', { truth: this.nar.truth(1, 0.9) });
-    this.logOutput.log("Established that the meeting happens during the day.");
+  clear() {
+    this.pause();
+    this.logPane.log('== Clearing Reasoner State ==');
+    this.nar.clearState();
+    this.setupEventListeners();
+    this.parameterPane.setConfig(this.nar.config);
+    this.tick();
   }
 
-  runDemo4() {
-    this.logOutput.log("\n===== 4. META-REASONING & ADAPTATION =====");
-    this.logOutput.log(`Current resource policy (budgetThreshold): ${this.nar.config.budgetThreshold.toFixed(4)}`);
-    this.nar.ask('(tweety --> ?x)?').catch(e => {});
-    this.nar.ask('(penguin --> ?x)?').catch(e => {});
-    this.nar.run(120);
-    this.logOutput.log(`New resource policy (budgetThreshold): ${this.nar.config.budgetThreshold.toFixed(4)}`);
-  }
-
-  runDemo5() {
-    this.logOutput.log("\n===== 5. FINAL EXPLANATION DEMO =====");
-    const tweetyIsAnimalId = this.nar.inheritance('tweety', 'animal');
-    this.logOutput.log("\n--- Final Story about why Tweety is an animal ---");
-    this.logOutput.log(this.nar.explain(tweetyIsAnimalId, { format: 'story' }));
+  setThrottle(percentage) {
+    this.cpuThrottle = Math.max(1, Math.min(100, percentage));
+    this.baseRunDelay = 1000 * (1 - (this.cpuThrottle / 100));
+    this.controlPane.setCpu(this.cpuThrottle);
+    this.logPane.log(`CPU throttle set to ${this.cpuThrottle}% (delay: ${this.baseRunDelay.toFixed(0)}ms)`);
+    if (this.isRunning) { this.pause(); this.start(); }
   }
 
   handleCommand(command) {
     if (command.startsWith('/')) {
         const [cmd, ...args] = command.substring(1).split(' ');
         switch (cmd) {
-            case 'quit':
-                return process.exit(0);
-            case 'run':
-                const steps = args[0] ? parseInt(args[0], 10) : 1;
-                this.logOutput.log(`Running ${steps} steps...`);
-                this.nar.run(steps);
-                this.updateStatusBar();
-                break;
-            case 'ask':
-                this.nar.ask(args.join(' ')).then(answer => {
-                    this.logOutput.log(`Answer: ${JSON.stringify(answer)}`);
-                }).catch(err => {
-                    this.logOutput.log(`Error: ${err.message}`);
-                });
-                break;
-            case 'explain':
-                const explanation = this.nar.explain(args[0]);
-                this.logOutput.log(explanation);
-                break;
-            default:
-                this.logOutput.log(`Unknown command: ${command}`);
+            case 'quit': return process.exit(0);
+            case 'run': this.nar.run(parseInt(args[0], 10) || 1); break;
+            case 'ask': this.nar.ask(args.join(' ')).then(a => this.logPane.log(`Answer: ${JSON.stringify(a)}`)).catch(e => this.logPane.log(`Error: ${e.message}`)); break;
+            case 'throttle': this.setThrottle(parseInt(args[0], 10) || 100); break;
+            default: this.logPane.log(`Unknown command: ${command}`);
         }
     } else {
         try {
-            const result = this.nar.nal(command);
-            this.logOutput.log(`Added belief: ${result}`);
+            this.logPane.log(`Added belief: ${this.nar.nal(command)}`);
         } catch (e) {
-            this.logOutput.log(`Error: ${e.message}`);
+            this.logPane.log(`Error: ${e.message}`);
         }
     }
-
-    this.updateStatusBar();
-    this.inputBox.clearValue();
-    this.screen.render();
-    this.inputBox.focus();
+    this.tick();
   }
 }
 

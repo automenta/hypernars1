@@ -186,7 +186,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
                 budget: new Budget({ priority: 0.9, durability: 0.9, quality: 0.9 }),
                 derivedBy: 'LearnedRule'
             });
-            this.nar.notifyListeners('shortcut-created', { from: premiseConjunctionId, to: conclusionId, confidence });
+            this.nar.emit('shortcut-created', { from: premiseConjunctionId, to: conclusionId, confidence });
         }
     }
 

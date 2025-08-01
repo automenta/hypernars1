@@ -53,4 +53,17 @@ export class Hyperedge {
   getTruthExpectation() {
     return this.beliefs.length ? this.beliefs[0].truth.expectation() : 0.5;
   }
+
+  toJSON() {
+    return {
+      id: this.id,
+      type: this.type,
+      args: this.args,
+      beliefs: this.beliefs.map(b => ({
+        ...b,
+        truth: b.truth.toJSON(),
+        budget: b.budget.toJSON(),
+      })),
+    };
+  }
 }

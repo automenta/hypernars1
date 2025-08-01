@@ -35,7 +35,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             // If there were contradictions before but now there's only one belief, it's resolved.
             if (this.contradictions.has(hyperedgeId)) {
                 this.contradictions.delete(hyperedgeId);
-                this.nar.notifyListeners('contradiction-resolved', { hyperedgeId, reason: 'belief_pruned' });
+                this.nar.emit('contradiction-resolved', { hyperedgeId, reason: 'belief_pruned' });
             }
             return false;
         }
@@ -62,7 +62,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                 resolvedValue: null
             });
 
-            this.nar.notifyListeners('contradiction-detected', {
+            this.nar.emit('contradiction-detected', {
                 hyperedgeId,
                 contradictions: contradictoryPairs
             });
@@ -90,7 +90,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             ...evidence,
             timestamp: Date.now()
         });
-        this.nar.notifyListeners('evidence-added', { hyperedgeId, beliefId });
+        this.nar.emit('evidence-added', { hyperedgeId, beliefId });
     }
 
     /**
@@ -136,7 +136,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                 hyperedge.beliefs = [resolution.newBelief];
             }
 
-            this.nar.notifyListeners('contradiction-resolved', {
+            this.nar.emit('contradiction-resolved', {
                 hyperedgeId,
                 strategy: strategyName,
                 resolution
@@ -361,7 +361,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             budget: Budget.full().scale(0.5)
         });
 
-        this.nar.notifyListeners('concept-split', {
+        this.nar.emit('concept-split', {
             originalId: originalHyperedge.id,
             newId: newId,
             context: context

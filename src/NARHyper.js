@@ -12,10 +12,12 @@ import {AdvancedDerivationEngine} from './core/AdvancedDerivationEngine.js';
 import {Propagation} from './core/Propagation.js';
 import {QuestionHandler} from './core/QuestionHandler.js';
 import {System} from './core/System.js';
+import { EventEmitter } from 'events';
 
 
-export class NARHyper {
+export class NARHyper extends EventEmitter {
   constructor(config = {}) {
+    super();
     this.config = Object.assign({
       decay: 0.1,
       budgetDecay: 0.8,
@@ -90,21 +92,53 @@ export class NARHyper {
     this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
   }
 
-  on(eventType, callback) {
-    const listener = { eventType, callback };
-    this.state.listeners.add(listener);
-    return () => this.state.listeners.delete(listener);
+  clearState() {
+    this.state = new State(this.config);
+    this._initializeModules(this.config); // Re-init managers with the new state
+    this.api = new Api(this); // Re-init API
+    this._exposeApi(); // Re-expose methods
   }
 
-  notifyListeners(eventType, data) {
-    this.state.listeners.forEach(listener => {
-      if (listener.eventType === eventType) {
-        try {
-          listener.callback(data);
-        } catch (e) {
-          console.error(`Listener error for ${eventType}:`, e);
-        }
-      }
-    });
+  saveState() {
+    const hypergraphData = Array.from(this.state.hypergraph.values()).map(h => h.toJSON());
+    const stateData = {
+      version: '1.0',
+      timestamp: Date.now(),
+      config: this.config,
+      currentStep: this.state.currentStep,
+      hypergraph: hypergraphData,
+    };
+    return JSON.stringify(stateData, null, 2);
   }
+
+  loadState(jsonString) {
+    const stateData = JSON.parse(jsonString);
+
+    // Basic validation
+    if (!stateData.version || !stateData.hypergraph) {
+      throw new Error('Invalid or unsupported state file.');
+    }
+
+    this.clearState();
+    this.config = Object.assign(this.config, stateData.config);
+    this.state.currentStep = stateData.currentStep || 0;
+
+    // Re-create hyperedges using the API to ensure all indexes are built
+    for (const edgeData of stateData.hypergraph) {
+      if (!edgeData.beliefs || edgeData.beliefs.length === 0) continue;
+
+      // Re-add each belief to the hyperedge
+      for (const beliefData of edgeData.beliefs) {
+        const options = {
+          truth: new this.api.TruthValue(beliefData.truth.frequency, beliefData.truth.confidence, beliefData.truth.priority),
+          budget: new this.api.Budget(beliefData.budget.priority, beliefData.budget.durability, beliefData.budget.quality),
+          premises: beliefData.premises,
+          derivedBy: beliefData.derivedBy,
+          timestamp: beliefData.timestamp,
+        };
+        this.api.addHyperedge(edgeData.type, edgeData.args, options);
+      }
+    }
+  }
+
 }

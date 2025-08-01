@@ -268,7 +268,7 @@ export class TemporalReasoner extends TemporalManagerBase {
     processEventWithUncertainty(eventId, timeEstimate, uncertainty) {
         const timepoint = { id: `timepoint:${eventId}`, estimate: timeEstimate, uncertainty, timestamp: Date.now() };
         this.timepoints.set(timepoint.id, timepoint);
-        this.nar.notifyListeners('temporal-update', { eventId, timepoint });
+        this.nar.emit('temporal-update', { eventId, timepoint });
     }
 
     /**
@@ -442,7 +442,7 @@ export class TemporalReasoner extends TemporalManagerBase {
         const newHorizon = Math.min(maxHorizon, baseHorizon + Math.floor(Math.sqrt(numConstraints)));
 
         if (this.nar.config.temporalHorizon !== newHorizon) {
-            this.nar.notifyListeners('log', {
+            this.nar.emit('log', {
                 message: `Adjusting temporal horizon from ${this.nar.config.temporalHorizon} to ${newHorizon} based on ${numConstraints} constraints.`
             });
             this.nar.config.temporalHorizon = newHorizon;

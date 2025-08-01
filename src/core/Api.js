@@ -214,7 +214,7 @@ export class Api {
     });
 
     if (revisionResult.needsUpdate) {
-        this.nar.notifyListeners('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });
+        this.nar.emit('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });
         this.nar.propagation.propagate({
             target: termId,
             activation: 1.0,
@@ -302,7 +302,7 @@ export class Api {
 
     if (revisionResult.needsUpdate) {
         this.nar.contradictionManager.detectContradiction(hyperedgeId);
-        this.nar.notifyListeners('revision', { hyperedgeId, newTruth: finalTruth, newBudget: finalBudget });
+        this.nar.emit('revision', { hyperedgeId, newTruth: finalTruth, newBudget: finalBudget });
         this.nar.propagation.propagate({
             target: hyperedgeId,
             activation: 1.0,
@@ -320,7 +320,7 @@ export class Api {
         this.nar.state.hypergraph.delete(hyperedgeId);
         this.nar.state.index.removeFromIndex(hyperedge);
         this.nar.state.activations.delete(hyperedgeId);
-        this.nar.notifyListeners('knowledge-pruned', { hyperedgeId, type: hyperedge.type });
+        this.nar.emit('knowledge-pruned', { hyperedgeId, type: hyperedge.type });
         return true;
     }
     return false;
