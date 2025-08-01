@@ -2,7 +2,7 @@ import React, { useContext } from 'react';
 import { Box, Text } from 'ink';
 import { TuiContext } from '../contexts/TuiContext.js';
 import pkg from 'cli-boxes';
-const { single } = pkg;
+const { round, single } = pkg;
 
 import LogView from './LogView.js';
 import MemoryView from './MemoryView.js';
@@ -15,8 +15,6 @@ import ParameterView from './ParameterView.js';
 import InteractionView from './InteractionView.js';
 import StatusView from './StatusView.js';
 
-import pkg from 'cli-boxes';
-const { round, single } = pkg;
 
 const Tab = ({ label, isActive }) => (
     <Box
