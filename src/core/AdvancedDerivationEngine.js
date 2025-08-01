@@ -84,7 +84,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     this.registerRule('Implication', event => this.nar.state.hypergraph.get(event.target)?.type === 'Implication', (h, e, r) => this._deriveImplication(h, e, r));
     this.registerRule('Equivalence', event => this.nar.state.hypergraph.get(event.target)?.type === 'Equivalence', (h, e, r) => this._deriveEquivalence(h, e, r));
     this.registerRule('Conjunction', event => this.nar.state.hypergraph.get(event.target)?.type === 'Conjunction', (h, e, r) => this._deriveConjunction(h, e, r));
-    this.registerRule('TemporalRelation', event => this.nar.state.hypergraph.get(event.target)?.type === 'TemporalRelation', (h, e, r) => this._deriveTemporalRelation(h, e, r));
+    this.registerRule('TemporalRelation', event => this.nar.state.hypergraph.get(event.target)?.type === 'TemporalRelation', (h, e, r) => this._deriveTransitiveTemporalRelation(h, e, r));
   }
 
   _memoKey(type, args, pathHash) {
@@ -291,7 +291,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     );
   }
 
-  _deriveTemporalRelation({ args: [premise, conclusion, relation] }, event, ruleName) {
+  _deriveTransitiveTemporalRelation({ args: [premise, conclusion, relation] }, event, ruleName) {
       const premiseId = getArgId(premise);
       const eventHyperedge = this.nar.state.hypergraph.get(event.target);
       if (!eventHyperedge) return;

@@ -83,7 +83,30 @@ export class AdvancedTemporalManager extends TemporalManagerBase {
     _addTemporalRelation(term1, term2, relation, options) {
         const relationId = id('TemporalRelation', [term1, term2, relation]);
         this.nar.api.addHyperedge('TemporalRelation', [term1, term2, relation], options);
+
+        // Attempt to derive implicit relations if the terms are intervals
+        this._deriveImplicitRelations(term1, term2);
+
         return relationId;
+    }
+
+    _deriveImplicitRelations(term1Id, term2Id) {
+        const interval1 = this.intervals.get(term1Id);
+        const interval2 = this.intervals.get(term2Id);
+
+        if (interval1 && interval2) {
+            const derivedRelation = interval1.relateTo(interval2);
+            if (derivedRelation !== 'unknown') {
+                // Add the derived relation to the hypergraph if it doesn't already exist
+                const derivedRelationId = id('TemporalRelation', [term1Id, term2Id, derivedRelation]);
+                if (!this.nar.state.hypergraph.has(derivedRelationId)) {
+                    this.nar.api.addHyperedge('TemporalRelation', [term1Id, term2Id, derivedRelation], {
+                        truth: TruthValue.deduced(interval1.truth, interval2.truth),
+                        derived: true
+                    });
+                }
+            }
+        }
     }
 
     /**

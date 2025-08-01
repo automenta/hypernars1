@@ -183,6 +183,9 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
     _calculateEvidenceStrength(hyperedgeId, belief) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+        const intrinsicWeight = this.nar.config.intrinsicStrengthWeight || 0.2;
+        const evidenceWeight = this.nar.config.evidenceStrengthWeight || 0.8;
+
         if (!hyperedge || !hyperedge.evidence) {
             return belief.truth.expectation() * belief.budget.priority;
         }
@@ -192,6 +195,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             .filter(e => e.beliefIndex === beliefIndex)
             .reduce((sum, e) => sum + (e.strength || 0), 0);
         const intrinsicStrength = belief.truth.expectation() * belief.budget.priority;
-        return intrinsicStrength * 0.2 + totalStrength * 0.8;
+        return intrinsicStrength * intrinsicWeight + totalStrength * evidenceWeight;
     }
 }
