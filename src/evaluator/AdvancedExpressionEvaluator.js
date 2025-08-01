@@ -1,6 +1,5 @@
 import { ExpressionEvaluatorBase } from './ExpressionEvaluatorBase.js';
 import { TruthValue } from '../support/TruthValue.js';
-import { Budget } from '../support/Budget.js';
 import { id } from '../support/utils.js';
 
 /**

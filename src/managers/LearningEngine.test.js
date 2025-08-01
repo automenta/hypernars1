@@ -1,7 +1,6 @@
-import {describe, expect, it, test, beforeEach} from '@jest/globals';
+import {describe, expect, test, beforeEach} from '@jest/globals';
 import {NARHyper} from '../NARHyper.js';
 import {id} from '../support/utils.js';
-import {Budget} from '../support/Budget.js';
 import {TruthValue} from '../support/TruthValue.js';
 
 describe('AdvancedLearningEngine', () => {

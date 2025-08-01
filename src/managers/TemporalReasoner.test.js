@@ -1,6 +1,5 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { NARHyper } from '../NARHyper.js';
-import { id } from '../support/utils.js';
 
 describe('TemporalReasoner', () => {
     let nar;

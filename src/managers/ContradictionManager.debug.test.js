@@ -3,7 +3,7 @@ import { NARHyper } from '../NARHyper.js';
 import { TruthValue } from '../support/TruthValue.js';
 import { Budget } from '../support/Budget.js';
 import { id } from '../support/utils.js';
-import { AdvancedContradictionManager } from '../managers/AdvancedContradictionManager.js';
+import { AdvancedContradictionManager } from './AdvancedContradictionManager.js';
 
 const config = {
     modules: {

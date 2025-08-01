@@ -369,12 +369,6 @@ export class TemporalReasoner extends TemporalManagerBase {
         return inverses[relation] || 'unknown';
     }
 
-    during(eventTerm, start, end, options = {}) {
-        const intervalTerm = `interval_${start}_${end}`;
-        const intervalId = this.interval(intervalTerm, start, end, options);
-        return this.addConstraint(eventTerm, intervalId, 'during', options);
-    }
-
     getContext() {
         const now = new Date();
         const hour = now.getHours();

@@ -1,5 +1,4 @@
 import { NARHyper } from '../NARHyper.js';
-import { TruthValue } from '../support/TruthValue.js';
 
 describe('AdvancedExpressionEvaluator', () => {
     let nar;
