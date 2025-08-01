@@ -25,7 +25,7 @@ export class LearningEngine extends LearningEngineBase {
 
     recordExperience(event, outcome = {}) {
         const { success, accuracy } = outcome;
-        const hyperedge = this.nar.hypergraph.get(event.target);
+        const hyperedge = this.nar.state.hypergraph.get(event.target);
         const belief = hyperedge?.getStrongestBelief();
 
         const experience = {
@@ -102,8 +102,8 @@ export class LearningEngine extends LearningEngineBase {
 
     _patternSignature(pattern) {
         // Create a signature based on the structure of the rule
-        const premiseTypes = pattern.premises.map(p => this.nar.hypergraph.get(p)?.type || 'Term').sort().join(',');
-        const conclusionType = this.nar.hypergraph.get(pattern.conclusion)?.type || 'Term';
+        const premiseTypes = pattern.premises.map(p => this.nar.state.hypergraph.get(p)?.type || 'Term').sort().join(',');
+        const conclusionType = this.nar.state.hypergraph.get(pattern.conclusion)?.type || 'Term';
         return `${premiseTypes}=>${conclusionType}`;
     }
 
@@ -123,13 +123,13 @@ export class LearningEngine extends LearningEngineBase {
         if (!premises || premises.length === 0) return;
 
         // Create a conjunction of all premises for a more accurate rule
-        const premiseConjunctionId = this.nar.conjunction(...premises);
+        const premiseConjunctionId = this.nar.api.conjunction(...premises);
 
         const shortcutId = id('LearnedRule', [premiseConjunctionId, conclusionId]);
-        if (!this.nar.hypergraph.has(shortcutId)) {
-            this.nar.addHyperedge('Implication', [premiseConjunctionId, conclusionId], {
+        if (!this.nar.state.hypergraph.has(shortcutId)) {
+            this.nar.api.addHyperedge('Implication', [premiseConjunctionId, conclusionId], {
                 truth: new TruthValue(0.9, confidence),
-                budget: this.nar.budget(0.9, 0.9, 0.9),
+                budget: this.nar.api.budget(0.9, 0.9, 0.9),
                 premises: [] // Learned rules are atomic
             });
             this.nar.notifyListeners('shortcut-created', { from: premiseConjunctionId, to: conclusionId, confidence });
@@ -141,10 +141,10 @@ export class LearningEngine extends LearningEngineBase {
 
         // Weaken the beliefs along the derivation path that led to failure
         experience.derivationPath.forEach((stepKey, index) => {
-            const event = this.nar.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(stepKey));
+            const event = this.nar.state.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(stepKey));
             if (!event) return;
 
-            const hyperedge = this.nar.hypergraph.get(event.target);
+            const hyperedge = this.nar.state.hypergraph.get(event.target);
             if (hyperedge) {
                 const learningFactor = this.learningRate * Math.pow(0.8, experience.derivationPath.length - 1 - index);
                 const currentTruth = hyperedge.getTruth();
@@ -152,7 +152,7 @@ export class LearningEngine extends LearningEngineBase {
                     currentTruth.frequency,
                     currentTruth.confidence * (1 - learningFactor) // Reduce confidence
                 );
-                this.nar.revise(event.target, newTruth, hyperedge.getStrongestBelief().budget.scale(0.9));
+                this.nar.api.revise(event.target, newTruth, hyperedge.getStrongestBelief().budget.scale(0.9));
             }
         });
     }
@@ -162,10 +162,10 @@ export class LearningEngine extends LearningEngineBase {
 
         // Strengthen the beliefs along the derivation path that led to success
         experience.derivationPath.forEach((stepKey, index) => {
-            const event = this.nar.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(stepKey));
+            const event = this.nar.state.eventQueue.heap.find(e => e.derivationPath.join('->').endsWith(stepKey));
             if (!event) return;
 
-            const hyperedge = this.nar.hypergraph.get(event.target);
+            const hyperedge = this.nar.state.hypergraph.get(event.target);
             if (hyperedge) {
                 const learningFactor = this.learningRate * Math.pow(0.9, index);
                 const currentTruth = hyperedge.getTruth();
@@ -173,7 +173,7 @@ export class LearningEngine extends LearningEngineBase {
                     currentTruth.frequency,
                     Math.min(0.99, currentTruth.confidence * (1 + learningFactor)) // Increase confidence
                 );
-                this.nar.revise(event.target, newTruth, hyperedge.getStrongestBelief().budget.scale(1.05));
+                this.nar.api.revise(event.target, newTruth, hyperedge.getStrongestBelief().budget.scale(1.05));
             }
         });
     }

@@ -52,19 +52,19 @@ export class AdvancedMemoryManager extends MemoryManager {
         });
 
         // Update scores based on current activity (activations)
-        this.nar.activations.forEach((activation, termId) => {
+        this.nar.state.activations.forEach((activation, termId) => {
             const currentScore = this.importanceScores.get(termId) || 0;
             const newScore = (currentScore * 0.7) + (activation * 0.3);
             this.importanceScores.set(termId, Math.min(1.0, newScore));
         });
 
         // Boost scores for terms involved in active questions
-        this.nar.questionPromises.forEach((_, questionId) => {
+        this.nar.state.questionPromises.forEach((_, questionId) => {
             const terms = this._extractTermsFromQuestion(questionId);
             terms.forEach(termString => {
                 // Convert term string to term ID
                 const termId = `Term(${termString})`;
-                if (this.nar.hypergraph.has(termId)) {
+                if (this.nar.state.hypergraph.has(termId)) {
                     const currentScore = this.importanceScores.get(termId) || 0;
                     this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.2));
                 }
@@ -89,7 +89,7 @@ export class AdvancedMemoryManager extends MemoryManager {
      * Dynamically adjusts memory-related configuration based on system load.
      */
     _adjustMemoryConfiguration() {
-        const activeConcepts = this.nar.hypergraph.size;
+        const activeConcepts = this.nar.state.hypergraph.size;
 
         // Adjust belief capacity based on memory pressure
         if (activeConcepts > 10000) {
@@ -99,7 +99,7 @@ export class AdvancedMemoryManager extends MemoryManager {
         }
 
         // Adjust temporal horizon based on number of temporal links
-        const activeTemporal = this.nar.temporalLinks?.size || 0;
+        const activeTemporal = this.nar.state.temporalLinks?.size || 0;
         this.nar.config.temporalHorizon = Math.max(2, Math.min(20,
             5 + Math.floor(activeTemporal / 1000)
         ));

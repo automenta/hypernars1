@@ -57,11 +57,11 @@ describe('NARHyper Manager Dependency Injection', () => {
             }
         });
 
-        const initialBeliefCount = nar.hypergraph.size;
+        const initialBeliefCount = nar.state.hypergraph.size;
         nar.learningEngine.recordExperience({ target: 'test', derivationPath: [] }, { success: true, accuracy: 1.0 });
         nar.learningEngine.applyLearning();
 
-        expect(nar.hypergraph.size).toBe(initialBeliefCount);
+        expect(nar.state.hypergraph.size).toBe(initialBeliefCount);
     });
 
     // Temporarily disabling this test as per user guidance to focus on what works.

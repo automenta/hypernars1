@@ -69,7 +69,7 @@ export class MemoryManager extends MemoryManagerBase {
 
     _selectivelyForget() {
         const candidates = [];
-        this.nar.hypergraph.forEach((hyperedge, id) => {
+        this.nar.state.hypergraph.forEach((hyperedge, id) => {
             if (this._isImportantConcept(id)) {
                 return;
             }
@@ -94,7 +94,7 @@ export class MemoryManager extends MemoryManagerBase {
 
     _isImportantConcept(hyperedgeId) {
         // Is it part of an active question?
-        for (const questionId of this.nar.questionPromises.keys()) {
+        for (const questionId of this.nar.state.questionPromises.keys()) {
             if (questionId.includes(hyperedgeId)) {
                 return true;
             }
@@ -115,20 +115,20 @@ export class MemoryManager extends MemoryManagerBase {
     }
 
     _removeHyperedge(id) {
-        const hyperedge = this.nar.hypergraph.get(id);
+        const hyperedge = this.nar.state.hypergraph.get(id);
         if (!hyperedge) return;
 
-        this.nar.hypergraph.delete(id);
+        this.nar.state.hypergraph.delete(id);
         this.beliefRelevance.delete(id);
-        this.nar.activations.delete(id);
+        this.nar.state.activations.delete(id);
         this.accessPatterns.delete(id);
 
-        if (this.nar.index.byType.has(hyperedge.type)) {
-            this.nar.index.byType.get(hyperedge.type).delete(id);
+        if (this.nar.state.index.byType.has(hyperedge.type)) {
+            this.nar.state.index.byType.get(hyperedge.type).delete(id);
         }
         hyperedge.args.forEach(arg => {
             if (typeof arg === 'string') {
-                this.nar.index.byArg.remove(arg, id);
+                this.nar.state.index.byArg.remove(arg, id);
             }
         });
 

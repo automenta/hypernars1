@@ -16,7 +16,7 @@ export class MetaReasoner {
  * @param {string} source The source identifier (e.g., 'user_input', 'sensor_A').
  */
 recordSource(hyperedgeId, source) {
-    const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
     if (!hyperedge) return;
 
     // Find the primary belief to attach the source to
@@ -67,8 +67,8 @@ recordSource(hyperedgeId, source) {
     }
 
     _updatePerformanceMetrics() {
-        const queueSize = this.nar.eventQueue.heap.length;
-        const activeConcepts = this.nar.activations.size;
+        const queueSize = this.nar.state.eventQueue.heap.length;
+        const activeConcepts = this.nar.state.activations.size;
         const resourcePressure = Math.min(1.0, queueSize / (activeConcepts * 10 + 1));
 
         const performance = {
@@ -89,7 +89,7 @@ recordSource(hyperedgeId, source) {
         let successes = 0;
         let total = 0;
         // This is a simplified proxy. A real implementation would need to track question outcomes.
-        this.nar.questionPromises.forEach(promise => {
+        this.nar.state.questionPromises.forEach(promise => {
             if (promise.resolved) successes++;
             total++;
         });
@@ -101,7 +101,7 @@ recordSource(hyperedgeId, source) {
     _adjustReasoningFocus() {
         let newFocus = 'default';
 
-        if (this.nar.questionPromises.size > 2) {
+        if (this.nar.state.questionPromises.size > 2) {
             newFocus = 'question-answering';
         } else if (this.nar.contradictionManager.contradictions.size > 5) {
             newFocus = 'contradiction-resolution';

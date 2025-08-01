@@ -58,7 +58,7 @@ describe('AdvancedMemoryManager', () => {
             nar.nal(`term${i}.`);
         }
         // Force a large size for the test condition without adding 11000 hyperedges
-        Object.defineProperty(nar.hypergraph, 'size', { value: 11000, configurable: true });
+        Object.defineProperty(nar.state.hypergraph, 'size', { value: 11000, configurable: true });
 
         // Trigger maintenance
         nar.memoryManager.maintainMemory();
@@ -68,7 +68,7 @@ describe('AdvancedMemoryManager', () => {
         expect(reducedCapacity).toBeLessThan(8);
 
         // Mock a small hypergraph
-        Object.defineProperty(nar.hypergraph, 'size', { value: 4000, configurable: true });
+        Object.defineProperty(nar.state.hypergraph, 'size', { value: 4000, configurable: true });
 
         // Trigger maintenance
         nar.memoryManager.maintainMemory();
@@ -113,7 +113,7 @@ describe('AdvancedMemoryManager', () => {
         }
 
         // The important concept should still exist because _isImportantConcept check will override low relevance
-        expect(nar.hypergraph.has(importantTermId)).toBe(true);
+        expect(nar.state.hypergraph.has(importantTermId)).toBe(true);
 
         // Clean up to avoid open handles
         jest.runAllTimers();

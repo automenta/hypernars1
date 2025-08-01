@@ -11,8 +11,8 @@ export class TemporalManager extends TemporalManagerBase {
         this.temporalIntervals = new Map();
         this.temporalConstraints = new Map();
         // Ensure the temporalTerms index exists
-        if (!this.nar.index.temporalTerms) {
-            this.nar.index.temporalTerms = new Map();
+        if (!this.nar.state.index.temporalTerms) {
+            this.nar.state.index.temporalTerms = new Map();
         }
     }
 
@@ -24,7 +24,7 @@ export class TemporalManager extends TemporalManagerBase {
         }
         const interval = new TimeInterval(intervalId, start, end, options);
         this.temporalIntervals.set(intervalId, interval);
-        this.nar.addHyperedge('TimeInterval', [term, start, end], options);
+        this.nar.api.addHyperedge('TimeInterval', [term, start, end], options);
         return intervalId;
     }
 
@@ -66,7 +66,7 @@ export class TemporalManager extends TemporalManagerBase {
         }
 
         // Guard against re-derivation
-        if (this.nar.hypergraph.has(relationId)) {
+        if (this.nar.state.hypergraph.has(relationId)) {
             return relationId;
         }
 
@@ -83,7 +83,7 @@ export class TemporalManager extends TemporalManagerBase {
             conclusionInterval.relations.set(premise, inverseRelation);
         }
 
-        const hyperedge = this.nar.addHyperedge('TemporalRelation', [premise, conclusion, relation], { truth, budget });
+        const hyperedge = this.nar.api.addHyperedge('TemporalRelation', [premise, conclusion, relation], { truth, budget });
 
         const newPath = [...derivationPath, relationId];
         this._deriveTransitiveTemporalRelations(premiseInterval, newPath);
@@ -201,7 +201,7 @@ export class TemporalManager extends TemporalManagerBase {
             if (this._hasTemporalEvidence(term1, term2, minDuration, maxDuration)) {
               const distance = this._temporalDistance(term1, term2);
               const constraintActivation = activation * (1 - Math.min(1, Math.abs(distance - (minDuration + maxDuration) / 2) / maxDuration));
-              this.nar.propagate(term2, constraintActivation, budget.scale(0.7),
+              this.nar.propagation.propagate(term2, constraintActivation, budget.scale(0.7),
                 pathHash ^ hash(`constraint:${relation}`), pathLength + 1,
                 [...derivationPath, 'temporal_constraint']);
             }
@@ -212,7 +212,7 @@ export class TemporalManager extends TemporalManagerBase {
     _hasTemporalEvidence(term1, term2, minDur, maxDur) {
         const now = Date.now();
         // This assumes temporal links are stored in nar.temporalLinks, which needs to be ensured.
-        const links = Array.from(this.nar.temporalLinks.values()).filter(link =>
+        const links = Array.from(this.nar.state.temporalLinks.values()).filter(link =>
             (link.premise === term1 && link.conclusion === term2) ||
             (link.premise === term2 && link.conclusion === term1));
 
@@ -225,7 +225,7 @@ export class TemporalManager extends TemporalManagerBase {
     // Calculates the temporal distance between two terms
     _temporalDistance(term1, term2) {
         const now = Date.now();
-        const links = Array.from(this.nar.temporalLinks.values()).filter(link =>
+        const links = Array.from(this.nar.state.temporalLinks.values()).filter(link =>
             (link.premise === term1 && link.conclusion === term2) ||
             (link.premise === term2 && link.conclusion === term1));
         if(links.length > 0) {
@@ -281,7 +281,7 @@ export class TemporalManager extends TemporalManagerBase {
 
                 if (predictedTime && Math.abs(predictedTime - futureTime) < (milliseconds * 0.5)) {
                     const confidence = this._calculateTemporalConfidence(relation, interval.start, futureTime, interval.duration);
-                    const hyperedge = this.nar.hypergraph.get(relatedInterval.id);
+                    const hyperedge = this.nar.state.hypergraph.get(relatedInterval.id);
                     if (hyperedge && confidence > (this.nar.config.predictionThreshold || 0.2)) {
                         predictions.push({
                             term: relatedInterval.id,

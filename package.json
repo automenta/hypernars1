@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "start:example": "node example.js"
+    "start:example": "node example.js",
+    "start:tui": "node tui.js"
   },
   "keywords": [
     "nars",
@@ -17,6 +18,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
-    "jest": "^30.0.5"
+    "jest": "^30.0.5",
+    "neo-blessed": "^0.2.0"
   }
 }

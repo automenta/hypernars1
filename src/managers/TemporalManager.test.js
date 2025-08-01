@@ -21,7 +21,7 @@ describe('TemporalManager', () => {
 
         // Expected: A before C
         const expectedRelationId = id('TemporalRelation', [intervalA, intervalC, 'before']);
-        expect(nar.hypergraph.has(expectedRelationId)).toBe(true);
+        expect(nar.state.hypergraph.has(expectedRelationId)).toBe(true);
     });
 
     it('should handle complex transitive derivations', () => {
@@ -39,9 +39,9 @@ describe('TemporalManager', () => {
         const expectedRelation2 = id('TemporalRelation', [intervalA, intervalC, 'meets']);
         const expectedRelation3 = id('TemporalRelation', [intervalA, intervalC, 'before']);
 
-        expect(nar.hypergraph.has(expectedRelation1)).toBe(true);
-        expect(nar.hypergraph.has(expectedRelation2)).toBe(true);
-        expect(nar.hypergraph.has(expectedRelation3)).toBe(true);
+        expect(nar.state.hypergraph.has(expectedRelation1)).toBe(true);
+        expect(nar.state.hypergraph.has(expectedRelation2)).toBe(true);
+        expect(nar.state.hypergraph.has(expectedRelation3)).toBe(true);
     });
 
     it('should correctly build the full composition table', () => {

@@ -35,7 +35,7 @@ describe('ContradictionManager', () => {
         nar.contradictionManager.detectContradictions(termId);
         nar.contradictionManager.resolveContradictions();
 
-        const finalTruth = nar.getTruth(termId);
+        const finalTruth = nar.api.getTruth(termId);
 
         // The weighted average should be closer to 0.9 than 0.1
         expect(finalTruth.frequency).toBeGreaterThan(0.7);
@@ -65,7 +65,7 @@ describe('ContradictionManager', () => {
 
         nar.contradictionManager.resolveContradictions();
 
-        const originalHyperedge = nar.hypergraph.get(originalId);
+        const originalHyperedge = nar.state.hypergraph.get(originalId);
 
         // The original belief should now only contain the general truth
         expect(originalHyperedge.beliefs.length).toBe(1);
@@ -73,7 +73,7 @@ describe('ContradictionManager', () => {
 
         // A new hyperedge should be created for the specific context
         const newConceptId = `${originalId}|penguin_case`;
-        const newHyperedge = nar.hypergraph.get(newConceptId);
+        const newHyperedge = nar.state.hypergraph.get(newConceptId);
         expect(newHyperedge).toBeDefined();
         expect(newHyperedge.type).toBe('Inheritance');
         expect(newHyperedge.getTruth().frequency).toBe(0.1);

@@ -38,9 +38,9 @@ describe('MetaReasoner', () => {
 
         // Simulate high resource pressure
         for (let i = 0; i < 200; i++) {
-            nar.eventQueue.push({ budget: { priority: 0.5 } });
+            nar.state.eventQueue.push({ budget: { priority: 0.5 } });
         }
-        nar.activations.set('dummy', 0.1); // To prevent division by zero
+        nar.state.activations.set('dummy', 0.1); // To prevent division by zero
 
         nar.metaReasoner.optimizeResources();
 

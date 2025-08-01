@@ -27,7 +27,7 @@ export class ExplanationSystem {
         if (depth <= 0 || visited.has(hyperedgeId)) return;
         visited.add(hyperedgeId);
 
-        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return;
 
         const strongestBelief = hyperedge.getStrongestBelief();
@@ -52,7 +52,7 @@ export class ExplanationSystem {
     }
 
     _formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives) {
-        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return "Hyperedge not found";
 
         let explanation = `CONCLUSION: ${this._formatHyperedge(hyperedge)}\n`;
@@ -90,7 +90,7 @@ export class ExplanationSystem {
     }
 
     _generateStoryExplanation(hyperedgeId, path) {
-        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return "I don't have a story for that.";
 
         const conclusion = this._formatTermForStory(hyperedge);
@@ -115,7 +115,7 @@ export class ExplanationSystem {
     _identifyDerivationRule(conclusion, premiseIds) {
         if (premiseIds.length === 0) return 'assertion';
 
-        const premises = premiseIds.map(id => this.nar.hypergraph.get(id)).filter(p => p);
+        const premises = premiseIds.map(id => this.nar.state.hypergraph.get(id)).filter(p => p);
         if (premises.length !== premiseIds.length) return 'derived'; // Premise not found
 
         // Rule: Transitive Inheritance: (A->B) & (B->C) => (A->C)

@@ -1,6 +1,8 @@
 import { ContradictionManagerBase } from './ContradictionManagerBase.js';
 import { Hyperedge } from '../support/Hyperedge.js';
 import { id } from '../support/utils.js';
+import { TruthValue } from '../support/TruthValue.js';
+import { Budget } from '../support/Budget.js';
 
 /**
  * A robust contradiction manager that resolves conflicts by either
@@ -16,7 +18,7 @@ export class ContradictionManager extends ContradictionManagerBase {
      * Detects if a hyperedge has contradictory beliefs.
      */
     detectContradictions(hyperedgeId) {
-        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge || hyperedge.beliefs.length < 2) {
             return false;
         }
@@ -89,15 +91,15 @@ export class ContradictionManager extends ContradictionManagerBase {
         });
 
         if (totalWeight > 0) {
-            const newTruth = this.nar.truth(
+            const newTruth = new TruthValue(
                 weightedFrequency / totalWeight,
                 weightedConfidence / totalWeight
             );
-            const newBudget = this.nar.budget(
+            const newBudget = new Budget(
                 totalPriority / beliefs.length, 0.8, Math.min(1, totalWeight / beliefs.length)
             );
             // Revise the hyperedge with the new merged belief
-            this.nar.revise(hyperedgeId, newTruth, newBudget);
+            this.nar.api.revise(hyperedgeId, newTruth, newBudget);
         }
     }
 
@@ -105,29 +107,37 @@ export class ContradictionManager extends ContradictionManagerBase {
      * Splits a concept into a general case and a specific, contextual case.
      */
     _contextualSplit(hyperedgeId, belief1, belief2) {
-        const originalHyperedge = this.nar.hypergraph.get(hyperedgeId);
+        const originalHyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!originalHyperedge) return;
 
         // 1. Identify general vs. specific belief
-        const generalBelief = (belief1.context === 'general' || !belief1.context) ? belief1 : belief2;
-        const specificBelief = (belief1 === generalBelief) ? belief2 : belief1;
+        const b1_is_general = (belief1.context === 'general' || !belief1.context);
+        const b2_is_general = (belief2.context === 'general' || !belief2.context);
+
+        if (b1_is_general === b2_is_general) {
+            this._evidenceWeightedRevision(hyperedgeId, [belief1, belief2]);
+            return;
+        }
+
+        const generalBelief = b1_is_general ? belief1 : belief2;
+        const specificBelief = b1_is_general ? belief2 : belief1;
         const context = specificBelief.context;
 
-        if (!context) return; // Should not happen if contexts are different
+        if (!context) return;
 
         // 2. Create the new hyperedge for the specific context
         const newId = `${hyperedgeId}|${context}`;
-        if (!this.nar.hypergraph.has(newId)) {
+        if (!this.nar.state.hypergraph.has(newId)) {
             const newHyperedge = new Hyperedge(newId, originalHyperedge.type, [...originalHyperedge.args, context]);
             newHyperedge.revise(specificBelief.truth, specificBelief.budget, this.nar.config.beliefCapacity, specificBelief.premises, context);
-            this.nar.hypergraph.set(newId, newHyperedge);
-            this.nar.addToIndex(newHyperedge);
+            this.nar.state.hypergraph.set(newId, newHyperedge);
+            this.nar.api.addToIndex(newHyperedge);
 
             // 3. Link the new concept to the old one
             setTimeout(() => {
-                this.nar.similarity(newId, hyperedgeId, {
-                    truth: this.nar.truth(0.8, 0.9),
-                    budget: this.nar.budget(0.8, 0.8, 0.8)
+                this.nar.api.similarity(newId, hyperedgeId, {
+                    truth: new TruthValue(0.8, 0.9),
+                    budget: new Budget(0.8, 0.8, 0.8)
                 });
             }, 0);
         }
