@@ -70,6 +70,14 @@ export class TruthValue {
     return new TruthValue(frequency, confidence, Math.min(t1.priority, t2.priority) * 0.7);
   }
 
+  negate() {
+    return new TruthValue(1.0 - this.frequency, this.confidence, this.priority);
+  }
+
+  static negation(t1) {
+    return new TruthValue(1.0 - t1.frequency, t1.confidence, t1.priority);
+  }
+
   static certain() {
     return new TruthValue(1.0, 0.9, 1.0);
   }

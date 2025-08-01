@@ -40,6 +40,9 @@ describe('AdvancedMemoryManager', () => {
             nar.step();
         }
 
+        // Explicitly run the maintenance cycle to ensure scores are updated
+        nar.memoryManager.maintainMemory();
+
         const importanceScore = nar.memoryManager.importanceScores.get(termId);
         // The score should be boosted. The initial score from activation is low (~0.03), and the boost is +0.2.
         // We check that the score is greater than the boost alone.

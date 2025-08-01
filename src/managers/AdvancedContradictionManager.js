@@ -80,29 +80,68 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     _resolveContradiction(hyperedge, newBelief, contradictionInfo) {
         const { strongestBelief, context } = contradictionInfo;
 
-        const currentStrength = strongestBelief.truth.confidence * strongestBelief.budget.priority;
-        const newStrength = newBelief.truth.confidence * newBelief.budget.priority;
+        const currentStrength = this._calculateEvidenceStrength(strongestBelief);
+        const newStrength = this._calculateEvidenceStrength(newBelief);
 
-        if (newStrength > currentStrength * 1.2) {
+        const STRENGTH_THRESHOLD = 1.5; // How much stronger one belief must be to dominate
+
+        if (newStrength > currentStrength * STRENGTH_THRESHOLD) {
             return { action: 'accept', reason: 'New evidence is significantly stronger' };
-        } else if (currentStrength > newStrength * 1.2) {
+        } else if (currentStrength > newStrength * STRENGTH_THRESHOLD) {
             return { action: 'reject', reason: 'Existing evidence is significantly stronger' };
         } else if (context.type === 'temporal' && context.isNewer) {
             return { action: 'accept', reason: 'Newer information in temporal context' };
-        } else if (context.type === 'spatial' || context.type === 'contextual') {
+        } else if (context.type === 'explicit' || context.type === 'semantic' || context.type === 'contextual') {
             const newConceptId = this._createContextSpecificConcept(hyperedge, context);
-            return { action: 'split', reason: `Different contexts: ${context.type}`, context, newConceptId };
+            return { action: 'split', reason: `Different contexts detected (${context.type})`, context, newConceptId };
         } else {
-            // Refined merge logic: evidence-weighted revision
+            // Default to merging if strengths are comparable and contexts are general
             const mergedTruth = TruthValue.revise(strongestBelief.truth, newBelief.truth);
             const mergedBudget = strongestBelief.budget.merge(newBelief.budget).scale(0.8);
             return {
                 action: 'merge',
-                reason: 'Merging similar-strength beliefs',
+                reason: 'Merging similar-strength beliefs in a general context',
                 mergedTruth,
                 adjustedBudget: mergedBudget
             };
         }
+    }
+
+    /**
+     * Calculates the strength of a belief based on its own budget and the quality of its premises.
+     * @param {object} belief - The belief object to evaluate.
+     * @returns {number} A numerical strength score.
+     */
+    _calculateEvidenceStrength(belief) {
+        if (!belief) return 0;
+
+        let strength = belief.budget.priority * belief.truth.confidence;
+
+        if (belief.premises && belief.premises.length > 0) {
+            let premiseStrengthSum = 0;
+            let validPremises = 0;
+
+            for (const premiseId of belief.premises) {
+                const premiseEdge = this.nar.state.hypergraph.get(premiseId);
+                if (premiseEdge) {
+                    premiseStrengthSum += premiseEdge.getTruth().expectation();
+                    validPremises++;
+                }
+            }
+
+            if (validPremises > 0) {
+                const avgPremiseStrength = premiseStrengthSum / validPremises;
+                // Combine own strength with premise strength
+                strength = strength * 0.6 + avgPremiseStrength * 0.4;
+            }
+        }
+
+        // Boost for having a specific context
+        if (belief.context) {
+            strength *= 1.1;
+        }
+
+        return strength;
     }
 
     /**
@@ -131,22 +170,62 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     }
 
     _determineContradictionContext(hyperedge, newBelief) {
-        // Check for temporal context
         const strongestBelief = hyperedge.getStrongestBelief();
+
+        // 1. Temporal Context (Newer information is often more relevant)
         if (newBelief.timestamp && strongestBelief.timestamp) {
             const timeDifference = newBelief.timestamp - strongestBelief.timestamp;
-            // If the new belief is significantly newer (e.g., > 1 second)
-            if (timeDifference > 1000) {
-                return { type: 'temporal', isNewer: true, timeDifference };
+            if (timeDifference > 1000) { // 1 second threshold
+                return { type: 'temporal', isNewer: true, timeDifference, specificity: 0.5 };
             }
         }
 
-        // Placeholder for other context detection (spatial, goal-related, etc.)
-        return { type: 'general' };
+        // 2. Explicit Context Property
+        if (newBelief.context && strongestBelief.context && newBelief.context !== strongestBelief.context) {
+            return { type: 'explicit', context1: strongestBelief.context, context2: newBelief.context, specificity: 0.9 };
+        }
+
+        // 3. Premise Discrepancy Context
+        const premiseDifference = this._comparePremiseSets(strongestBelief.premises, newBelief.premises);
+        if (premiseDifference.hasUniqueTo1 && premiseDifference.hasUniqueTo2) {
+            return { type: 'semantic', reason: 'Derived from different premises', specificity: 0.8, difference: premiseDifference };
+        }
+
+        // 4. Source Context (if available)
+        if (newBelief.derivedBy && strongestBelief.derivedBy && newBelief.derivedBy !== strongestBelief.derivedBy) {
+            return { type: 'source', source1: strongestBelief.derivedBy, source2: newBelief.derivedBy, specificity: 0.7 };
+        }
+
+        return { type: 'general', specificity: 0.1 };
+    }
+
+    _comparePremiseSets(premises1, premises2) {
+        const set1 = new Set(premises1);
+        const set2 = new Set(premises2);
+        const result = {
+            hasUniqueTo1: false,
+            hasUniqueTo2: false,
+            intersection: new Set(),
+        };
+
+        for (const item of set1) {
+            if (set2.has(item)) {
+                result.intersection.add(item);
+            } else {
+                result.hasUniqueTo1 = true;
+            }
+        }
+        for (const item of set2) {
+            if (!set1.has(item)) {
+                result.hasUniqueTo2 = true;
+            }
+        }
+        return result;
     }
 
     _generateContextId(context) {
-        // Simple context ID generation
+        if (context.type === 'explicit') return context.context2; // Use the new context as the ID
+        if (context.type === 'semantic') return 'derived_differently';
         return context.type || 'general';
     }
 

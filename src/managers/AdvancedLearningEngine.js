@@ -175,6 +175,31 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         }
     }
 
+    /**
+     * Updates the productivity stats for a given rule.
+     * @param {string} ruleName - The name of the rule.
+     * @param {boolean} wasSuccessful - Whether the derivation was successful.
+     */
+    _updateRuleProductivity(ruleName, wasSuccessful) {
+        if (!ruleName) return;
+        if (!this.ruleProductivity.has(ruleName)) {
+            this.ruleProductivity.set(ruleName, { successes: 0, attempts: 0 });
+        }
+        const stats = this.ruleProductivity.get(ruleName);
+        stats.attempts++;
+        if (wasSuccessful) {
+            stats.successes++;
+        }
+    }
+
+    /**
+     * Provides the latest productivity statistics to other system components.
+     * @returns {Map<string, {successes: number, attempts: number}>}
+     */
+    getRuleProductivityStats() {
+        return this.ruleProductivity;
+    }
+
     _analyzeFailure(experience) {
         if (!experience.derivationPath) return;
 
@@ -185,13 +210,16 @@ export class AdvancedLearningEngine extends LearningEngineBase {
 
             const hyperedge = this.nar.state.hypergraph.get(event.target);
             if (hyperedge) {
+                const belief = hyperedge.getStrongestBelief();
+                this._updateRuleProductivity(belief?.derivedBy, false);
+
                 const learningFactor = this.learningRate * Math.pow(0.8, experience.derivationPath.length - 1 - index);
                 const currentTruth = hyperedge.getTruth();
                 const newTruth = new TruthValue(
                     currentTruth.frequency,
                     currentTruth.confidence * (1 - learningFactor) // Reduce confidence
                 );
-                this.nar.api.revise(event.target, newTruth, hyperedge.getStrongestBelief().budget.scale(0.9));
+                this.nar.api.revise(event.target, newTruth, belief.budget.scale(0.9));
             }
         });
     }
@@ -206,13 +234,16 @@ export class AdvancedLearningEngine extends LearningEngineBase {
 
             const hyperedge = this.nar.state.hypergraph.get(event.target);
             if (hyperedge) {
+                const belief = hyperedge.getStrongestBelief();
+                this._updateRuleProductivity(belief?.derivedBy, true);
+
                 const learningFactor = this.learningRate * Math.pow(0.9, index);
                 const currentTruth = hyperedge.getTruth();
                 const newTruth = new TruthValue(
                     currentTruth.frequency,
                     Math.min(0.99, currentTruth.confidence * (1 + learningFactor)) // Increase confidence
                 );
-                this.nar.api.revise(event.target, newTruth, hyperedge.getStrongestBelief().budget.scale(1.05));
+                this.nar.api.revise(event.target, newTruth, belief.budget.scale(1.05));
             }
         });
     }

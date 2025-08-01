@@ -119,7 +119,7 @@ export class Api {
 
   /* ===== CORE: ADDING KNOWLEDGE ===== */
   addHyperedge(type, args, options = {}) {
-    const { truth, budget, priority, premises = [] } = options;
+    const { truth, budget, priority, premises = [], derivedBy } = options;
     const termId = id(type, args);
     let hyperedge = this.nar.state.hypergraph.get(termId);
 
@@ -139,7 +139,7 @@ export class Api {
     }
 
     // Delegate revision and contradiction handling to the hyperedge itself
-    const revisionResult = hyperedge.revise(finalTruth, finalBudget, this.nar.config.beliefCapacity, premises);
+    const revisionResult = hyperedge.revise(finalTruth, finalBudget, this.nar.config.beliefCapacity, premises, options.context, derivedBy);
 
     if (revisionResult.needsUpdate) {
         this.nar.notifyListeners('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });

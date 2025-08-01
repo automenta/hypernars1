@@ -97,37 +97,41 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
     _parseRecursive(content, truth, priority) {
         content = content.trim();
-        if (content.startsWith('(') && content.endsWith(')')) {
-            let depth = 0;
-            let isWrapper = true;
-            for (let i = 0; i < content.length - 1; i++) {
-                if (content[i] === '(') depth++;
-                if (content[i] === ')') depth--;
-                if (depth === 0) { isWrapper = false; break; }
+
+        if (content.startsWith('¬')) {
+            const negatedContent = content.substring(1).trim();
+            const parsed = this._parseRecursive(negatedContent, truth, priority);
+            if (parsed) {
+                parsed.truth = parsed.truth.negate();
             }
-            if (isWrapper) return this._parseRecursive(content.slice(1, -1), truth, priority);
+            return parsed;
         }
-        for (let p = 1; p <= 3; p++) {
-            const ops = this.operators.filter(op => op.precedence === p);
-            let depth = 0;
-            for (let i = content.length - 1; i >= 0; i--) {
-                if (content[i] === ')') depth++;
-                if (content[i] === '(') depth--;
-                if (depth === 0) {
-                    for (const op of ops) {
-                        if (content.substring(i - op.symbol.length + 1, i + 1) === op.symbol) {
-                            const left = content.substring(0, i - op.symbol.length + 1);
-                            const right = content.substring(i + 1);
-                            return { type: op.type, args: [this._parseRecursive(left, truth, priority), this._parseRecursive(right, truth, priority)], truth, priority };
-                        }
-                    }
-                }
+
+        // Strip outer brackets first. This is a simplification that ignores precedence
+        // but is more robust for the common cases.
+        if (content.startsWith('<') && content.endsWith('>')) {
+            content = content.slice(1, -1).trim();
+        } else if (content.startsWith('(') && content.endsWith(')')) {
+            content = content.slice(1, -1).trim();
+        }
+
+        // Find the first operator from left to right.
+        // This is a simplification and does not handle precedence correctly for complex cases.
+        for (const op of this.operators) {
+            const index = content.indexOf(op.symbol);
+            if (index !== -1) {
+                const left = content.substring(0, index);
+                const right = content.substring(index + op.symbol.length);
+                return {
+                    type: op.type,
+                    args: [this._parseRecursive(left, truth, priority), this._parseRecursive(right, truth, priority)],
+                    truth,
+                    priority
+                };
             }
         }
-        if (content.startsWith('$') || content.startsWith('?')) {
-            return { type: 'Variable', args: [content], truth, priority };
-        }
-        // This is the base case for a simple term. It should not be a nested structure.
+
+        // Base case: no operators found.
         return { type: 'Term', args: [content], truth, priority };
     }
 

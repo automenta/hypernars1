@@ -66,4 +66,25 @@ describe('TruthValue', () => {
         expect(tv.confidence).toBe(0.1);
     });
   });
+
+  describe('negation', () => {
+    it('negate() should return a new TruthValue with inverted frequency', () => {
+      const t1 = new TruthValue(0.8, 0.9, 0.7);
+      const negated = t1.negate();
+      expect(negated.frequency).toBeCloseTo(0.2);
+      expect(negated.confidence).toBe(0.9);
+      expect(negated.priority).toBe(0.7);
+      // Ensure it's a new instance
+      expect(negated).not.toBe(t1);
+    });
+
+    it('static negation() should return a new TruthValue with inverted frequency', () => {
+      const t1 = new TruthValue(0.3, 0.5, 0.6);
+      const negated = TruthValue.negation(t1);
+      expect(negated.frequency).toBeCloseTo(0.7);
+      expect(negated.confidence).toBe(0.5);
+      expect(negated.priority).toBe(0.6);
+      expect(negated).not.toBe(t1);
+    });
+  });
 });

@@ -30,23 +30,35 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   }
 
   /**
-   * Evaluate and potentially update derivation rules' priorities
+   * Evaluates and updates rule priorities based on statistics from the Learning Engine.
+   * This creates a feedback loop where the system learns to prioritize effective rules.
    */
   evaluateRules() {
-    const now = Date.now();
-    for (const [name, rule] of this.rules) {
-      // This is a placeholder for a more sophisticated evaluation.
-      // A real implementation would check if recent derivations using this rule
-      // led to useful outcomes (e.g., answering a question, resolving a contradiction).
-      // For now, we'll just decay priority of unused rules slightly.
-      if (now - rule.lastUsed > 60000) { // Inactive for 1 minute
-          rule.priority *= 0.99;
-      }
+    const stats = this.nar.learningEngine.getRuleProductivityStats();
+    if (!stats) return;
 
-      // Adjust priority based on success rate and applicability
-      rule.priority = rule.successRate * 0.7 + rule.applicability * 0.3;
+    let rulesChanged = false;
+    for (const [name, rule] of this.rules) {
+        const ruleStats = stats.get(name);
+        if (ruleStats && ruleStats.attempts > 5) { // Only adjust after a few attempts
+            const newSuccessRate = ruleStats.successes / ruleStats.attempts;
+
+            // Smoothly update the success rate to avoid drastic changes
+            const oldSuccessRate = rule.successRate;
+            rule.successRate = oldSuccessRate * 0.9 + newSuccessRate * 0.1;
+
+            // Recalculate priority
+            rule.priority = rule.successRate * 0.7 + rule.applicability * 0.3;
+            rulesChanged = true;
+        } else {
+            // Slowly decay priority of unused or untested rules
+            rule.priority *= 0.995;
+        }
     }
-    this._sortRules();
+
+    if (rulesChanged) {
+        this._sortRules();
+    }
   }
 
   /**
@@ -96,6 +108,14 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
       const rule = this.rules.get(ruleName);
       if (rule) {
           rule.successRate = rule.successRate * (1 - factor) + 1 * factor;
+          this._sortRules();
+      }
+  }
+
+  penalizeRuleSuccessRate(ruleName, factor = 0.1) {
+      const rule = this.rules.get(ruleName);
+      if (rule) {
+          rule.successRate = rule.successRate * (1 - factor) + 0 * factor;
           this._sortRules();
       }
   }

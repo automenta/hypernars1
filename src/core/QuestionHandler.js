@@ -1,3 +1,5 @@
+import { id } from '../support/utils.js';
+
 export class QuestionHandler {
   constructor(nar) {
     this.nar = nar;
@@ -31,9 +33,14 @@ export class QuestionHandler {
       const { type, args, options } = this.nar.expressionEvaluator.parse(question.replace('?', ''));
 
       if (type === 'Inheritance') {
-        const [subject, predicate] = args;
+        const subjectArg = args[0];
+        const predicateArg = args[1];
 
-        if (subject.startsWith('$')) {
+        // Safely get the string representation of the arguments
+        const subject = (subjectArg && subjectArg.args) ? subjectArg.args[0] : subjectArg;
+        const predicate = (predicateArg && predicateArg.args) ? predicateArg.args[0] : predicateArg;
+
+        if (typeof subject === 'string' && subject.startsWith('$')) {
           this.nar.state.index.byArg.get(predicate)?.forEach(hyperedgeId => {
             const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
             if (hyperedge?.type === 'Inheritance' && hyperedge.args[1] === predicate) {
@@ -45,7 +52,7 @@ export class QuestionHandler {
             }
           });
         }
-        else if (predicate.startsWith('$')) {
+        else if (typeof predicate === 'string' && predicate.startsWith('$')) {
           this.nar.state.index.byArg.get(subject)?.forEach(hyperedgeId => {
             const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
             if (hyperedge?.type === 'Inheritance' && hyperedge.args[0] === subject) {
@@ -58,7 +65,9 @@ export class QuestionHandler {
           });
         }
         else {
-          this.nar.api.derive('Inheritance', subject, predicate);
+          const hyperedgeId = id('Inheritance', [subject, predicate]);
+          const budget = this.nar.memoryManager.dynamicBudgetAllocation({ type: 'question' }, { importance: 1.0, urgency: 1.0 });
+          this.nar.propagation.propagate(hyperedgeId, 1.0, budget, 0, 0, []);
         }
       }
 
