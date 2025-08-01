@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useRef } from 'react';
+import React, { createContext, useState, useCallback } from 'react';
 import { Box, useInput } from 'ink';
 
 import LogView from './components/LogView.js';
@@ -8,47 +8,30 @@ import ParameterView from './components/ParameterView.js';
 import DemoView from './components/DemoView.js';
 import InputView from './components/InputView.js';
 import StatusView from './components/StatusView.js';
+import ConceptView from './components/ConceptView.js';
+import { useNar } from '../hooks/useNar.js';
 
 export const NarContext = createContext(null);
 
 const App = ({ nar }) => {
     const [logs, setLogs] = useState([]);
-    const [isRunning, setIsRunning] = useState(false);
-    const runInterval = useRef(null);
+    const [selectedConceptId, setSelectedConceptId] = useState(null);
 
     const log = useCallback((message) => {
         setLogs(prev => [...prev, String(message)].slice(-20));
     }, []);
 
-    const start = useCallback(() => {
-        setIsRunning(true);
-        log('== Reasoner Started ==');
-        const stepFn = () => {
-            nar.step();
-            runInterval.current = setImmediate(() => {
-                if (runInterval.current) stepFn();
-            });
-        };
-        stepFn();
-    }, [nar, log]);
+    const {
+        isRunning,
+        runDelay,
+        setRunDelay,
+        start,
+        pause,
+        step,
+        clear,
+        updateConfig,
+    } = useNar(nar, log);
 
-    const pause = useCallback(() => {
-        setIsRunning(false);
-        if(runInterval.current) { clearImmediate(runInterval.current); runInterval.current = null; }
-        log('== Reasoner Paused ==');
-    }, [log]);
-
-    const step = useCallback(() => {
-        if(isRunning) pause();
-        nar.step();
-        log('-- Stepped --');
-    }, [nar, log, isRunning, pause]);
-
-    const clear = useCallback(() => {
-        if (isRunning) pause();
-        log('== Clearing Reasoner State ==');
-        nar.clearState();
-    }, [nar, log, isRunning, pause]);
 
     const runDemo = (demo) => {
         if (!demo) return;
@@ -62,10 +45,14 @@ const App = ({ nar }) => {
     };
 
     useInput((input, key) => {
+        if (selectedConceptId) return; // Disable global hotkeys when modal is open
+
         if (input === 's') start();
         if (input === 'p') pause();
         if (input === 't') step();
         if (input === 'c') clear();
+        if (input === '+') setRunDelay(d => Math.max(0, d / 2));
+        if (input === '-') setRunDelay(d => d * 2 || 10);
         if (key.escape) process.exit();
     });
 
@@ -87,7 +74,22 @@ const App = ({ nar }) => {
         }
     };
 
-    const contextValue = { nar, log, handleCommand, start, pause, step, clear, isRunning, runDemo };
+    const handleSelectConcept = useCallback((conceptId) => {
+        setSelectedConceptId(conceptId);
+    }, []);
+
+    const handleCloseConceptView = useCallback(() => {
+        setSelectedConceptId(null);
+    }, []);
+
+    const contextValue = {
+        nar, log, handleCommand, start, pause, step, clear, isRunning,
+        runDemo, updateConfig, handleSelectConcept, runDelay, setRunDelay
+    };
+
+    if (selectedConceptId) {
+        return <ConceptView conceptId={selectedConceptId} onClose={handleCloseConceptView} />;
+    }
 
     return (
         <NarContext.Provider value={contextValue}>
