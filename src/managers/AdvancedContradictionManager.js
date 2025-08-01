@@ -83,13 +83,20 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const strongest = beliefsWithEvidence[0];
         const nextStrongest = beliefsWithEvidence[1];
 
-        // Strategy 1: Resolve by dominant evidence
+        // Strategy 1: Resolve by dominant evidence if one is significantly stronger
         if (strongest.evidenceStrength > (nextStrongest.evidenceStrength * 1.5)) {
             return this._resolveByDominantEvidence(hyperedge, strongest, suggestOnly);
         }
 
-        // Strategy 2: Resolve by creating a contextual specialization
-        return this._resolveBySpecialization(hyperedge, nextStrongest, suggestOnly);
+        // Strategy 2: Attempt to specialize if contexts are different
+        const context1 = this._getBeliefContext(hyperedge, strongest);
+        const context2 = this._getBeliefContext(hyperedge, nextStrongest);
+        if (context1 !== context2 && context2 !== 'default') {
+             return this._resolveBySpecialization(hyperedge, nextStrongest, suggestOnly);
+        }
+
+        // Strategy 3: Merge beliefs if evidence is similar and contexts are not distinct
+        return this._resolveByMerging(hyperedge, strongest, nextStrongest, suggestOnly);
     }
 
     _resolveByDominantEvidence(hyperedge, strongestBelief, suggestOnly) {
@@ -105,14 +112,42 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         };
     }
 
+    _resolveByMerging(hyperedge, belief1, belief2, suggestOnly) {
+        const mergedTruth = TruthValue.revise(belief1.belief.truth, belief2.belief.truth);
+        // Penalize confidence due to conflict
+        mergedTruth.confidence *= 0.8;
+
+        const mergedBudget = belief1.belief.budget.merge(belief2.belief.budget).scale(0.8);
+
+        if (!suggestOnly) {
+            hyperedge.beliefs = [
+                { ...belief1.belief, truth: mergedTruth, budget: mergedBudget },
+                ...hyperedge.beliefs.filter(b => b !== belief1.belief && b !== belief2.belief)
+            ];
+            // Prune weakest beliefs after merging
+            hyperedge.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
+            if (hyperedge.beliefs.length > this.nar.config.beliefCapacity) {
+                hyperedge.beliefs = hyperedge.beliefs.slice(0, this.nar.config.beliefCapacity);
+            }
+            this.nar.notifyListeners('contradiction-resolved', { hyperedgeId: hyperedge.id, resolution: 'merged' });
+        }
+
+        return {
+            resolved: true,
+            reason: 'merged',
+            mergedTruth: mergedTruth,
+            mergedBudget: mergedBudget
+        };
+    }
+
     _resolveBySpecialization(hyperedge, conflictingBeliefData, suggestOnly) {
         const conflictingBelief = conflictingBeliefData.belief;
-        const evidence = hyperedge.evidence?.find(e => e.beliefIndex === conflictingBeliefData.index);
-        const context = evidence?.source || 'alternative_context';
+        const context = this._getBeliefContext(hyperedge, conflictingBeliefData) || 'alternative_context';
         const newHyperedgeId = `${hyperedge.id}|context:${context}`;
 
         if (!suggestOnly) {
             this._createContextualSpecialization(hyperedge, conflictingBelief, context);
+            // Remove the now-specialized belief from the original concept
             hyperedge.beliefs = hyperedge.beliefs.filter(b => b !== conflictingBelief);
             this.nar.notifyListeners('contradiction-resolved', { hyperedgeId: hyperedge.id, resolution: 'specialized' });
         }
@@ -124,6 +159,11 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             newHyperedge: newHyperedgeId,
             context
         };
+    }
+
+    _getBeliefContext(hyperedge, beliefData) {
+        const evidence = hyperedge.evidence?.find(e => e.beliefIndex === beliefData.index);
+        return evidence?.source || 'default';
     }
 
     _createContextualSpecialization(originalHyperedge, conflictingBelief, context) {
@@ -185,16 +225,29 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         const intrinsicWeight = this.nar.config.intrinsicStrengthWeight || 0.2;
         const evidenceWeight = this.nar.config.evidenceStrengthWeight || 0.8;
+        const sourceReliabilityWeight = this.nar.config.sourceReliabilityWeight || 0.5;
 
-        if (!hyperedge || !hyperedge.evidence) {
-            return belief.truth.expectation() * belief.budget.priority;
-        }
+
         const beliefIndex = hyperedge.beliefs.indexOf(belief);
         if (beliefIndex === -1) return 0;
-        const totalStrength = hyperedge.evidence
-            .filter(e => e.beliefIndex === beliefIndex)
-            .reduce((sum, e) => sum + (e.strength || 0), 0);
+
+        const evidenceList = hyperedge.evidence?.filter(e => e.beliefIndex === beliefIndex) || [];
+        const totalEvidenceStrength = evidenceList.reduce((sum, e) => sum + (e.strength || 0), 0);
+
+        // Factor in source reliability
+        const sourceReliability = evidenceList.reduce((sum, e) => {
+            const reliability = this.nar.state.sourceReliability?.get(e.source) || 0.5; // Default reliability
+            return sum + (e.strength * reliability);
+        }, 0);
+
+
         const intrinsicStrength = belief.truth.expectation() * belief.budget.priority;
-        return intrinsicStrength * intrinsicWeight + totalStrength * evidenceWeight;
+
+        // Weighted average of intrinsic strength, evidence strength, and source reliability
+        const finalStrength = (intrinsicStrength * intrinsicWeight) +
+                              (totalEvidenceStrength * evidenceWeight) +
+                              (sourceReliability * sourceReliabilityWeight);
+
+        return finalStrength / (intrinsicWeight + evidenceWeight + sourceReliabilityWeight);
     }
 }

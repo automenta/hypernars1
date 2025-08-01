@@ -137,6 +137,20 @@ describe('AdvancedMemoryManager', () => {
         expect(questionBudget.durability).toBeGreaterThan(derivationBudget.durability);
     });
 
+    test('should boost importance for concepts that lead to success', () => {
+        const nar = new NARHyper({ modules: { MemoryManager: AdvancedMemoryManager } });
+        const termId = nar.api.nal('successful_premise.');
+        nar.memoryManager.importanceScores.set(termId, 0.1); // Set a known initial score
+
+        // Simulate a successful outcome from this premise
+        nar.learningEngine.recentSuccesses.add(termId);
+
+        nar.memoryManager.maintainMemory(); // Trigger score updates
+
+        const newScore = nar.memoryManager.importanceScores.get(termId);
+        expect(newScore).toBeGreaterThan(0.1);
+    });
+
     it('should prune low-value paths from the event queue', () => {
         const nar = new NARHyper({ modules: { MemoryManager: AdvancedMemoryManager } });
         const manager = nar.memoryManager;

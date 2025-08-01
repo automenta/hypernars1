@@ -185,6 +185,39 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
             const currentScore = this.importanceScores.get(termId) || 0;
             this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.2)); // Additive boost
         });
+
+        // Boost scores for concepts that recently led to success
+        this.nar.learningEngine.recentSuccesses?.forEach(termId => {
+            const currentScore = this.importanceScores.get(termId) || 0;
+            this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.1)); // Smaller boost for success
+        });
+
+        // Boost scores for concepts in the current reasoning context
+        if (this.contextStack.length > 0) {
+            const currentContext = this.contextStack[this.contextStack.length - 1];
+            // Assuming context is an array of term IDs
+            currentContext.forEach(termId => {
+                const currentScore = this.importanceScores.get(termId) || 0;
+                this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.3)); // Context is highly important
+            });
+        }
+    }
+
+    /**
+     * Pushes a new context onto the reasoning stack.
+     * @param {string[]} context - An array of term IDs relevant to the context.
+     */
+    pushContext(context) {
+        this.contextStack.push(context);
+    }
+
+    /**
+     * Pops the current context from the reasoning stack.
+     */
+    popContext() {
+        if (this.contextStack.length > 0) {
+            this.contextStack.pop();
+        }
     }
 
     /**

@@ -1,4 +1,5 @@
 import {NARHyper} from './NARHyper.js';
+import {TruthValue} from './support/TruthValue.js';
 
 async function main() {
     console.log("Initializing NARHyper...");
@@ -32,8 +33,8 @@ async function main() {
     const tweetyIsAnimalId = nar.inheritance('tweety', 'animal');
     const tweetyIsFlyerId = nar.inheritance('tweety', 'flyer');
 
-    console.log(`Belief that Tweety is an animal:`, nar.getBeliefs(tweetyIsAnimalId)[0]?.truth.expectation().toFixed(3));
-    console.log(`Belief that Tweety is a flyer:`, nar.getBeliefs(tweetyIsFlyerId)[0]?.truth.expectation().toFixed(3));
+    console.log(`Belief that Tweety is an animal:`, nar.state.hypergraph.get(tweetyIsAnimalId)?.getTruth().expectation().toFixed(3));
+    console.log(`Belief that Tweety is a flyer:`, nar.state.hypergraph.get(tweetyIsFlyerId)?.getTruth().expectation().toFixed(3));
 
     console.log("\\n===== 2. CONTRADICTION & RESOLUTION =====");
     console.log("\nIntroducing belief that Tweety is a penguin...");
@@ -42,20 +43,20 @@ async function main() {
     console.log("Running system for 100 steps to process the new information and resolve contradictions...");
     nar.run(100);
 
-    console.log(`\nNew belief that Tweety is a flyer:`, nar.getBeliefs(tweetyIsFlyerId)[0]?.truth.expectation().toFixed(3));
+    console.log(`\nNew belief that Tweety is a flyer:`, nar.state.hypergraph.get(tweetyIsFlyerId)?.getTruth().expectation().toFixed(3));
     console.log("--- Explanation for Tweety's flying status after new info ---");
     console.log(nar.explain(tweetyIsFlyerId, { format: 'detailed' }));
 
     console.log("\\n===== 3. TEMPORAL REASONING =====");
-    const morning = nar.temporalManager.interval('daytime_event', Date.now(), Date.now() + 4 * 3600 * 1000);
-    const meeting = nar.temporalManager.interval('important_meeting', Date.now() + 1 * 3600 * 1000, Date.now() + 2 * 3600 * 1000);
+    const morning = nar.temporalManager.during('daytime_event', Date.now(), Date.now() + 4 * 3600 * 1000);
+    const meeting = nar.temporalManager.during('important_meeting', Date.now() + 1 * 3600 * 1000, Date.now() + 2 * 3600 * 1000);
 
-    const relId = nar.temporalManager.temporalRelation(meeting, morning, 'during', { truth: nar.truth(1, 0.9) });
+    const relId = nar.temporalManager.relate(meeting, morning, 'during', { truth: new TruthValue(1, 0.9) });
     console.log("Established that the meeting happens during the day.");
     console.log(`Relation ID: ${relId}`);
 
-    const meetingInterval = nar.temporalManager.temporalIntervals.get(meeting);
-    const morningInterval = nar.temporalManager.temporalIntervals.get(morning);
+    const meetingInterval = nar.temporalManager.intervals.get(meeting);
+    const morningInterval = nar.temporalManager.intervals.get(morning);
 
     if (meetingInterval && morningInterval) {
         console.log(`Meeting relation to Morning: ${meetingInterval.relateTo(morningInterval)}`);

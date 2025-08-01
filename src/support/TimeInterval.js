@@ -37,4 +37,13 @@ export class TimeInterval {
       this.truth.priority * decayFactor
     );
   }
+
+  overlapsWith(otherStart, otherEnd) {
+    // An interval overlaps if it starts before the other ends AND it ends after the other starts.
+    return this.start < otherEnd && this.end > otherStart;
+  }
+
+  getTruth() {
+    return this.truth;
+  }
 }

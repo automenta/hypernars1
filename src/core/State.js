@@ -29,6 +29,7 @@ export class State {
     this.memoization = new Map();
     this.currentStep = 0;
     this.stepsSinceMaintenance = 0;
+    this.sourceReliability = new Map();
 
     this.distributed = {
         nodeId: config.nodeId || `node-${Math.random().toString(36).substr(2, 9)}`,

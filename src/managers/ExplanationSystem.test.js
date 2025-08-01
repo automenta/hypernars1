@@ -57,12 +57,12 @@ describe('ExplanationSystem', () => {
 
     it('should explain a derived temporal relation', () => {
         const nar = new NARHyper();
-        const t1 = nar.temporalManager.interval('event_A', 1000, 2000);
-        const t2 = nar.temporalManager.interval('event_B', 3000, 4000);
-        const t3 = nar.temporalManager.interval('event_C', 5000, 6000);
+        const t1 = nar.temporalManager.during('event_A', 1000, 2000);
+        const t2 = nar.temporalManager.during('event_B', 3000, 4000);
+        const t3 = nar.temporalManager.during('event_C', 5000, 6000);
 
-        const rel1Id = nar.temporalManager.relate(t1, t2);
-        const rel2Id = nar.temporalManager.relate(t2, t3);
+        const rel1Id = nar.temporalManager.relate(t1, t2, 'before');
+        const rel2Id = nar.temporalManager.relate(t2, t3, 'before');
 
         const conclusionId = nar.api.addHyperedge('TemporalRelation', [t1, t3, 'before'], {
             premises: [rel1Id, rel2Id],

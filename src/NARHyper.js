@@ -1,14 +1,14 @@
 import {ExpressionEvaluator} from './evaluator/ExpressionEvaluator.js';
-import {MemoryManager} from './managers/MemoryManager.js';
-import {ContradictionManager} from './managers/ContradictionManager.js';
+import {AdvancedMemoryManager} from './managers/AdvancedMemoryManager.js';
+import {AdvancedContradictionManager} from './managers/AdvancedContradictionManager.js';
 import {MetaReasoner} from './managers/MetaReasoner.js';
-import {LearningEngine} from './managers/LearningEngine.js';
+import {AdvancedLearningEngine} from './managers/AdvancedLearningEngine.js';
 import {ExplanationSystem} from './managers/ExplanationSystem.js';
-import {TemporalManager} from './managers/TemporalManager.js';
+import {AdvancedTemporalManager} from './managers/AdvancedTemporalManager.js';
 
 import {State} from './core/State.js';
 import {Api} from './core/Api.js';
-import {DerivationEngine} from './core/DerivationEngine.js';
+import {AdvancedDerivationEngine} from './core/AdvancedDerivationEngine.js';
 import {Propagation} from './core/Propagation.js';
 import {QuestionHandler} from './core/QuestionHandler.js';
 import {System} from './core/System.js';
@@ -47,14 +47,15 @@ export class NARHyper {
   }
 
   _initializeModules(config) {
+    // Default to the advanced managers, but allow overrides from config
     const moduleClasses = {
-        DerivationEngine,
-        MemoryManager,
-        ContradictionManager,
+        DerivationEngine: AdvancedDerivationEngine,
+        MemoryManager: AdvancedMemoryManager,
+        ContradictionManager: AdvancedContradictionManager,
         MetaReasoner,
-        LearningEngine,
+        LearningEngine: AdvancedLearningEngine,
         ExplanationSystem,
-        TemporalManager,
+        TemporalManager: AdvancedTemporalManager,
         ...(config.modules || {})
     };
 

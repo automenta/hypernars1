@@ -161,4 +161,29 @@ export class AdvancedTemporalManager extends TemporalManagerBase {
             }
         }
     }
+
+    /**
+     * Queries for intervals that overlap with the given time window.
+     * @param {number} start - The start of the time window.
+     * @param {number} end - The end of the time window.
+     * @param {Object} [options] - Additional query options.
+     * @returns {Array<Object>} A list of matching intervals.
+     */
+    queryTimeWindow(start, end, options = {}) {
+        const { minConfidence = 0.5 } = options;
+        const results = [];
+
+        for (const interval of this.intervals.values()) {
+            if (interval.overlapsWith(start, end) && interval.getTruth().confidence >= minConfidence) {
+                results.push({
+                    id: interval.id,
+                    term: interval.term,
+                    start: interval.start,
+                    end: interval.end,
+                    truth: interval.getTruth()
+                });
+            }
+        }
+        return results;
+    }
 }

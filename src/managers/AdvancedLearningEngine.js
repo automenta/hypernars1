@@ -13,41 +13,82 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         this.ruleProductivity = new Map(); // Tracks successes and attempts for each rule
     }
 
+    // Bridge method to maintain compatibility with parts of the system still calling this.
+    recordExperience(event, outcome = {}) {
+        this.recordOutcome(event.target, outcome);
+    }
+
     /**
      * Records that a hyperedge was useful (e.g., answered a question).
      * This method now also provides feedback to the derivation engine.
      * @param {string} hyperedgeId
      */
-    recordSuccess(hyperedgeId, depth = 0, visited = new Set()) {
-        if (depth > 5 || visited.has(hyperedgeId)) {
-            return; // Stop recursion
-        }
-        visited.add(hyperedgeId);
+    /**
+     * Records the outcome of a reasoning process or action.
+     * This is the primary entry point for providing feedback to the learning engine.
+     * @param {string} conclusionId - The ID of the hyperedge representing the conclusion or action.
+     * @param {Object} outcome - Details about the outcome.
+     * @param {boolean} outcome.success - Whether the outcome was successful.
+     * @param {number} [outcome.accuracy] - A numerical score of the outcome's accuracy (e.g., for predictions).
+     */
+    recordOutcome(conclusionId, outcome) {
+        const conclusionHyperedge = this.nar.state.hypergraph.get(conclusionId);
+        const belief = conclusionHyperedge?.getStrongestBelief();
+        if (!belief) return;
 
-        this.recentSuccesses.add(hyperedgeId);
+        const experience = {
+            id: `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            timestamp: Date.now(),
+            conclusion: conclusionId,
+            premises: belief.premises || [],
+            derivationPath: belief.derivationPath || [], // Assuming derivation path is stored on belief
+            success: outcome.success,
+            accuracy: outcome.accuracy
+        };
+
+        this.experienceBuffer.push(experience);
+        if (this.experienceBuffer.length > 1000) {
+            this.experienceBuffer.shift();
+        }
+
+        // Adjust truth values and rule productivity based on the outcome
+        const learningFactor = this.learningRate;
+        const adjustment = outcome.success ? 1 + learningFactor : 1 - learningFactor;
+
+        // Recursively adjust the premises that led to this conclusion
+        this._adjustPremiseConfidence(conclusionId, adjustment);
+
+        // Immediately process significant experiences for pattern detection
+        if (!outcome.success || (outcome.accuracy && outcome.accuracy < 0.3)) {
+            this._analyzeFailure(experience);
+        } else if (outcome.success && (!outcome.accuracy || outcome.accuracy > 0.8)) {
+            this._reinforceSuccess(experience);
+        }
+    }
+
+    _adjustPremiseConfidence(hyperedgeId, adjustmentFactor, depth = 0, visited = new Set()) {
+        if (depth > 5 || visited.has(hyperedgeId)) return;
+        visited.add(hyperedgeId);
 
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         const belief = hyperedge?.getStrongestBelief();
         if (!belief) return;
 
-        // Boost the success rate of the rule that derived this belief
-        if (belief.derivedBy && this.nar.derivationEngine.boostRuleSuccessRate) {
-            // The boost factor decays with depth, giving more credit to recent derivations
-            const boostFactor = 0.1 * Math.pow(0.8, depth);
-            this.nar.derivationEngine.boostRuleSuccessRate(belief.derivedBy, boostFactor);
-        }
+        // Update the productivity of the rule that derived this
+        this._updateRuleProductivity(belief.derivedBy, adjustmentFactor > 1);
 
-        // Recursively give credit to the premises
+        // Directly modify the confidence of the strongest belief
+        belief.truth.confidence = Math.min(0.99, belief.truth.confidence * adjustmentFactor);
+        belief.truth.confidence = Math.max(0.01, belief.truth.confidence); // Ensure confidence doesn't drop to zero
+
+
+        // Recursively adjust the premises
         if (belief.premises && belief.premises.length > 0) {
             belief.premises.forEach(premiseId => {
-                this.recordSuccess(premiseId, depth + 1, visited);
+                // The adjustment decays with depth
+                this._adjustPremiseConfidence(premiseId, 1 + (adjustmentFactor - 1) * 0.8, depth + 1, visited);
             });
         }
-
-        // Automatically prune old successes to keep the set relevant
-        setTimeout(() => {
-            this.recentSuccesses.delete(hyperedgeId);
-        }, 60000); // Keep for 1 minute
     }
 
     applyLearning() {
@@ -63,35 +104,6 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         }
     }
 
-    recordExperience(event, outcome = {}) {
-        const { success, accuracy } = outcome;
-        const hyperedge = this.nar.state.hypergraph.get(event.target);
-        const belief = hyperedge?.getStrongestBelief();
-
-        const experience = {
-            id: `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
-            timestamp: Date.now(),
-            derivationPath: event.derivationPath,
-            target: event.target,
-            premises: belief?.premises || [],
-            conclusion: event.target,
-            budget: event.budget,
-            success,
-            accuracy
-        };
-
-        this.experienceBuffer.push(experience);
-        if (this.experienceBuffer.length > 1000) {
-            this.experienceBuffer.shift();
-        }
-
-        // Immediately process significant experiences
-        if (success === false || (accuracy !== undefined && Math.abs(accuracy) < 0.3)) {
-            this._analyzeFailure(experience);
-        } else if (success === true && accuracy > 0.8) {
-            this._reinforceSuccess(experience);
-        }
-    }
 
     _processRecentExperiences() {
         const recent = this.experienceBuffer.slice(-100);
