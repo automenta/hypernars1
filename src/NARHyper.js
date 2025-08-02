@@ -6,7 +6,6 @@ import { Propagation } from './core/Propagation.js';
 import { QuestionHandler } from './core/QuestionHandler.js';
 import { ExpressionEvaluator } from './evaluator/ExpressionEvaluator.js';
 
-// Import Base and Simple/Advanced Implementations
 import { DerivationEngineBase } from './core/DerivationEngineBase.js';
 import { SimpleDerivationEngine } from './core/SimpleDerivationEngine.js';
 import { AdvancedDerivationEngine } from './core/AdvancedDerivationEngine.js';
@@ -25,7 +24,7 @@ import { AdvancedLearningEngine } from './managers/AdvancedLearningEngine.js';
 
 import { TemporalManagerBase } from './managers/TemporalManagerBase.js';
 import { SimpleTemporalManager } from './managers/SimpleTemporalManager.js';
-import { TemporalReasoner } from './managers/TemporalReasoner.js'; // This is the advanced one
+import { TemporalReasoner } from './managers/TemporalReasoner.js';
 
 import { MetaReasoner } from './managers/MetaReasoner.js';
 import { ExplanationSystem } from './managers/ExplanationSystem.js';
@@ -47,77 +46,87 @@ export class NARHyper extends EventEmitter {
       derivationCacheSize: 1000,
       questionTimeout: 3000,
       memoryMaintenanceInterval: 100,
-      logLevel: 'debug', // Set to debug for detailed logs
+      logLevel: 'debug',
     }, config);
 
-    // Core components
     this.state = new State(this.config);
     this.propagation = new Propagation(this);
     this.questionHandler = new QuestionHandler(this);
     this.system = new System(this);
     this.api = new Api(this);
 
-    // Evaluator, Managers, and Derivation Engine
     this.expressionEvaluator = new ExpressionEvaluator(this);
     this._initializeModules(config);
 
-    // Expose public API methods
     this._exposeApi();
   }
 
   _initializeModules(config) {
     const useAdvanced = config.useAdvanced || false;
 
-    const moduleClasses = {
+    const moduleSelection = {
         DerivationEngine: useAdvanced ? AdvancedDerivationEngine : SimpleDerivationEngine,
         MemoryManager: useAdvanced ? AdvancedMemoryManager : SimpleMemoryManager,
         ContradictionManager: useAdvanced ? AdvancedContradictionManager : SimpleContradictionManager,
         LearningEngine: useAdvanced ? AdvancedLearningEngine : SimpleLearningEngine,
         TemporalManager: useAdvanced ? TemporalReasoner : SimpleTemporalManager,
-        MetaReasoner,
-        ExplanationSystem,
-        ...(config.modules || {})
     };
 
-    this.derivationEngine = new moduleClasses.DerivationEngine(this);
-    this.memoryManager = new moduleClasses.MemoryManager(this);
-    this.contradictionManager = new moduleClasses.ContradictionManager(this);
-    this.learningEngine = new moduleClasses.LearningEngine(this);
-    this.temporalManager = new moduleClasses.TemporalManager(this);
-    this.metaReasoner = new moduleClasses.MetaReasoner(this);
-    this.explanationSystem = new moduleClasses.ExplanationSystem(this);
+    const singletonModules = {
+        MetaReasoner,
+        ExplanationSystem,
+    };
 
-    // Ensure all modules are instances of their base classes
-    if (
-        !(this.derivationEngine instanceof DerivationEngineBase) ||
-        !(this.memoryManager instanceof MemoryManagerBase) ||
-        !(this.contradictionManager instanceof ContradictionManagerBase) ||
-        !(this.learningEngine instanceof LearningEngineBase) ||
-        !(this.temporalManager instanceof TemporalManagerBase)
-    ) {
-        throw new Error('A module does not extend its base class correctly.');
+    const moduleClasses = { ...moduleSelection, ...singletonModules, ...(config.modules || {}) };
+
+    const modules = {
+        derivationEngine: new moduleClasses.DerivationEngine(this),
+        memoryManager: new moduleClasses.MemoryManager(this),
+        contradictionManager: new moduleClasses.ContradictionManager(this),
+        learningEngine: new moduleClasses.LearningEngine(this),
+        temporalManager: new moduleClasses.TemporalManager(this),
+        metaReasoner: new moduleClasses.MetaReasoner(this),
+        explanationSystem: new moduleClasses.ExplanationSystem(this),
+    };
+
+    Object.assign(this, modules);
+
+    const validationMap = {
+        derivationEngine: DerivationEngineBase,
+        memoryManager: MemoryManagerBase,
+        contradictionManager: ContradictionManagerBase,
+        learningEngine: LearningEngineBase,
+        temporalManager: TemporalManagerBase,
+    };
+
+    for (const [name, baseClass] of Object.entries(validationMap)) {
+        if (!(this[name] instanceof baseClass)) {
+            throw new Error(`Module ${name} does not extend its base class correctly.`);
+        }
     }
   }
 
   _exposeApi() {
-    // This makes the API methods directly callable on the NARHyper instance
-    Object.getOwnPropertyNames(Api.prototype).forEach(methodName => {
-        if (methodName !== 'constructor') {
-            this[methodName] = this.api[methodName].bind(this.api);
-        }
+    const apiMethods = [
+      'nal', 'nalq', 'seq', 'contextualRule', 'temporalSequence',
+      'probabilisticRule', 'citedBelief', 'robustRule', 'temporalInterval',
+      'temporalConstraint', 'inferTemporalRelationship', 'projectTemporal',
+      'getContradictions', 'analyzeContradiction', 'resolveContradiction',
+      'getMetaTrace', 'configureMetaStrategy', 'getActiveMetaStrategy',
+      'getMetaMetrics', 'getMetaFocus', 'term', 'inheritance', 'similarity',
+      'implication', 'equivalence', 'getBeliefs', 'addHyperedge', 'outcome',
+      'revise', 'removeHyperedge'
+    ];
+    apiMethods.forEach(method => {
+      if (this.api[method]) {
+        this[method] = this.api[method].bind(this.api);
+      }
     });
 
-    // Expose system methods
     this.run = this.system.run.bind(this.system);
     this.step = this.system.step.bind(this.system);
-
-    // Expose question handler method
     this.ask = this.questionHandler.ask.bind(this.questionHandler);
-
-    // Expose explanation system method
     this.explain = this.explanationSystem.explain.bind(this.explanationSystem);
-
-    // Expose evaluator query method
     this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
   }
 
@@ -191,12 +200,6 @@ export class NARHyper extends EventEmitter {
     }
   }
 
-  /**
-   * Internal logging utility.
-   * @param {string} level - The log level (e.g., 'debug', 'info', 'warn', 'error').
-   * @param {string} message - The log message.
-   * @param {Object} [details] - Optional additional details.
-   */
   _log(level, message, details = {}) {
     const levels = { 'debug': 0, 'info': 1, 'warn': 2, 'error': 3 };
     const currentLevel = levels[this.config.logLevel.toLowerCase()] || 1;
