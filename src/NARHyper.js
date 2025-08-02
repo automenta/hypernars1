@@ -5,6 +5,7 @@ import { System } from './core/System.js';
 import { Propagation } from './core/Propagation.js';
 import { QuestionHandler } from './core/QuestionHandler.js';
 import { ExpressionEvaluator } from './evaluator/ExpressionEvaluator.js';
+import { AdvancedExpressionEvaluator } from './evaluator/AdvancedExpressionEvaluator.js';
 
 import { DerivationEngineBase } from './core/DerivationEngineBase.js';
 import { SimpleDerivationEngine } from './core/SimpleDerivationEngine.js';
@@ -57,7 +58,6 @@ export class NARHyper extends EventEmitter {
     this.system = new System(this);
     this.api = new Api(this);
 
-    this.expressionEvaluator = new ExpressionEvaluator(this);
     this._initializeModules(config);
 
     this._exposeApi();
@@ -67,6 +67,7 @@ export class NARHyper extends EventEmitter {
     const useAdvanced = config.useAdvanced || false;
 
     const moduleSelection = {
+        ExpressionEvaluator: useAdvanced ? AdvancedExpressionEvaluator : ExpressionEvaluator,
         DerivationEngine: useAdvanced ? AdvancedDerivationEngine : SimpleDerivationEngine,
         MemoryManager: useAdvanced ? AdvancedMemoryManager : SimpleMemoryManager,
         ContradictionManager: useAdvanced ? AdvancedContradictionManager : SimpleContradictionManager,
@@ -83,6 +84,7 @@ export class NARHyper extends EventEmitter {
     const moduleClasses = { ...moduleSelection, ...singletonModules, ...(config.modules || {}) };
 
     const modules = {
+        expressionEvaluator: new moduleClasses.ExpressionEvaluator(this),
         derivationEngine: new moduleClasses.DerivationEngine(this),
         memoryManager: new moduleClasses.MemoryManager(this),
         contradictionManager: new moduleClasses.ContradictionManager(this),
