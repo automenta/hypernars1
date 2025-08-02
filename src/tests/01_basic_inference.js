@@ -13,5 +13,13 @@ export default {
     const expectation = belief ? belief.truth.expectation().toFixed(3) : 'N/A';
     log(`Belief that Tweety is a flyer: ${expectation}`);
     return "Basic inference demo complete.";
+  },
+  assert: (nar, logs, { expect }) => {
+    const tweetyIsFlyerId = nar.inheritance('tweety', 'flyer');
+    const belief = nar.getBeliefs(tweetyIsFlyerId)[0];
+    expect(belief).toBeDefined();
+    if (belief) {
+      expect(belief.truth.expectation()).toBeGreaterThan(0.4);
+    }
   }
 };

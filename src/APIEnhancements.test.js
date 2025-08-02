@@ -25,6 +25,8 @@ describe('API Enhancements', () => {
         nar.nal('<bird --> flyer>.');
         nar.run(50); // Allow derivation
 
+        console.log('Hypergraph state after run:', nar.saveState());
+
         // Query for the derived belief
         const derivedBeliefs = nar.query('Inheritance(tweety,flyer)');
         expect(derivedBeliefs.length).toBeGreaterThan(0);
