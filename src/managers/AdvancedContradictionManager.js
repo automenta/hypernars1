@@ -417,39 +417,46 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const strongest = beliefsWithEvidence[0];
         const nextStrongest = beliefsWithEvidence[1];
 
-        // Strategy 1: If one belief has significantly stronger evidence, it dominates.
         if (this._hasDominantEvidence(strongest, nextStrongest)) {
             return 'dominant_evidence';
         }
-
-        // Strategy 2: If beliefs might be true in different contexts, specialize.
         if (this._hasDistinctContexts(hyperedge, strongest, nextStrongest)) {
             return 'specialize';
         }
-
-        // Strategy 3: If source reliability is a factor and sources are different and reliable.
-        const source1 = this._getSource(strongest.belief);
-        const source2 = this._getSource(nextStrongest.belief);
-        if (this.nar.config.useSourceReliability && source1 !== source2) {
-            const reliability1 = this.nar.state.sourceReliability?.get(source1) || 0.5;
-            const reliability2 = this.nar.state.sourceReliability?.get(source2) || 0.5;
-            if (Math.abs(reliability1 - reliability2) > 0.3) { // Significant difference in reliability
-                return 'source-reliability';
-            }
+        if (this._hasReliableSourceDifference(strongest, nextStrongest)) {
+            return 'source-reliability';
         }
-
-        // Strategy 4: If configured, favor the most recent information.
         if (this._isRecencyBiased(strongest, nextStrongest)) {
             return 'recency-biased';
         }
-
-        // Strategy 5: If there are multiple pieces of evidence, weigh them.
-        if (hyperedge.evidence && hyperedge.evidence.length > 2) {
+        if (this._shouldUseEvidenceWeighting(hyperedge)) {
             return 'evidence-weighted';
         }
 
         // Default Strategy: Merge the two strongest conflicting beliefs.
         return 'merge';
+    }
+
+    _hasReliableSourceDifference(strongest, nextStrongest) {
+        if (!this.nar.config.useSourceReliability) {
+            return false;
+        }
+
+        const source1 = this._getSource(strongest.belief);
+        const source2 = this._getSource(nextStrongest.belief);
+
+        if (source1 === source2) {
+            return false;
+        }
+
+        const reliability1 = this.nar.state.sourceReliability?.get(source1) || 0.5;
+        const reliability2 = this.nar.state.sourceReliability?.get(source2) || 0.5;
+
+        return Math.abs(reliability1 - reliability2) > 0.3;
+    }
+
+    _shouldUseEvidenceWeighting(hyperedge) {
+        return hyperedge.evidence && hyperedge.evidence.length > 2;
     }
 
     _hasDominantEvidence(strongest, nextStrongest) {
@@ -484,7 +491,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             return sum + (e.strength * reliability);
         }, 0);
 
-        const intrinsicStrength = belief.truth.expectation() * belief.budget.priority;
+        const intrinsicStrength = belief.truth.confidence * belief.budget.priority;
 
         const finalStrength = (intrinsicStrength * intrinsicWeight) +
                               (totalEvidenceStrength * evidenceWeight) +

@@ -166,27 +166,47 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     const subjectId = getArgId(subject);
     const predicateId = getArgId(predicate);
     const { activation, budget, pathHash, pathLength, derivationPath } = event;
+    const currentHyperedge = this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate]));
 
-    // Transitivity
+
+    // Case 1: Forward Chaining. Current is <S->P>. Find <P->Q>. Derive <S->Q>.
     (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
-      const middle = this.nar.state.hypergraph.get(termId);
-      if (middle?.type === 'Inheritance' && getArgId(middle.args[1]) === subjectId) {
-        const context = {
-          subject: middle.args[0],
-          predicate,
-          premise1: middle,
-          premise2: this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate])),
-          ruleName
-        };
-        this._deriveTransitiveInheritance(context, event);
-      }
+        const forwardChainEdge = this.nar.state.hypergraph.get(termId);
+        if (forwardChainEdge?.type === 'Inheritance' && getArgId(forwardChainEdge.args[0]) === predicateId) {
+            const newPredicate = forwardChainEdge.args[1];
+            const context = {
+                subject: subject,
+                predicate: newPredicate,
+                premise1: currentHyperedge,
+                premise2: forwardChainEdge,
+                ruleName
+            };
+            this._deriveTransitiveInheritance(context, event);
+        }
     });
+
+    // Case 2: Backward Chaining. Current is <S->P>. Find <R->S>. Derive <R->P>.
+    (this.nar.state.index.byArg.get(subjectId) || new Set()).forEach(termId => {
+        const backwardChainEdge = this.nar.state.hypergraph.get(termId);
+        if (backwardChainEdge?.type === 'Inheritance' && getArgId(backwardChainEdge.args[1]) === subjectId) {
+            const newSubject = backwardChainEdge.args[0];
+            const context = {
+                subject: newSubject,
+                predicate: predicate,
+                premise1: backwardChainEdge,
+                premise2: currentHyperedge,
+                ruleName
+            };
+            this._deriveTransitiveInheritance(context, event);
+        }
+    });
+
 
     this.nar.api.similarity(subject, predicate, { budget: budget.scale(0.6), derivedBy: ruleName });
 
     this._derivePropertyInheritance(subject, predicateId, activation, budget, pathHash, pathLength, derivationPath, ruleName);
 
-    this._deriveInductionInheritance(subject, predicateId, ruleName, event);
+    this._findAndDeriveInductionFromInheritance(subject, predicateId, ruleName, event);
   }
 
   _deriveTransitiveInheritance(context, event) {
@@ -233,9 +253,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
    * @param {string} ruleName - The name of the rule being applied.
    * @param {Object} event - The current event object.
    */
-  _deriveInductionInheritance(subject, predicateId, ruleName, event) {
-    const { budget, pathHash, pathLength, derivationPath } = event;
-
+  _findAndDeriveInductionFromInheritance(subject, predicateId, ruleName, event) {
     (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
       const other = this.nar.state.hypergraph.get(termId);
       if (other?.type === 'Inheritance' && getArgId(other.args[1]) === predicateId && getArgId(other.args[0]) !== subject) {
@@ -247,14 +265,13 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
           premise2: other,
           ruleName
         };
-        this._deriveInduction(context, event);
+        this._performInductiveSimilarityDerivation(context, event);
       }
     });
   }
 
   _deriveSimilarity({ args: [term1, term2] }, event, ruleName) {
     const term1Id = getArgId(term1);
-    const term2Id = getArgId(term2);
     const { activation, budget, pathHash, pathLength, derivationPath } = event;
 
     this.nar.propagation.propagate({
@@ -288,8 +305,8 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
    * @param {Object} context - The context object containing terms and premises.
    * @param {Object} event - The current event object.
    */
-  _deriveInduction(context, event) {
-    const { term1, term2, predicate, premise1, premise2, ruleName } = context;
+  _performInductiveSimilarityDerivation(context, event) {
+    const { term1, term2, predicate, premise1, premise2 } = context;
     const { budget, pathHash, pathLength } = event;
 
     const term1Id = getArgId(term1);
@@ -305,35 +322,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
     const truth = TruthValue.induction(premise1.getTruth(), premise2.getTruth());
     this.nar.api.similarity(term1, term2, { truth, budget: budget.scale(0.6), premises: [premise1.id, premise2.id], derivedBy: 'induction' });
-  }
-    _deriveSimilarity({ args: [term1, term2] }, event, ruleName) {
-    const term1Id = getArgId(term1);
-    const term2Id = getArgId(term2);
-    const { activation, budget, pathHash, pathLength, derivationPath } = event;
-
-    this.nar.propagation.propagate({
-        target: id('Similarity', [term2, term1]),
-        activation,
-        budget: budget.scale(0.9),
-        pathHash: pathHash ^ hash(String(id('Similarity', [term2, term1]))),
-        pathLength: pathLength + 1,
-        derivationPath: [...derivationPath, 'symmetry']
-    });
-
-    (this.nar.state.index.byArg.get(term1Id) || new Set()).forEach(termId => {
-      const premise = this.nar.state.hypergraph.get(termId);
-      if (premise?.type === 'Inheritance' && getArgId(premise.args[0]) === term1Id) {
-        const context = {
-          term1,
-          term2,
-          predicate: premise.args[1],
-          similarity: this.nar.state.hypergraph.get(id('Similarity', [term1, term2])),
-          premise,
-          ruleName
-        };
-        this._deriveAnalogy(context, event);
-      }
-    });
   }
 
   _deriveAnalogy(context, event) {

@@ -74,6 +74,20 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
         try {
             let results;
+            // Direct ID lookup if it's a simple string without operators/wildcards
+            if (!pattern.match(/[<*?&|]/)) {
+                const hyperedge = this.nar.state.hypergraph.get(pattern);
+                if (hyperedge && hyperedge.getTruth().expectation() >= minExpectation) {
+                    return [{
+                        id: pattern,
+                        bindings: {},
+                        expectation: hyperedge.getTruth().expectation(),
+                        hyperedge
+                    }];
+                }
+                return [];
+            }
+
             // Handle simple wildcard queries with the old logic for now.
             if (pattern.includes('*') && !pattern.includes('<')) {
                  results = this._wildcardQuery(pattern, options);
@@ -400,17 +414,22 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     _addParsedStructure(parsed, options) {
-        if (!parsed || !parsed.args) return null; // Guard against invalid parsed objects
+        if (!parsed || !parsed.args) return null;
 
         const argIds = parsed.args.map(arg => {
-            // If the argument is a complex nested structure, recurse.
-            // Otherwise, it's a simple term/variable string.
             if (typeof arg === 'object' && arg !== null && arg.type) {
-                return this._addParsedStructure(arg, options);
+                // For nested structures, we just need to ensure they exist.
+                const argId = this._getParsedStructureId(arg); // Just get the ID
+                if (!this.nar.state.hypergraph.has(argId)) {
+                    // Add it with default options only if it's new.
+                    this._addParsedStructure(arg, {});
+                }
+                return argId;
             }
-            return arg; // It's a string, return as is
+            return arg; // It's a simple string term
         });
 
+        // The top-level statement gets the specific truth/budget from the parsed expression.
         const finalOptions = { ...options, truth: parsed.truth, priority: parsed.priority };
         return this.nar.api.addHyperedge(parsed.type, argIds, finalOptions);
     }
