@@ -7,6 +7,7 @@ import { AdvancedContradictionManager } from './AdvancedContradictionManager.js'
 
 // Use the AdvancedContradictionManager for these tests
 const config = {
+    useAdvanced: true,
     modules: {
         ContradictionManager: AdvancedContradictionManager
     }

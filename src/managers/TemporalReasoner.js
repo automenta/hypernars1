@@ -135,7 +135,7 @@ export class TemporalReasoner extends TemporalManagerBase {
         if (this._wouldCreateContradiction(event1, event2, relation)) {
             // In a real system, this would trigger contradiction handling.
             // For now, we just warn and don't add the constraint.
-            console.warn(`Temporal constraint would create contradiction: ${event1} ${relation} ${event2}`);
+            this.nar._log('warn', `Temporal constraint would create contradiction: ${event1} ${relation} ${event2}`);
             return null;
         }
 
@@ -173,7 +173,7 @@ export class TemporalReasoner extends TemporalManagerBase {
         const interval2 = this.intervals.get(intervalId2);
 
         if (!interval1 || !interval2) {
-            console.warn('Cannot create temporal relation: one or both intervals not found.');
+            this.nar._log('warn', 'Cannot create temporal relation: one or both intervals not found.');
             return null;
         }
 

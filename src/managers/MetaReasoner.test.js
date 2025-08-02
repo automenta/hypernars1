@@ -5,6 +5,7 @@ import { TruthValue } from '../support/TruthValue.js';
 import { id } from '../support/utils.js';
 
 const config = {
+    useAdvanced: true,
     modules: {
         MetaReasoner: MetaReasoner
     }
@@ -38,8 +39,8 @@ describe('MetaReasoner', () => {
         const termId = id('Term', ['a']);
         nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.9, 0.9) });
         nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.1, 0.9) });
-        nar.contradictionManager.addEvidence(termId, { source: 'A', strength: 0.9, beliefIndex: 0 });
-        nar.contradictionManager.addEvidence(termId, { source: 'B', strength: 0.2, beliefIndex: 1 });
+        nar.contradictionManager.addEvidence(termId, 'belief-id-placeholder-1', { source: 'A', strength: 0.9 });
+        nar.contradictionManager.addEvidence(termId, 'belief-id-placeholder-2', { source: 'B', strength: 0.2 });
         nar.contradictionManager.manualResolve(termId, 'default'); // This should emit the 'contradiction-resolved' event
 
         // We need to wait a bit for the async event listener to fire and for time to pass

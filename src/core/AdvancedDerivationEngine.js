@@ -184,38 +184,9 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
     this.nar.api.similarity(subject, predicate, { budget: budget.scale(0.6), derivedBy: ruleName });
 
-    // Property Inheritance
-    if (this.nar.state.hypergraph.has(id('Instance', [subject, 'entity']))) {
-      (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(propId => {
-        const property = this.nar.state.hypergraph.get(propId);
-        if (property?.type === 'Property') {
-          this.nar.propagation.propagate({
-            target: id('Property', [subject, property.args[1]]),
-            activation: activation * 0.6,
-            budget: budget.scale(0.5),
-            pathHash: pathHash,
-            pathLength: pathLength + 1,
-            derivationPath: [...derivationPath, 'property_derivation']
-          });
-        }
-      });
-    }
+    this._derivePropertyInheritance(subject, predicateId, activation, budget, pathHash, pathLength, derivationPath, ruleName);
 
-    // Induction
-    (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
-      const other = this.nar.state.hypergraph.get(termId);
-      if (other?.type === 'Inheritance' && getArgId(other.args[1]) === predicateId && getArgId(other.args[0]) !== subjectId) {
-        const context = {
-          term1: subject,
-          term2: other.args[0],
-          predicate,
-          premise1: this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate])),
-          premise2: other,
-          ruleName
-        };
-        this._deriveInduction(context, event);
-      }
-    });
+    this._deriveInductionInheritance(subject, predicateId, ruleName, event);
   }
 
   _deriveTransitiveInheritance(context, event) {
@@ -236,6 +207,87 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     this.nar.api.inheritance(subject, predicate, { truth, budget: budget.scale(0.7), premises: [premise1.id, premise2.id], derivedBy: 'transitivity' });
   }
 
+  _derivePropertyInheritance(subject, predicateId, activation, budget, pathHash, pathLength, derivationPath, ruleName) {
+    if (this.nar.state.hypergraph.has(id('Instance', [subject, 'entity']))) {
+      (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(propId => {
+        const property = this.nar.state.hypergraph.get(propId);
+        if (property?.type === 'Property') {
+          this.nar.propagation.propagate({
+            target: id('Property', [subject, property.args[1]]),
+            activation: activation * 0.6,
+            budget: budget.scale(0.5),
+            pathHash: pathHash,
+            pathLength: pathLength + 1,
+            derivationPath: [...derivationPath, 'property_derivation']
+          });
+        }
+      });
+    }
+  }
+
+  /**
+   * Derives an inductive similarity statement from two inheritance statements.
+   * E.g., if <A --> C> and <B --> C>, then <A <-> B> (A is similar to B).
+   * @param {string} subject - The subject of the first inheritance (A).
+   * @param {string} predicateId - The predicate (C).
+   * @param {string} ruleName - The name of the rule being applied.
+   * @param {Object} event - The current event object.
+   */
+  _deriveInductionInheritance(subject, predicateId, ruleName, event) {
+    const { budget, pathHash, pathLength, derivationPath } = event;
+
+    (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
+      const other = this.nar.state.hypergraph.get(termId);
+      if (other?.type === 'Inheritance' && getArgId(other.args[1]) === predicateId && getArgId(other.args[0]) !== subject) {
+        const context = {
+          term1: subject,
+          term2: other.args[0],
+          predicate: predicateId,
+          premise1: this.nar.state.hypergraph.get(id('Inheritance', [subject, predicateId])),
+          premise2: other,
+          ruleName
+        };
+        this._deriveInduction(context, event);
+      }
+    });
+  }
+
+  _deriveSimilarity({ args: [term1, term2] }, event, ruleName) {
+    const term1Id = getArgId(term1);
+    const term2Id = getArgId(term2);
+    const { activation, budget, pathHash, pathLength, derivationPath } = event;
+
+    this.nar.propagation.propagate({
+        target: id('Similarity', [term2, term1]),
+        activation,
+        budget: budget.scale(0.9),
+        pathHash: pathHash ^ hash(String(id('Similarity', [term2, term1]))),
+        pathLength: pathLength + 1,
+        derivationPath: [...derivationPath, 'symmetry']
+    });
+
+    (this.nar.state.index.byArg.get(term1Id) || new Set()).forEach(termId => {
+      const premise = this.nar.state.hypergraph.get(termId);
+      if (premise?.type === 'Inheritance' && getArgId(premise.args[0]) === term1Id) {
+        const context = {
+          term1,
+          term2,
+          predicate: premise.args[1],
+          similarity: this.nar.state.hypergraph.get(id('Similarity', [term1, term2])),
+          premise,
+          ruleName
+        };
+        this._deriveAnalogy(context, event);
+      }
+    });
+  }
+
+  /**
+   * Derives an inductive similarity statement from two inheritance statements.
+   * E.g., if <A --> C> and <B --> C>, then <A <-> B> (A is similar to B).
+   * @param {Object} context - The context object containing terms and premises.
+   * @param {Object} event - The current event object.
+   */
   _deriveInduction(context, event) {
     const { term1, term2, predicate, premise1, premise2, ruleName } = context;
     const { budget, pathHash, pathLength } = event;
@@ -254,8 +306,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     const truth = TruthValue.induction(premise1.getTruth(), premise2.getTruth());
     this.nar.api.similarity(term1, term2, { truth, budget: budget.scale(0.6), premises: [premise1.id, premise2.id], derivedBy: 'induction' });
   }
-
-  _deriveSimilarity({ args: [term1, term2] }, event, ruleName) {
+    _deriveSimilarity({ args: [term1, term2] }, event, ruleName) {
     const term1Id = getArgId(term1);
     const term2Id = getArgId(term2);
     const { activation, budget, pathHash, pathLength, derivationPath } = event;

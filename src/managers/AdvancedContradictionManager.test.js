@@ -9,6 +9,7 @@ describe('AdvancedContradictionManager', () => {
 
     beforeEach(() => {
         nar = new NARHyper({
+            useAdvanced: true,
             modules: {
                 ContradictionManager: AdvancedContradictionManager
             }
@@ -129,6 +130,7 @@ describe('AdvancedContradictionManager', () => {
         nar.api.inheritance('sun', 'star', {truth: new TruthValue(0.99, 0.9), budget: new Budget(0.9, 0.9, 0.9)});
 
         // Set source reliabilities
+        nar.state.sourceReliability = new Map();
         nar.state.sourceReliability.set('nasa_website', 0.95);
         nar.state.sourceReliability.set('random_blog', 0.2);
 

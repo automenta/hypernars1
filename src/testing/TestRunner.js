@@ -1,6 +1,10 @@
 import { NARHyper } from '../NARHyper.js';
 
 export class TestRunner {
+  constructor(config = {}) {
+    this.config = config;
+  }
+
   run(test) {
     const logs = [];
     const logger = {
@@ -22,7 +26,7 @@ export class TestRunner {
     const log = logger.info;
     Object.assign(log, logger);
 
-    const nar = new NARHyper();
+    const nar = new NARHyper(this.config);
     const result = test.run(nar, log);
 
     return {

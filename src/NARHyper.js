@@ -1,18 +1,34 @@
-import {ExpressionEvaluator} from './evaluator/ExpressionEvaluator.js';
-import {AdvancedMemoryManager} from './managers/AdvancedMemoryManager.js';
-import {AdvancedContradictionManager} from './managers/AdvancedContradictionManager.js';
-import {MetaReasoner} from './managers/MetaReasoner.js';
-import {AdvancedLearningEngine} from './managers/AdvancedLearningEngine.js';
-import {ExplanationSystem} from './managers/ExplanationSystem.js';
-import {TemporalReasoner} from './managers/TemporalReasoner.js';
-
-import {State} from './core/State.js';
-import {Api} from './core/Api.js';
-import {AdvancedDerivationEngine} from './core/AdvancedDerivationEngine.js';
-import {Propagation} from './core/Propagation.js';
-import {QuestionHandler} from './core/QuestionHandler.js';
-import {System} from './core/System.js';
 import { EventEmitter } from 'events';
+import { State } from './core/State.js';
+import { Api } from './core/Api.js';
+import { System } from './core/System.js';
+import { Propagation } from './core/Propagation.js';
+import { QuestionHandler } from './core/QuestionHandler.js';
+import { ExpressionEvaluator } from './evaluator/ExpressionEvaluator.js';
+
+// Import Base and Simple/Advanced Implementations
+import { DerivationEngineBase } from './core/DerivationEngineBase.js';
+import { SimpleDerivationEngine } from './core/SimpleDerivationEngine.js';
+import { AdvancedDerivationEngine } from './core/AdvancedDerivationEngine.js';
+
+import { MemoryManagerBase } from './managers/MemoryManagerBase.js';
+import { SimpleMemoryManager } from './managers/SimpleMemoryManager.js';
+import { AdvancedMemoryManager } from './managers/AdvancedMemoryManager.js';
+
+import { ContradictionManagerBase } from './managers/ContradictionManagerBase.js';
+import { SimpleContradictionManager } from './managers/SimpleContradictionManager.js';
+import { AdvancedContradictionManager } from './managers/AdvancedContradictionManager.js';
+
+import { LearningEngineBase } from './managers/LearningEngineBase.js';
+import { SimpleLearningEngine } from './managers/SimpleLearningEngine.js';
+import { AdvancedLearningEngine } from './managers/AdvancedLearningEngine.js';
+
+import { TemporalManagerBase } from './managers/TemporalManagerBase.js';
+import { SimpleTemporalManager } from './managers/SimpleTemporalManager.js';
+import { TemporalReasoner } from './managers/TemporalReasoner.js'; // This is the advanced one
+
+import { MetaReasoner } from './managers/MetaReasoner.js';
+import { ExplanationSystem } from './managers/ExplanationSystem.js';
 
 
 export class NARHyper extends EventEmitter {
@@ -31,6 +47,7 @@ export class NARHyper extends EventEmitter {
       derivationCacheSize: 1000,
       questionTimeout: 3000,
       memoryMaintenanceInterval: 100,
+      logLevel: 'debug', // Set to debug for detailed logs
     }, config);
 
     // Core components
@@ -49,25 +66,37 @@ export class NARHyper extends EventEmitter {
   }
 
   _initializeModules(config) {
-    // Default to the advanced managers, but allow overrides from config
+    const useAdvanced = config.useAdvanced || false;
+
     const moduleClasses = {
-        DerivationEngine: AdvancedDerivationEngine,
-        MemoryManager: AdvancedMemoryManager,
-        ContradictionManager: AdvancedContradictionManager,
+        DerivationEngine: useAdvanced ? AdvancedDerivationEngine : SimpleDerivationEngine,
+        MemoryManager: useAdvanced ? AdvancedMemoryManager : SimpleMemoryManager,
+        ContradictionManager: useAdvanced ? AdvancedContradictionManager : SimpleContradictionManager,
+        LearningEngine: useAdvanced ? AdvancedLearningEngine : SimpleLearningEngine,
+        TemporalManager: useAdvanced ? TemporalReasoner : SimpleTemporalManager,
         MetaReasoner,
-        LearningEngine: AdvancedLearningEngine,
         ExplanationSystem,
-        TemporalManager: TemporalReasoner,
         ...(config.modules || {})
     };
 
     this.derivationEngine = new moduleClasses.DerivationEngine(this);
     this.memoryManager = new moduleClasses.MemoryManager(this);
     this.contradictionManager = new moduleClasses.ContradictionManager(this);
-    this.metaReasoner = new moduleClasses.MetaReasoner(this);
     this.learningEngine = new moduleClasses.LearningEngine(this);
-    this.explanationSystem = new moduleClasses.ExplanationSystem(this);
     this.temporalManager = new moduleClasses.TemporalManager(this);
+    this.metaReasoner = new moduleClasses.MetaReasoner(this);
+    this.explanationSystem = new moduleClasses.ExplanationSystem(this);
+
+    // Ensure all modules are instances of their base classes
+    if (
+        !(this.derivationEngine instanceof DerivationEngineBase) ||
+        !(this.memoryManager instanceof MemoryManagerBase) ||
+        !(this.contradictionManager instanceof ContradictionManagerBase) ||
+        !(this.learningEngine instanceof LearningEngineBase) ||
+        !(this.temporalManager instanceof TemporalManagerBase)
+    ) {
+        throw new Error('A module does not extend its base class correctly.');
+    }
   }
 
   _exposeApi() {
@@ -92,21 +121,12 @@ export class NARHyper extends EventEmitter {
     this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
   }
 
-  /**
-   * Creates a sandboxed environment for safe experimentation and counterfactual reasoning.
-   * Based on the proposal in `enhance.e.md`.
-   * @param {Object} options - Configuration for the sandbox.
-   * @returns {NARHyper} A new NARHyper instance configured as a sandbox.
-   */
   createSandbox(options = {}) {
-    // Create a new NARHyper instance with a similar config, but isolated state
     const sandbox = new NARHyper({
       ...this.config,
-      // Allow overriding config for the sandbox
       ...(options.config || {}),
     });
 
-    // Copy a subset of knowledge into the sandbox
     const minConfidence = options.minConfidence || 0.5;
     const hypergraphToCopy = options.hypergraph || this.state.hypergraph;
 
@@ -127,9 +147,9 @@ export class NARHyper extends EventEmitter {
 
   clearState() {
     this.state = new State(this.config);
-    this._initializeModules(this.config); // Re-init managers with the new state
-    this.api = new Api(this); // Re-init API
-    this._exposeApi(); // Re-expose methods
+    this._initializeModules(this.config);
+    this.api = new Api(this);
+    this._exposeApi();
   }
 
   saveState() {
@@ -147,7 +167,6 @@ export class NARHyper extends EventEmitter {
   loadState(jsonString) {
     const stateData = JSON.parse(jsonString);
 
-    // Basic validation
     if (!stateData.version || !stateData.hypergraph) {
       throw new Error('Invalid or unsupported state file.');
     }
@@ -156,11 +175,9 @@ export class NARHyper extends EventEmitter {
     this.config = Object.assign(this.config, stateData.config);
     this.state.currentStep = stateData.currentStep || 0;
 
-    // Re-create hyperedges using the API to ensure all indexes are built
     for (const edgeData of stateData.hypergraph) {
       if (!edgeData.beliefs || edgeData.beliefs.length === 0) continue;
 
-      // Re-add each belief to the hyperedge
       for (const beliefData of edgeData.beliefs) {
         const options = {
           truth: new this.api.TruthValue(beliefData.truth.frequency, beliefData.truth.confidence, beliefData.truth.priority),
@@ -174,4 +191,24 @@ export class NARHyper extends EventEmitter {
     }
   }
 
+  /**
+   * Internal logging utility.
+   * @param {string} level - The log level (e.g., 'debug', 'info', 'warn', 'error').
+   * @param {string} message - The log message.
+   * @param {Object} [details] - Optional additional details.
+   */
+  _log(level, message, details = {}) {
+    const levels = { 'debug': 0, 'info': 1, 'warn': 2, 'error': 3 };
+    const currentLevel = levels[this.config.logLevel.toLowerCase()] || 1;
+    const messageLevel = levels[level.toLowerCase()] || 1;
+
+    if (messageLevel >= currentLevel) {
+      const timestamp = new Date().toISOString();
+      let logOutput = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
+      if (Object.keys(details).length > 0) {
+        logOutput += ` ${JSON.stringify(details)}`;
+      }
+      console.log(logOutput);
+    }
+  }
 }

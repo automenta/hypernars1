@@ -3,7 +3,7 @@ import { NARHyper } from './NARHyper.js';
 
 describe('API Enhancements', () => {
     it('should handle queries with variable binding', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         nar.inheritance('bird', 'animal');
         nar.inheritance('robin', 'bird');
         nar.inheritance('sparrow', 'bird');
@@ -20,12 +20,15 @@ describe('API Enhancements', () => {
     });
 
     it('should provide counterfactual explanations', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         nar.nal('<tweety --> bird>.');
         nar.nal('<bird --> flyer>.');
-        nar.run(20); // Allow derivation
+        nar.run(50); // Allow derivation
 
-        const conclusionId = 'Inheritance(tweety,flyer)';
+        // Query for the derived belief
+        const derivedBeliefs = nar.query('Inheritance(tweety,flyer)');
+        expect(derivedBeliefs.length).toBeGreaterThan(0);
+        const conclusionId = derivedBeliefs[0].id;
         const explanation = nar.explain(conclusionId, {
             perspective: 'counterfactual',
             alternative: '<tweety --> penguin>.'
@@ -36,7 +39,7 @@ describe('API Enhancements', () => {
     });
 
     it('should get and resolve contradictions', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         nar.nal('<water --> wet>. %1.0;0.9%');
         nar.nal('<water --> wet>. %0.0;0.9%');
 
@@ -58,7 +61,7 @@ describe('API Enhancements', () => {
     });
 
     it('should configure and get meta-reasoning strategy', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         nar.configureMetaStrategy({ context: 'test_context', strategy: 'test_strategy', priority: 100 });
 
         // This is a bit tricky to test directly without more hooks,

@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { pathToFileURL } from 'url';
 
-const testRunner = new TestRunner();
+const testRunner = new TestRunner({ useAdvanced: true });
 const testsDir = path.resolve(process.cwd(), 'src', 'tests');
 
 describe('All Tests', () => {

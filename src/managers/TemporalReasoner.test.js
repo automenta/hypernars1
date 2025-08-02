@@ -6,7 +6,7 @@ describe('TemporalReasoner', () => {
     let temporalReasoner;
 
     beforeEach(() => {
-        nar = new NARHyper();
+        nar = new NARHyper({ useAdvanced: true });
         temporalReasoner = nar.temporalManager;
     });
 
@@ -65,7 +65,7 @@ describe('TemporalReasoner', () => {
         temporalReasoner.addConstraint(event1, event2, 'after');
 
         const description = temporalReasoner.describeTemporalRelationship(event1, event2);
-        expect(description).toBe('The event "meeting_starts" happens after the event "presentation_due".');
+        expect(description).toBe(`The event "${event1}" happens after the event "${event2}".`);
     });
 
     it('should return an array of possible relations for ambiguous compositions', () => {

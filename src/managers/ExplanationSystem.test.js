@@ -3,7 +3,7 @@ import {NARHyper} from '../NARHyper.js';
 
 describe('ExplanationSystem', () => {
     it('should identify a direct assertion', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         const termId = nar.nal('term.');
         const explanation = nar.explain(termId, { depth: 1, format: 'json' });
         const path = JSON.parse(explanation);
@@ -11,7 +11,7 @@ describe('ExplanationSystem', () => {
     });
 
     it('should identify transitive inheritance', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         const p1 = nar.inheritance('A', 'B');
         const p2 = nar.inheritance('B', 'C');
 
@@ -27,7 +27,7 @@ describe('ExplanationSystem', () => {
     });
 
     it('should identify analogy', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         const p1 = nar.similarity('A', 'B');
         const p2 = nar.inheritance('A', 'C');
 
@@ -43,7 +43,7 @@ describe('ExplanationSystem', () => {
     });
 
     it('should fallback to "assertion" for beliefs with no known derivation rule', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         const p1 = nar.nal('premise1.');
         // The `derivedBy` is not specified, so it should be identified as a base assertion.
         const conclusion = nar.implication('premise1', 'conclusion', { premises: [p1] });
@@ -58,7 +58,7 @@ describe('ExplanationSystem', () => {
     });
 
     it('should explain a derived temporal relation using templates', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         // Use the new API methods
         const t1 = nar.api.temporalInterval('event_A', 1000, 2000);
         const t2 = nar.api.temporalInterval('event_B', 3000, 4000);
@@ -79,7 +79,7 @@ describe('ExplanationSystem', () => {
         let conclusionId;
 
         beforeEach(() => {
-            nar = new NARHyper();
+            nar = new NARHyper({ useAdvanced: true });
             const p1 = nar.inheritance('A', 'B', { derivedBy: 'assertion' });
             const p2 = nar.inheritance('B', 'C', { derivedBy: 'assertion' });
             conclusionId = nar.inheritance('A', 'C', { premises: [p1, p2], derivedBy: 'transitivity' });

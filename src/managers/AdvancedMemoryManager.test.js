@@ -10,6 +10,7 @@ describe('AdvancedMemoryManager', () => {
 
     it('should be configurable in NARHyper', () => {
         const nar = new NARHyper({
+            useAdvanced: true,
             modules: {
                 MemoryManager: AdvancedMemoryManager,
             }
@@ -20,6 +21,7 @@ describe('AdvancedMemoryManager', () => {
     it.skip('should boost importance scores for concepts in active questions', async () => {
         jest.useFakeTimers();
         const nar = new NARHyper({
+            useAdvanced: true,
             modules: { MemoryManager: AdvancedMemoryManager }
         });
 
@@ -55,6 +57,7 @@ describe('AdvancedMemoryManager', () => {
 
     it('should adjust belief capacity based on hypergraph size', () => {
         const nar = new NARHyper({
+            useAdvanced: true,
             modules: { MemoryManager: AdvancedMemoryManager },
             beliefCapacity: 8 // Start with a known capacity
         });
@@ -91,6 +94,7 @@ describe('AdvancedMemoryManager', () => {
         // further investigation but is being skipped to allow submission of other features.
         jest.useFakeTimers();
         const nar = new NARHyper({
+            useAdvanced: true,
             modules: { MemoryManager: AdvancedMemoryManager },
             forgettingThreshold: 0.1, // Low threshold to encourage forgetting
         });
@@ -128,7 +132,7 @@ describe('AdvancedMemoryManager', () => {
     });
 
     it('should allocate a higher budget for a question than for a derivation', () => {
-        const nar = new NARHyper({ modules: { MemoryManager: AdvancedMemoryManager } });
+        const nar = new NARHyper({ useAdvanced: true, modules: { MemoryManager: AdvancedMemoryManager } });
         const manager = nar.memoryManager;
 
         const questionTask = { type: 'question' };
@@ -142,12 +146,12 @@ describe('AdvancedMemoryManager', () => {
     });
 
     test('should boost importance for concepts that lead to success', () => {
-        const nar = new NARHyper({ modules: { MemoryManager: AdvancedMemoryManager } });
+        const nar = new NARHyper({ useAdvanced: true, modules: { MemoryManager: AdvancedMemoryManager } });
         const termId = nar.api.nal('successful_premise.');
         nar.memoryManager.importanceScores.set(termId, 0.1); // Set a known initial score
 
         // Simulate a successful outcome from this premise by using the public API
-        nar.outcome(termId, { success: true });
+        nar.api.outcome(termId, { success: true });
 
         // Manually trigger the learning and memory maintenance
         nar.learningEngine.applyLearning();
@@ -159,7 +163,7 @@ describe('AdvancedMemoryManager', () => {
     });
 
     it('should prune low-value paths from the event queue', () => {
-        const nar = new NARHyper({ modules: { MemoryManager: AdvancedMemoryManager } });
+        const nar = new NARHyper({ useAdvanced: true, modules: { MemoryManager: AdvancedMemoryManager } });
         const manager = nar.memoryManager;
         const queue = nar.state.eventQueue;
 

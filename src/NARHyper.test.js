@@ -3,7 +3,7 @@ import { NARHyper } from './NARHyper.js';
 
 describe('NARHyper Core', () => {
     it('should handle wildcard queries', () => {
-        const nar = new NARHyper();
+        const nar = new NARHyper({ useAdvanced: true });
         nar.nal('term1.');
         nar.nal('term2.');
         nar.inheritance('bird', 'animal');

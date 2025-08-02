@@ -15,8 +15,8 @@ export class SimpleContradictionManager extends ContradictionManagerBase {
      * @param {string} hyperedgeId - The ID of the hyperedge to check.
      * @returns {boolean} - True if a contradiction was detected.
      */
-    detectContradictions(hyperedgeId) {
-        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+    detectContradiction(hyperedgeId) {
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge || hyperedge.beliefs.length < 2) {
             return false;
         }

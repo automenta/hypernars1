@@ -178,6 +178,7 @@ export class Api {
 
   /* ===== PUBLIC API: CONTRADICTION MANAGEMENT ===== */
   getContradictions() {
+    this.nar._log('debug', 'Contradictions map state (before filter):', { map: Array.from(this.nar.contradictionManager.contradictions.keys()) });
     return Array.from(this.nar.contradictionManager.contradictions.entries())
       .filter(([, data]) => !data.resolved)
       .map(([id, data]) => ({ id, ...data }));
@@ -302,7 +303,7 @@ export class Api {
   revise(hyperedgeId, options = {}) {
     const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
     if (!hyperedge) {
-      // console.warn(`revise called on non-existent hyperedge: ${hyperedgeId}`);
+      this.nar._log('warn', `revise called on non-existent hyperedge: ${hyperedgeId}`);
       return;
     }
 

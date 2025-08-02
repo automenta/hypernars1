@@ -150,6 +150,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         }
 
         if (contradictoryPairs.length > 0) {
+            this.nar._log('info', `Contradiction detected for ${hyperedgeId}`, { pairs: contradictoryPairs.length });
             this.contradictions.set(hyperedgeId, {
                 timestamp: Date.now(),
                 pairs: contradictoryPairs,
@@ -165,6 +166,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             return true;
         }
 
+        this.nar._log('debug', `No contradiction detected for ${hyperedgeId}`);
         return false;
     }
 
@@ -248,6 +250,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         let outcome = 'failure';
         if (resolution && hyperedge) {
+            this.nar._log('info', `Contradiction resolved for ${hyperedgeId} using strategy: ${strategyName}`, { resolution });
             contradiction.resolved = true;
             contradiction.resolutionStrategy = strategyName;
             contradiction.resolvedValue = resolution;

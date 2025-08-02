@@ -83,11 +83,19 @@ export class ExplanationSystem {
 
         const path = [];
         this._traceDerivation(hyperedgeId, path, options.depth || 3, new Set());
-        if (path.length === 0) {
-            return "Cannot generate counterfactual: no derivation path found for the original belief.";
+        
+        const originalHyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+        if (!originalHyperedge) {
+            return "Cannot generate counterfactual: original belief not found.";
         }
 
-        const originalPremise = path[0];
+        let originalPremise;
+        if (path.length === 0) {
+            // If no derivation path, it's a direct assertion
+            originalPremise = originalHyperedge;
+        } else {
+            originalPremise = path[0];
+        }
         const sandbox = this.nar.createSandbox();
 
         // Remove the original premise and insert the alternative

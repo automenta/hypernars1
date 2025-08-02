@@ -8,7 +8,7 @@ describe('AdvancedLearningEngine', () => {
     let learningEngine;
 
     beforeEach(() => {
-        nar = new NARHyper();
+        nar = new NARHyper({ useAdvanced: true });
         learningEngine = nar.learningEngine;
     });
 
@@ -79,7 +79,7 @@ describe('AdvancedLearningEngine', () => {
         learningEngine.applyLearning();
 
         // Assert that the shortcut rule was created
-        const conjunctionId = id('Conjunction', [premise1Id, premise2Id]);
+        const conjunctionId = id('Conjunction', [premise1Id, premise2Id].sort());
         const shortcutRuleId = id('Implication', [conjunctionId, conclusionId]);
         const shortcutRule = nar.state.hypergraph.get(shortcutRuleId);
 
