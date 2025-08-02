@@ -81,16 +81,22 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
     if (activeRules.length === 0) return;
 
-    const totalPriority = activeRules.reduce((sum, rule) => sum + rule.priority, 0);
+    const weightedRules = activeRules.map(rule => {
+        const ruleName = [...this.rules.entries()].find(([name, r]) => r === rule)?.[0];
+        const dynamicFactor = this.nar.metaReasoner.getRulePriority(ruleName);
+        return { rule, weight: rule.priority * dynamicFactor };
+    });
+
+    const totalPriority = weightedRules.reduce((sum, item) => sum + item.weight, 0);
     if (totalPriority === 0) return;
 
     let random = Math.random() * totalPriority;
     let selectedRule = null;
 
-    for (const rule of activeRules) {
-        random -= rule.priority;
+    for (const item of weightedRules) {
+        random -= item.weight;
         if (random <= 0) {
-            selectedRule = rule;
+            selectedRule = item.rule;
             break;
         }
     }

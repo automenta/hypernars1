@@ -37,8 +37,12 @@ describe('AdvancedContradictionManager', () => {
         expect(result).not.toBeNull();
 
         const finalHyperedge = nar.state.hypergraph.get(term);
-        expect(finalHyperedge.beliefs.length).toBe(1);
-        expect(finalHyperedge.getTruth().frequency).toBe(0.9);
+        expect(finalHyperedge.beliefs.length).toBe(2);
+        expect(finalHyperedge.getStrongestBelief().truth.frequency).toBe(0.9);
+
+        const weakerBelief = finalHyperedge.beliefs.find(b => b.truth.frequency !== 0.9);
+        expect(weakerBelief.truth.confidence).toBeLessThan(0.9);
+        expect(weakerBelief.truth.doubt).toBeGreaterThan(0.4);
     });
 
     test('should resolve by creating a contextual specialization', () => {

@@ -67,5 +67,6 @@ export class System {
     this.nar.metaReasoner.selfMonitor();
     this.nar.learningEngine.applyLearning();
     this.nar.temporalManager.adjustTemporalHorizon?.();
+    this.nar.goalManager?.processGoals();
   }
 }

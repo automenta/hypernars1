@@ -169,14 +169,14 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             contradiction.resolutionStrategy = strategyName;
             contradiction.resolvedValue = resolution;
 
-            if (resolution.primaryBelief) {
+            if (resolution.updatedBeliefs) {
+                hyperedge.beliefs = resolution.updatedBeliefs;
+            } else if (resolution.primaryBelief) {
                 hyperedge.beliefs = [resolution.primaryBelief];
             } else if (resolution.newBelief) {
                 hyperedge.beliefs = [resolution.newBelief];
-            } else {
-                // If the resolution was to specialize, the original hyperedge might be modified differently
-                // For now, we assume specialization handles the belief list itself.
             }
+            // If the resolution was to specialize, it handles its own belief modifications.
 
             this.nar.emit('contradiction-resolved', {
                 hyperedgeId,
@@ -208,8 +208,23 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         })).sort((a, b) => b.evidenceStrength - a.evidenceStrength);
 
         const strongest = beliefsWithEvidence[0];
+        const otherBeliefs = beliefsWithEvidence.slice(1);
 
-        return { reason: 'dominant_evidence', primaryBelief: strongest.belief };
+        // Weaken the other beliefs instead of discarding them
+        const modifiedBeliefs = otherBeliefs.map(item => {
+            const modifiedBelief = { ...item.belief };
+            modifiedBelief.truth = new TruthValue(
+                modifiedBelief.truth.frequency,
+                modifiedBelief.truth.confidence * 0.5,
+                modifiedBelief.truth.priority * 0.8,
+                Math.min(1.0, (modifiedBelief.truth.doubt || 0) + 0.5)
+            );
+            return modifiedBelief;
+        });
+
+        const newBeliefs = [strongest.belief, ...modifiedBeliefs];
+
+        return { reason: 'dominant_evidence', primaryBelief: strongest.belief, updatedBeliefs: newBeliefs };
     }
 
     _resolveByMerging(hyperedgeId, contradiction) {
@@ -225,7 +240,10 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         if (!belief1 || !belief2) return null;
 
         const mergedTruth = TruthValue.revise(belief1.belief.truth, belief2.belief.truth);
-        mergedTruth.confidence *= 0.8; // Penalize confidence due to conflict
+        // Penalize confidence and increase doubt due to conflict
+        mergedTruth.confidence *= 0.8;
+        mergedTruth.doubt = Math.min(1.0, (mergedTruth.doubt + 0.5) * 0.7);
+
 
         const mergedBudget = belief1.belief.budget.merge(belief2.belief.budget).scale(0.8);
 
@@ -416,20 +434,31 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
     _createContextualSpecialization(originalHyperedge, conflictingBelief, context) {
         const newId = `${originalHyperedge.id}|context:${context}`;
+
+        // When specializing, the doubt is reduced because the context explains the conflict.
+        const specializedTruth = new TruthValue(
+            conflictingBelief.truth.frequency,
+            conflictingBelief.truth.confidence * 1.1, // Boost confidence slightly in new context
+            conflictingBelief.truth.priority,
+            (conflictingBelief.truth.doubt || 0) * 0.5 // Reduce doubt
+        );
+
+        const specializedBudget = conflictingBelief.budget.scale(1.1); // Slightly boost budget
+
         if (this.nar.state.hypergraph.has(newId)) {
             const existingSpecialization = this.nar.state.hypergraph.get(newId);
             existingSpecialization.revise({
-                truth: conflictingBelief.truth,
-                budget: conflictingBelief.budget
+                truth: specializedTruth,
+                budget: specializedBudget
             });
-            return newId;
+            return { reason: 'specialized', newHyperedgeId: newId };
         }
 
         const newArgs = [...originalHyperedge.args, `context:${context}`];
         const specialization = new Hyperedge(this.nar, newId, originalHyperedge.type, newArgs);
         specialization.revise({
-            truth: conflictingBelief.truth,
-            budget: conflictingBelief.budget
+            truth: specializedTruth,
+            budget: specializedBudget
         });
         this.nar.state.hypergraph.set(newId, specialization);
 

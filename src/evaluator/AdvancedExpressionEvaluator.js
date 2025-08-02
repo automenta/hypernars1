@@ -164,13 +164,14 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 if (bindings.has(varName)) {
                     if (bindings.get(varName) !== hyperedgeArgId) return false;
                 } else {
-                    bindings.set(varName, hyperedgeArgId);
+                    if (this._satisfiesConstraints(hyperedgeArgId, patternArg.constraints)) {
+                        bindings.set(varName, hyperedgeArgId);
+                    } else {
+                        return false; // Constraint check failed
+                    }
                 }
             } else if (typeof patternArg === 'object' && patternArg.type === 'Term') {
                 const expectedId = id(patternArg.type, patternArg.args);
-                // A hyperedge arg can be a simple string ('bird') or a full term ID ('Term(bird)')
-                // The pattern will always be a parsed term structure.
-                // We need to match against both possibilities.
                 if (expectedId !== hyperedgeArgId && patternArg.args[0] !== hyperedgeArgId) {
                     return false;
                 }
@@ -183,6 +184,40 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 if (patternArg !== hyperedgeArgId) return false;
             }
         }
+        return true;
+    }
+
+    _satisfiesConstraints(hyperedgeId, constraints) {
+        if (!constraints || Object.keys(constraints).length === 0) {
+            return true;
+        }
+
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+        if (!hyperedge) {
+            // If the constraint is about the term not existing, this might be valid
+            if (constraints.exists === 'false') return true;
+            return false;
+        }
+
+        for (const [key, value] of Object.entries(constraints)) {
+            switch (key) {
+                case 'type':
+                    if (hyperedge.type !== value) return false;
+                    break;
+                case 'minExpectation':
+                    if (hyperedge.getTruth().expectation() < parseFloat(value)) return false;
+                    break;
+                case 'maxExpectation':
+                    if (hyperedge.getTruth().expectation() > parseFloat(value)) return false;
+                    break;
+                case 'isA':
+                    const instanceOfId = id('Inheritance', [hyperedgeId, value]);
+                    if (!this.nar.state.hypergraph.has(instanceOfId)) return false;
+                    break;
+                // Add more constraint checks here as needed
+            }
+        }
+
         return true;
     }
 
@@ -263,25 +298,16 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     _parseNALExpression(content) {
         content = content.trim();
 
+        // 1. Handle Negation
         if (content.startsWith('!')) {
-            return {
-                type: 'Negation',
-                args: [this._parseNALExpression(content.substring(1))],
-            };
+            return { type: 'Negation', args: [this._parseNALExpression(content.substring(1))] };
         }
 
-        let balance = 0;
-        for (const char of content) {
-            if (char === '(') balance++;
-            else if (char === ')') balance--;
-        }
-        if (balance !== 0) {
-            throw new NALParserError(`Mismatched parentheses in expression: ${content}`);
-        }
-
+        // 2. Handle Parentheses
+        let isPaired = false;
         if (content.startsWith('(') && content.endsWith(')')) {
             let balance = 0;
-            let isPaired = true;
+            isPaired = true;
             for (let i = 0; i < content.length; i++) {
                 if (content[i] === '(') balance++;
                 else if (content[i] === ')') balance--;
@@ -290,25 +316,25 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                     break;
                 }
             }
-            if (isPaired) {
-                content = content.slice(1, -1).trim();
-            }
+        }
+        if (isPaired) {
+            content = content.slice(1, -1).trim();
         }
 
+        // 3. Handle Operators (Implication, Conjunction, etc.)
         let bestOp = null;
         let depth = 0;
         let inQuotes = false;
-
-        for (let i = 0; i < content.length; i++) {
+        for (let i = content.length - 1; i >= 0; i--) {
             const char = content[i];
-            if (char === '(' || char === '[' || char === '{') depth++;
-            else if (char === ')' || char === ']' || char === '}') depth--;
+            if (char === ')' || char === ']' || char === '}') depth++;
+            else if (char === '(' || char === '[' || char === '{') depth--;
             else if (char === '"' || char === "'") inQuotes = !inQuotes;
 
             if (depth === 0 && !inQuotes) {
                 for (const op of this.operators) {
                     if (content.substring(i, i + op.symbol.length) === op.symbol) {
-                        if (!bestOp || op.precedence >= bestOp.precedence) {
+                        if (!bestOp || op.precedence > bestOp.precedence) {
                             bestOp = { ...op, position: i };
                         }
                     }
@@ -319,34 +345,49 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         if (bestOp) {
             const left = content.substring(0, bestOp.position).trim();
             const right = content.substring(bestOp.position + bestOp.symbol.length).trim();
-            return {
-                type: bestOp.type,
-                args: [
-                    this._parseNALExpression(left),
-                    this._parseNALExpression(right)
-                ],
-            };
+            return { type: bestOp.type, args: [this._parseNALExpression(left), this._parseNALExpression(right)] };
         }
 
-        if (content.startsWith('(*') && content.endsWith(')')) {
-            const terms = content.slice(2, -1).split(',').map(t => t.trim()).filter(t => t);
+        // 4. Handle specific term structures (Product, Image)
+        const productMatch = content.match(/^\(\*\s*,\s*(.+)\)$/);
+        if (productMatch) {
+            const terms = productMatch[1].split(/\s*,\s*/).map(t => t.trim()).filter(Boolean);
             return { type: 'Product', args: terms };
         }
 
-        const imageMatch = content.match(/^\((\/|\*)\s*,\s*([^,]+)\s*,\s*([^)]+)\)/);
+        const imageMatch = content.match(/^\((\/|\*)\s*,\s*(.+)\)$/);
         if (imageMatch) {
-            const isExtensional = imageMatch[1] === '/';
-            return {
-                type: isExtensional ? 'ImageExt' : 'ImageInt',
-                args: [imageMatch[2].trim(), imageMatch[3].trim()],
-            };
+            const type = imageMatch[1] === '/' ? 'ImageExt' : 'ImageInt';
+            const terms = imageMatch[2].split(/\s*,\s*/).map(t => t.trim()).filter(Boolean);
+            return { type, args: terms };
         }
 
+        // 5. Handle Variables
         if (content.startsWith('$') || content.startsWith('?')) {
+            const constraintMatch = content.match(/^(\$[\w?]+)({(.*)})$/);
+            if (constraintMatch) {
+                const varName = constraintMatch[1];
+                const constraints = this._parseConstraints(constraintMatch[3]);
+                return { type: 'Variable', args: [varName], constraints };
+            }
             return { type: 'Variable', args: [content] };
         }
 
+        // 6. Default to simple Term
         return { type: 'Term', args: [content] };
+    }
+
+    _parseConstraints(constraintStr) {
+        const constraints = {};
+        if (!constraintStr) return constraints;
+        const parts = constraintStr.split(',');
+        parts.forEach(part => {
+            const [key, value] = part.split('=').map(s => s.trim());
+            if (key && value) {
+                constraints[key] = value;
+            }
+        });
+        return constraints;
     }
 
     _addParsedStructure(parsed, options) {

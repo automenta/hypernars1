@@ -170,21 +170,27 @@ export class AdvancedLearningEngine extends LearningEngineBase {
             this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, wasSuccessful ? 'success' : 'failure');
         }
 
-        // Create a new TruthValue with the adjusted confidence
-        const newConfidence = Math.max(0.01, Math.min(0.99, belief.truth.confidence * adjustmentFactor));
-        const newTruth = new TruthValue(belief.truth.frequency, newConfidence);
+        const currentTruth = belief.truth;
+        const newConfidence = Math.max(0.01, Math.min(0.99, currentTruth.confidence * adjustmentFactor));
 
-        // Create a new budget with slightly higher priority to ensure it becomes the new strongest belief
+        // Adjust doubt based on outcome
+        let newDoubt;
+        if (wasSuccessful) {
+            newDoubt = Math.max(0, (currentTruth.doubt || 0) - this.learningRate * 0.1);
+        } else {
+            newDoubt = Math.min(1.0, (currentTruth.doubt || 0) + this.learningRate * 0.5);
+        }
+
+        const newTruth = new TruthValue(currentTruth.frequency, newConfidence, currentTruth.priority, newDoubt);
+
         const newBudget = new Budget(
             Math.min(1.0, belief.budget.priority * 1.01),
             belief.budget.durability,
             belief.budget.quality
         );
 
-        // Use the revise method to properly update the belief, passing a single options object
         hyperedge.revise({ truth: newTruth, budget: newBudget });
 
-        // Recursively adjust the premises
         if (belief.premises && belief.premises.length > 0) {
             belief.premises.forEach(premiseId => {
                 const decayingAdjustment = 1 + (adjustmentFactor - 1) * 0.8;
@@ -201,7 +207,8 @@ export class AdvancedLearningEngine extends LearningEngineBase {
 
         this._discoverPatterns();
         this._createRulesFromPatterns();
-        this._adaptDerivationRules(); // Added this call
+        this._formNewConcepts(); // Call the new method
+        this._adaptDerivationRules();
 
         // Periodically push rule productivity stats to the derivation engine
         // so it can re-prioritize its rules.
@@ -292,6 +299,52 @@ export class AdvancedLearningEngine extends LearningEngineBase {
                 this.patternMemory.delete(signature);
             }
         }
+    }
+
+    _formNewConcepts() {
+        const frequentPatterns = this.patternMemory; // Simplified for now
+
+        for (const [signature, patternData] of frequentPatterns) {
+            if (patternData.totalCount < 10) continue;
+
+            const terms = this._getTermsFromSignature(signature);
+            if (terms.length < 2) continue;
+
+            // Create a new concept representing the co-occurrence of these terms
+            const conceptId = id('Concept', terms.sort());
+            if (this.nar.state.hypergraph.has(conceptId)) continue; // Concept already exists
+
+            const truth = new TruthValue(
+                patternData.successCount / patternData.totalCount,
+                Math.min(0.9, patternData.totalCount / 20), // Confidence grows with observations
+                0.5 // Default priority
+            );
+
+            this.nar.api.addHyperedge('Concept', terms.sort(), { truth });
+
+            // Create inheritance links from the new concept to its components
+            terms.forEach(term => {
+                this.nar.api.inheritance(conceptId, term, {
+                    truth: new TruthValue(0.9, 0.8)
+                });
+            });
+
+            this.nar.emit('concept-formed', { conceptId, from: terms, signature });
+            // Clean up the pattern to avoid re-processing
+            this.patternMemory.delete(signature);
+        }
+    }
+
+    _getTermsFromSignature(signature) {
+        // Example signature: Term,Term,Term=>Implication
+        const premiseTypes = signature.split('=>')[0];
+        // This is a simplification. A real implementation would need to parse the signature
+        // back into the terms that formed it. For now, we'll assume the signature
+        // is the premises joined by ','.
+        if (premiseTypes.includes(',')) {
+            return premiseTypes.split(',');
+        }
+        return [];
     }
 
     _createShortcutRule(premises, conclusionId, confidence) {

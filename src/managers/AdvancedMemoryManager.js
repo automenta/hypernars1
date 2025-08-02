@@ -161,6 +161,19 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
                 this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.3));
             });
         }
+
+        // Placeholder for goal-based importance boosting
+        if (this.nar.goalManager && this.nar.goalManager.getActiveGoals) {
+            const activeGoals = this.nar.goalManager.getActiveGoals();
+            activeGoals.forEach(goal => {
+                // Boost importance of concepts related to the goal
+                const relatedTerms = this.nar.goalManager.getRelatedTerms(goal.id);
+                relatedTerms.forEach(termId => {
+                    const currentScore = this.importanceScores.get(termId) || 0;
+                    this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.4 * goal.priority));
+                });
+            });
+        }
     }
 
     pushContext(context) {
@@ -183,37 +196,16 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
     }
 
     allocateResources(task, context = {}) {
-        let basePriority = 0.5;
-        switch (task.type) {
-            case 'question': basePriority = 0.9; break;
-            case 'critical-event': basePriority = 0.95; break;
-            case 'derivation': basePriority = 0.6; break;
-            case 'revision': basePriority = 0.7; break;
-        }
+        const fullContext = {
+            ...context,
+            systemLoad: this.nar.state.eventQueue.heap.length / 1000,
+            noveltyScore: context.noveltyScore || 0, // Should be provided by caller
+            successHistory: context.successHistory || 0, // Should be provided by caller
+            minPriorityThreshold: this.nar.config.minPriorityThreshold,
+            minDurabilityThreshold: this.nar.config.minDurabilityThreshold,
+        };
 
-        const metaAlloc = this.nar.metaReasoner.resourceAllocation;
-        if (task.type === 'derivation' && metaAlloc.derivation) {
-            basePriority *= (0.5 + metaAlloc.derivation);
-        }
-
-        if (context.urgency) {
-            basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
-        }
-        if (context.importance) {
-            basePriority = Math.min(1.0, basePriority + context.importance * 0.2);
-        }
-
-        const availability = this._getResourceAvailability();
-        const priority = basePriority * availability;
-
-        let durability = 0.6;
-        if (task.type === 'question' || task.type === 'critical-event') {
-            durability = 0.9;
-        }
-
-        const quality = Math.sqrt(availability);
-
-        return new Budget(priority, durability, quality);
+        return Budget.dynamicAllocate(task, fullContext);
     }
 
     _getResourceAvailability() {

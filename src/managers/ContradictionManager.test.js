@@ -36,8 +36,12 @@ describe('AdvancedContradictionManager', () => {
         const result = nar.contradictionManager.manualResolve(termId, 'dominant_evidence');
 
         expect(result).not.toBeNull();
-        expect(hyperedge.beliefs.length).toBe(1); // The weaker belief should be removed
+        expect(hyperedge.beliefs.length).toBe(2); // The weaker belief is now modified, not removed
         expect(hyperedge.getStrongestBelief().truth.frequency).toBe(0.9);
+
+        const weakerBelief = hyperedge.beliefs.find(b => b.truth.frequency !== 0.9);
+        expect(weakerBelief.truth.confidence).toBeLessThan(0.9); // Should be scaled down
+        expect(weakerBelief.truth.doubt).toBeGreaterThan(0.4); // Should have increased doubt
     });
 
     it('should specialize a concept (split) when evidence strength is similar', () => {

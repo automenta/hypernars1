@@ -38,6 +38,55 @@ export class Budget {
     return new Budget(1.0, 1.0, 1.0);
   }
 
+  static dynamicAllocate(task, context = {}) {
+    let basePriority = 0.5;
+    switch(task.type) {
+      case 'question': basePriority = 0.9; break;
+      case 'critical-event': basePriority = 0.95; break;
+      case 'goal': basePriority = 0.85; break;
+      case 'derivation': basePriority = 0.6; break;
+      case 'revision': basePriority = 0.7; break;
+    }
+
+    // Adjust based on context
+    if (context.urgency) {
+      basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
+    }
+    if (context.importance) {
+      basePriority = Math.min(1.0, basePriority + context.importance * 0.2);
+    }
+    if (context.noveltyScore) {
+      basePriority = Math.min(1.0, basePriority + context.noveltyScore * 0.15);
+    }
+
+    // Adjust based on system load
+    const systemLoad = context.systemLoad || 0; // expected to be 0-1
+    const availability = Math.max(0.1, 1.0 - systemLoad * 0.7);
+    let priority = basePriority * availability;
+
+    // Adjust durability based on task type
+    let durability = 0.6;
+    if (task.type === 'question' || task.type === 'critical-event' || task.type === 'goal') {
+      durability = 0.9; // Needs sustained attention
+    }
+    if (context.successHistory) {
+        durability = Math.min(durability + context.successHistory * 0.2, 1.0);
+    }
+
+
+    // Adjust quality based on availability and novelty
+    let quality = Math.sqrt(availability) * 0.8;
+    if (context.noveltyScore) {
+        quality = Math.min(quality + context.noveltyScore * 0.1, 1.0);
+    }
+
+    // Apply minimum thresholds to prevent starvation
+    priority = Math.max(priority, context.minPriorityThreshold || 0.01);
+    durability = Math.max(durability, context.minDurabilityThreshold || 0.01);
+
+    return new Budget(priority, durability, quality);
+  }
+
   toJSON() {
     return {
       priority: this.priority,

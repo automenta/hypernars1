@@ -6,8 +6,8 @@ describe('ExplanationSystem', () => {
         const nar = new NARHyper({ useAdvanced: true });
         const termId = nar.nal('term.');
         const explanation = nar.explain(termId, { depth: 1, format: 'json' });
-        const path = JSON.parse(explanation);
-        expect(path[0].derivationRule).toBe('assertion');
+        const rootNode = JSON.parse(explanation);
+        expect(rootNode.derivationRule).toBe('assertion');
     });
 
     it('should identify transitive inheritance', () => {
@@ -19,11 +19,12 @@ describe('ExplanationSystem', () => {
         const conclusion = nar.inheritance('A', 'C', { premises: [p1, p2], derivedBy: 'transitivity' });
 
         const explanation = nar.explain(conclusion, { depth: 3, format: 'json' });
-        const path = JSON.parse(explanation);
+        const rootNode = JSON.parse(explanation);
 
-        const conclusionStep = path.find(step => step.id === conclusion);
-        expect(conclusionStep).toBeDefined();
-        expect(conclusionStep.derivationRule).toBe('transitivity');
+        expect(rootNode).toBeDefined();
+        expect(rootNode.id).toBe(conclusion);
+        expect(rootNode.derivationRule).toBe('transitivity');
+        expect(rootNode.premises.length).toBe(2);
     });
 
     it('should identify analogy', () => {
@@ -35,11 +36,11 @@ describe('ExplanationSystem', () => {
         const conclusion = nar.inheritance('B', 'C', { premises: [p1, p2], derivedBy: 'analogy' });
 
         const explanation = nar.explain(conclusion, { depth: 3, format: 'json' });
-        const path = JSON.parse(explanation);
+        const rootNode = JSON.parse(explanation);
 
-        const conclusionStep = path.find(step => step.id === conclusion);
-        expect(conclusionStep).toBeDefined();
-        expect(conclusionStep.derivationRule).toBe('analogy');
+        expect(rootNode).toBeDefined();
+        expect(rootNode.id).toBe(conclusion);
+        expect(rootNode.derivationRule).toBe('analogy');
     });
 
     it('should fallback to "assertion" for beliefs with no known derivation rule', () => {
@@ -49,12 +50,12 @@ describe('ExplanationSystem', () => {
         const conclusion = nar.implication('premise1', 'conclusion', { premises: [p1] });
 
         const explanation = nar.explain(conclusion, { depth: 2, format: 'json' });
-        const path = JSON.parse(explanation);
+        const rootNode = JSON.parse(explanation);
 
-        const conclusionStep = path.find(step => step.id === conclusion);
-        expect(conclusionStep).toBeDefined();
+        expect(rootNode).toBeDefined();
+        expect(rootNode.id).toBe(conclusion);
         // It's an assertion from the perspective of the explanation system if no rule is logged
-        expect(conclusionStep.derivationRule).toBe('assertion');
+        expect(rootNode.derivationRule).toBe('assertion');
     });
 
     it('should explain a derived temporal relation using templates', () => {
@@ -69,7 +70,7 @@ describe('ExplanationSystem', () => {
         const explanation = nar.explain(conclusionId, { format: 'detailed' });
 
         // The new formatter is more specific
-        expect(explanation).toContain('CONCLUSION: TemporalRelation(TimeInterval(event_A,1000,2000), TimeInterval(event_B,3000,4000), before)');
+            expect(explanation).toContain('CONCLUSION: TemporalRelation(TimeInterval(event_A,1000,2000), TimeInterval(event_B,3000,4000), before)');
         // Check for the template-based explanation
         expect(explanation).toContain('It is a direct assertion that');
     });
@@ -88,30 +89,28 @@ describe('ExplanationSystem', () => {
         it('should generate a detailed explanation', () => {
             const explanation = nar.explain(conclusionId, { format: 'detailed' });
             expect(explanation).toContain('CONCLUSION: Inheritance(A, C)');
-            expect(explanation).toContain('PRIMARY REASONING PATH:');
-            // Check for the new template-based output
-            expect(explanation).toContain('Because Inheritance(A, B) and Inheritance(B, C), it follows through transitivity that Inheritance(A, C).');
+            expect(explanation).toContain('REASONING PATH:');
+            expect(explanation).toContain('- Because Inheritance(A, B) and Inheritance(B, C), it follows through transitivity that Inheritance(A, C)');
+            expect(explanation).toContain('  - It is a direct assertion that Inheritance(A, B)');
+            expect(explanation).toContain('  - It is a direct assertion that Inheritance(B, C)');
         });
 
         it('should generate a concise explanation', () => {
             const explanation = nar.explain(conclusionId, { format: 'concise' });
-            // The new concise format is a linear path
-            expect(explanation).toBe('Inheritance(A, B) -> Inheritance(A, C)');
+            expect(explanation).toBe('Inheritance(A, C) -> Inheritance(A, B) -> Inheritance(B, C)');
         });
 
         it('should generate a technical explanation', () => {
             const explanation = nar.explain(conclusionId, { format: 'technical' });
-            expect(explanation).toContain('Step 1: [Inheritance(A,B)] Inheritance(A, B)');
-            expect(explanation).toContain('Rule: assertion');
-            expect(explanation).toContain('Step 2: [Inheritance(A,C)] Inheritance(A, C)');
             expect(explanation).toContain('Rule: transitivity');
+            expect(explanation).toContain('Rule: assertion');
         });
 
         it('should generate a story explanation', () => {
             const explanation = nar.explain(conclusionId, { format: 'story' });
-            expect(explanation).toContain('I came to believe that A is a kind of C');
-            // Check for the core content of the premises, as order and joining words can vary
+            expect(explanation).toContain('how I came to believe that A is a kind of C');
             expect(explanation).toContain('I know that A is a kind of B');
+            expect(explanation).toContain('and that B is a kind of C');
         });
     });
 });

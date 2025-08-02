@@ -215,6 +215,40 @@ export class MetaReasoner {
         } else if (policy.maxPathLength < this.nar.config.maxPathLength) {
             policy.maxPathLength++;
         }
+
+        this._adaptRulePriorities();
+    }
+
+    /**
+     * Gets the priority scaling factor for a given derivation rule.
+     * The DerivationEngine will use this to modulate budget for rules.
+     * @param {string} ruleName
+     * @returns {number} A scaling factor, typically around 1.0.
+     */
+    getRulePriority(ruleName) {
+        const stats = this.strategyEffectiveness.get(ruleName);
+        if (!stats || stats.attempts < 10) {
+            return 1.0; // Default priority
+        }
+        const successRate = stats.successes / stats.attempts;
+        // Scale priority from 0.5 (for 0% success) to 1.5 (for 100% success)
+        return 0.5 + successRate;
+    }
+
+    _adaptRulePriorities() {
+        // This method can be used to perform more complex, periodic adjustments
+        // to rule configurations if needed. For now, the direct `getRulePriority`
+        // provides dynamic scaling.
+        const ruleEfficiencies = new Map();
+        this.strategyEffectiveness.forEach((stats, ruleName) => {
+            if (stats.attempts > 10) {
+                const successRate = stats.successes / stats.attempts;
+                ruleEfficiencies.set(ruleName, successRate);
+            }
+        });
+
+        // The DerivationEngine can now use `getRulePriority` to get these dynamic weights.
+        this.nar.emit('log', { message: 'MetaReasoner adapted rule priorities.', level: 'debug', details: Object.fromEntries(ruleEfficiencies) });
     }
 
     _adjustResourceAllocation(metrics) {

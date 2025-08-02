@@ -28,6 +28,8 @@ import { TemporalReasoner } from './managers/TemporalReasoner.js';
 
 import { MetaReasoner } from './managers/MetaReasoner.js';
 import { ExplanationSystem } from './managers/ExplanationSystem.js';
+import { GoalManagerBase } from './managers/GoalManagerBase.js';
+import { GoalManager } from './managers/GoalManager.js';
 
 
 export class NARHyper extends EventEmitter {
@@ -75,6 +77,7 @@ export class NARHyper extends EventEmitter {
     const singletonModules = {
         MetaReasoner,
         ExplanationSystem,
+        GoalManager,
     };
 
     const moduleClasses = { ...moduleSelection, ...singletonModules, ...(config.modules || {}) };
@@ -87,6 +90,7 @@ export class NARHyper extends EventEmitter {
         temporalManager: new moduleClasses.TemporalManager(this),
         metaReasoner: new moduleClasses.MetaReasoner(this),
         explanationSystem: new moduleClasses.ExplanationSystem(this),
+        goalManager: new moduleClasses.GoalManager(this),
     };
 
     Object.assign(this, modules);
@@ -97,6 +101,7 @@ export class NARHyper extends EventEmitter {
         contradictionManager: ContradictionManagerBase,
         learningEngine: LearningEngineBase,
         temporalManager: TemporalManagerBase,
+        goalManager: GoalManagerBase,
     };
 
     for (const [name, baseClass] of Object.entries(validationMap)) {
@@ -118,9 +123,9 @@ export class NARHyper extends EventEmitter {
       'revise', 'removeHyperedge'
     ];
     apiMethods.forEach(method => {
-      if (this.api[method]) {
-        this[method] = this.api[method].bind(this.api);
-      }
+        if (this.api[method]) {
+            this[method] = this.api[method].bind(this.api);
+        }
     });
 
     this.run = this.system.run.bind(this.system);
@@ -128,6 +133,7 @@ export class NARHyper extends EventEmitter {
     this.ask = this.questionHandler.ask.bind(this.questionHandler);
     this.explain = this.explanationSystem.explain.bind(this.explanationSystem);
     this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
+    this.addGoal = this.goalManager.addGoal.bind(this.goalManager);
   }
 
   createSandbox(options = {}) {

@@ -1,6 +1,7 @@
 import { TemporalManagerBase } from './TemporalManagerBase.js';
 import { TimeInterval } from '../support/TimeInterval.js';
 import { id } from '../support/utils.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 /**
  * An advanced temporal reasoner that implements Allen's Interval Algebra,
@@ -291,7 +292,7 @@ export class TemporalReasoner extends TemporalManagerBase {
      */
     _propagateConstraint(initialConstraint) {
         const propagationQueue = [initialConstraint];
-        const maxIterations = this.temporalConstraints.size; // Safety break
+        const maxIterations = this.temporalConstraints.size + 10; // Safety break
         let iterations = 0;
 
         while (propagationQueue.length > 0 && iterations < maxIterations) {
@@ -302,40 +303,71 @@ export class TemporalReasoner extends TemporalManagerBase {
 
             // Infer new relations: if (A rel1 B) and (B rel2 C), then infer (A rel3 C)
             this.temporalConstraints.forEach(existingConstraint => {
-                // Case 1: newConstraint is (A, B), existingConstraint is (B, C) -> infer (A, C)
                 if (newConstraint.event2 === existingConstraint.event1) {
-                    const composed = this._composeRelationships(newConstraint.relation, existingConstraint.relation);
-                    if (composed) {
-                        inferredRelations.push({ event1: newConstraint.event1, event2: existingConstraint.event2, relation: composed, premises: [newConstraint.id, existingConstraint.id] });
+                    // Case 1: newConstraint is (A, B), existingConstraint is (B, C) -> infer (A, C)
+                    const composedRelation = this._composeRelationships(newConstraint.relation, existingConstraint.relation);
+                    if (composedRelation) {
+                        const composedTruth = this._composeTruthValues(newConstraint, existingConstraint);
+                        inferredRelations.push({
+                            event1: newConstraint.event1,
+                            event2: existingConstraint.event2,
+                            relation: composedRelation,
+                            truth: composedTruth,
+                            premises: [newConstraint.id, existingConstraint.id]
+                        });
                     }
-                }
-                // Case 2: newConstraint is (B, C), existingConstraint is (A, B) -> infer (A, C)
-                if (newConstraint.event1 === existingConstraint.event2) {
-                    const composed = this._composeRelationships(existingConstraint.relation, newConstraint.relation);
-                    if (composed) {
-                        inferredRelations.push({ event1: existingConstraint.event1, event2: newConstraint.event2, relation: composed, premises: [existingConstraint.id, newConstraint.id] });
+                } else if (newConstraint.event1 === existingConstraint.event2) {
+                    // Case 2: newConstraint is (B, C), existingConstraint is (A, B) -> infer (A, C)
+                    const composedRelation = this._composeRelationships(existingConstraint.relation, newConstraint.relation);
+                    if (composedRelation) {
+                        const composedTruth = this._composeTruthValues(existingConstraint, newConstraint);
+                        inferredRelations.push({
+                            event1: existingConstraint.event1,
+                            event2: newConstraint.event2,
+                            relation: composedRelation,
+                            truth: composedTruth,
+                            premises: [existingConstraint.id, newConstraint.id]
+                        });
                     }
                 }
             });
 
-            inferredRelations.forEach(c => {
-                // Don't add a constraint if an equal or more specific one already exists.
-                const existing = this.inferRelationship(c.event1, c.event2);
-                if (existing && JSON.stringify(existing.relation) === JSON.stringify(c.relation)) {
-                    return;
+            inferredRelations.forEach(inferred => {
+                const existing = this.inferRelationship(inferred.event1, inferred.event2);
+                if (existing && JSON.stringify(existing.relation) === JSON.stringify(inferred.relation)) {
+                    return; // Avoid adding duplicate constraints
                 }
 
-                const newId = this.nar.api.addHyperedge('TemporalRelation', [c.event1, c.event2, c.relation], { premises: c.premises, derivedBy: 'TransitiveTemporal' });
-                const newlyAddedConstraint = { id: newId, event1: c.event1, event2: c.event2, relation: c.relation, premises: c.premises };
+                const newId = this.nar.api.addHyperedge('TemporalRelation', [inferred.event1, inferred.event2, inferred.relation], {
+                    truth: inferred.truth,
+                    premises: inferred.premises,
+                    derivedBy: 'TransitiveTemporal'
+                });
 
-                this.temporalConstraints.set(newId, newlyAddedConstraint);
-                propagationQueue.push(newlyAddedConstraint); // Add to queue for further propagation
+                if (newId) {
+                    const newConstraintData = {
+                        id: newId,
+                        event1: inferred.event1,
+                        event2: inferred.event2,
+                        relation: inferred.relation,
+                        truth: inferred.truth,
+                        premises: inferred.premises
+                    };
+                    this.temporalConstraints.set(newId, newConstraintData);
+                    propagationQueue.push(newConstraintData);
+                }
             });
         }
 
-        if (iterations >= maxIterations && maxIterations > 0) {
+        if (iterations >= maxIterations && maxIterations > 10) {
             this.nar.emit('log', { message: 'Temporal propagation reached max iterations.', level: 'warn' });
         }
+    }
+
+    _composeTruthValues(constraint1, constraint2) {
+        const t1 = constraint1.truth || this.nar.state.hypergraph.get(constraint1.id)?.getTruth() || TruthValue.certain();
+        const t2 = constraint2.truth || this.nar.state.hypergraph.get(constraint2.id)?.getTruth() || TruthValue.certain();
+        return TruthValue.transitive(t1, t2); // Use the same logic as transitive derivation
     }
 
     _composeRelationships(rel1, rel2) {
@@ -475,14 +507,16 @@ export class TemporalReasoner extends TemporalManagerBase {
     }
 
     /**
-     * Projects what might be true at a future time based on current temporal knowledge.
-     * @param {string} term - The starting term for the projection.
-     * @param {number} milliseconds - How far into the future to project (in ms).
+     * Predicts what might be true at a future time based on current temporal knowledge.
+     * Aligns with the `predict` method in the base class.
+     * @param {string} term - The starting term for the prediction.
+     * @param {string} pattern - Not directly used here, but part of the base signature. Kept for compatibility.
+     * @param {number} horizon - How far into the future to project (in ms).
      * @returns {Array<object>} A list of predicted future events with confidence.
      */
-    project(term, milliseconds) {
+    predict(term, pattern, horizon) {
         const now = Date.now();
-        const futureTime = now + milliseconds;
+        const futureTime = now + horizon;
         const predictions = new Map(); // Use map to avoid duplicate predictions
 
         // Find all constraints involving the given term
@@ -506,7 +540,7 @@ export class TemporalReasoner extends TemporalManagerBase {
                 const sourceInterval = Array.from(this.intervals.values()).find(i => i.term === sourceEvent && i.end >= now);
 
                 if (sourceInterval) {
-                     const confidence = this._calculateProjectionConfidence(relation, sourceInterval, futureTime);
+                     const confidence = this._calculatePredictionConfidence(relation, sourceInterval, futureTime);
 
                      if (confidence > 0.2) { // Confidence threshold
                         const predictedHyperedge = this.nar.state.hypergraph.get(id('Term', [predictedEvent]));
@@ -541,7 +575,7 @@ export class TemporalReasoner extends TemporalManagerBase {
         return Array.from(predictions.values()).sort((a, b) => b.confidence - a.confidence);
     }
 
-    _calculateProjectionConfidence(relation, sourceInterval, futureTime) {
+    _calculatePredictionConfidence(relation, sourceInterval, futureTime) {
         const timeToFuture = Math.max(0, futureTime - sourceInterval.end);
         const decay = Math.exp(-timeToFuture / (this.nar.config.temporalHorizon * 1000));
 

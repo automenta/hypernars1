@@ -50,15 +50,17 @@ export class ExplanationSystem {
 
         switch (format) {
             case 'json':
-                return JSON.stringify(path, null, 2);
+                return JSON.stringify(path[0], null, 2); // Return the whole tree
             case 'visual':
-                return this._formatVisualExplanation(path);
+                return this._formatVisualExplanation(path[0]);
             case 'story':
-                return this._generateStoryExplanation(path);
+                return this._generateStoryExplanation(path[0]);
             case 'concise':
-                return path.map(step => this._formatHyperedge(step)).join(' -> ');
+                const flatPath = [];
+                this._flattenTree(path[0], flatPath);
+                return flatPath.map(step => this._formatHyperedge(step)).join(' -> ');
             case 'technical':
-                return this._formatTechnicalExplanation(path);
+                return this._formatTechnicalExplanation(path[0]);
             case 'detailed':
             default:
                 return this._formatDetailedExplanation(hyperedgeId, path, options);
@@ -68,7 +70,7 @@ export class ExplanationSystem {
     _formatCausalExplanation(path) {
         let explanation = "The belief that ";
         const conclusion = path[path.length - 1];
-        explanation += `${this._formatHyperedge(conclusion)} is held with confidence ${this._formatConfidence(conclusion.truth.confidence)}. This is caused by the following chain of reasoning:\n`;
+        explanation += `${this._formatHyperedge(conclusion)} is held with confidence ${this._formatConfidence(conclusion.truth)}. This is caused by the following chain of reasoning:\n`;
         path.slice().reverse().forEach((step, i) => {
             explanation += `${'  '.repeat(i)}-> Because of the belief that ${this._formatHyperedge(step)}.\n`;
         });
@@ -113,7 +115,7 @@ export class ExplanationSystem {
 
         if (conclusionInSandbox.length > 0) {
             const newTruth = conclusionInSandbox[0].truth;
-            explanation += `The conclusion still holds, but its confidence changes to ${this._formatConfidence(newTruth.confidence)}.`;
+            explanation += `The conclusion still holds, but its confidence changes to ${this._formatConfidence(newTruth)}.`;
         } else {
             explanation += "The original conclusion no longer holds.";
             // A more advanced version would explain what new conclusions are reached instead.
@@ -136,7 +138,7 @@ export class ExplanationSystem {
         if (!strongestBelief) return `No belief found for ${hyperedgeId}`;
 
         let explanation = `Justification for: ${this._formatHyperedge(hyperedge)}\n`;
-        explanation += `Overall Confidence: ${this._formatConfidence(strongestBelief.truth.confidence)} (f: ${strongestBelief.truth.frequency.toFixed(2)})\n\n`;
+        explanation += `Overall Confidence: ${this._formatConfidence(strongestBelief.truth)} (f: ${strongestBelief.truth.frequency.toFixed(2)})\n\n`;
 
         // 1. Find supporting evidence from its derivation path
         const derivationPath = [];
@@ -146,7 +148,7 @@ export class ExplanationSystem {
         if (supportingPremises.length > 0) {
             explanation += "Supporting Evidence (from derivation):\n";
             supportingPremises.forEach(premise => {
-                explanation += `  - Because of: ${this._formatHyperedge(premise)} (Confidence: ${this._formatConfidence(premise.truth.confidence)})\n`;
+                explanation += `  - Because of: ${this._formatHyperedge(premise)} (Confidence: ${this._formatConfidence(premise.truth)})\n`;
             });
         } else {
             explanation += "Supporting Evidence: This appears to be a base assertion.\n";
@@ -170,25 +172,38 @@ export class ExplanationSystem {
         return explanation;
     }
 
-    _formatVisualExplanation(path) {
-        const nodes = path.map((step, i) => ({
-            id: step.id,
-            label: `${step.type}(${step.args.slice(0, 2).join(',')}${step.args.length > 2 ? ',...' : ''})`,
-            level: i,
-            truth: step.truth
-        }));
+    _flattenTree(node, flatPath) {
+        if (!node) return;
+        flatPath.push(node);
+        if (node.premises) {
+            node.premises.forEach(p => this._flattenTree(p, flatPath));
+        }
+    }
 
+    _formatVisualExplanation(rootNode) {
+        const nodes = [];
         const edges = [];
-        path.forEach(step => {
-            if (step.premises) {
-                step.premises.forEach(premiseId => {
-                    if (path.some(p => p.id === premiseId)) { // Only draw edges to nodes in the current path
-                        edges.push({ from: premiseId, to: step.id, label: step.derivationRule });
-                    }
+        const queue = [rootNode];
+        const visited = new Set();
+
+        while(queue.length > 0) {
+            const node = queue.shift();
+            if (visited.has(node.id)) continue;
+            visited.add(node.id);
+
+            nodes.push({
+                id: node.id,
+                label: `${node.type}(${node.args.slice(0, 2).join(',')}${node.args.length > 2 ? ',...' : ''})`,
+                truth: node.truth
+            });
+
+            if (node.premises) {
+                node.premises.forEach(premise => {
+                    edges.push({ from: premise.id, to: node.id, label: node.derivationRule });
+                    queue.push(premise);
                 });
             }
-        });
-
+        }
         return { nodes, edges };
     }
 
@@ -204,23 +219,28 @@ export class ExplanationSystem {
         const strongestBelief = hyperedge.getStrongestBelief();
         if (!strongestBelief) return;
 
-        const premises = strongestBelief.premises || [];
+        const premiseIds = strongestBelief.premises || [];
         const derivationRule = strongestBelief.derivedBy || 'assertion';
 
-        // Add current step to the front of the path
+        const premiseNodes = [];
+        if (premiseIds.length > 0) {
+            for (const premiseId of premiseIds) {
+                const premisePath = [];
+                this._traceDerivation(premiseId, premisePath, depth - 1, visited);
+                if (premisePath.length > 0) {
+                    premiseNodes.push(premisePath[0]); // Get the root of the sub-tree
+                }
+            }
+        }
+
         path.unshift({
             id: hyperedge.id,
             type: hyperedge.type,
             args: hyperedge.args,
             truth: strongestBelief.truth,
             derivationRule,
-            premises
+            premises: premiseNodes // Store the fully formed premise nodes
         });
-
-        // Recurse on the first premise to build a linear path for simplicity
-        if (premises.length > 0) {
-            this._traceDerivation(premises[0], path, depth - 1, visited);
-        }
     }
 
     _formatDetailedExplanation(hyperedgeId, path, options) {
@@ -228,28 +248,16 @@ export class ExplanationSystem {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return "Hyperedge not found";
 
-        const conclusion = path[path.length - 1];
+        const conclusion = path[0]; // Path is now conclusion-first
         let explanation = `CONCLUSION: ${this._formatHyperedge(conclusion)}\n`;
 
         if (includeConfidence) {
-            explanation += `Confidence: ${this._formatConfidence(conclusion.truth.confidence)}\n\n`;
+            explanation += `Confidence: ${this._formatConfidence(conclusion.truth)}\n\n`;
         }
 
-        explanation += "PRIMARY REASONING PATH:\n";
-        path.forEach((step, i) => {
-            const rule = step.derivationRule || 'assertion';
-            const template = this.explanationTemplates[rule] || this.explanationTemplates['default'];
+        explanation += "REASONING PATH:\n";
+        explanation += this._formatExplanationTree(conclusion, 0);
 
-            const premise1 = step.premises?.[0] ? this._formatHyperedge(this.nar.state.hypergraph.get(step.premises[0])) : 'a previous belief';
-            const premise2 = step.premises?.[1] ? this._formatHyperedge(this.nar.state.hypergraph.get(step.premises[1])) : 'another belief';
-
-            const formattedStep = template
-                .replace('{conclusion}', this._formatHyperedge(step))
-                .replace('{premise1}', premise1)
-                .replace('{premise2}', premise2);
-
-            explanation += `${i + 1}. ${formattedStep}\n`;
-        });
 
         // Add alternative perspectives / contradictions
         if (hyperedge.beliefs.length > 1) {
@@ -263,7 +271,7 @@ export class ExplanationSystem {
             if (alternatives.length > 0) {
                 explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1} total):\n`;
                 alternatives.forEach((alt, i) => {
-                    explanation += `${i + 1}. A belief with confidence ${this._formatConfidence(alt.truth.confidence)} also exists.\n`;
+                    explanation += `${i + 1}. A belief with confidence ${this._formatConfidence(alt.truth)} also exists.\n`;
                     if (alt.path && alt.path.length > 0) {
                         explanation += `   Reasoning: ${alt.path.map(s => this._formatHyperedge(s)).join(' → ')}\n`;
                     }
@@ -290,21 +298,47 @@ export class ExplanationSystem {
         return [];
     }
 
-    _formatTechnicalExplanation(path) {
-        return path.map((step, i) =>
+    _formatExplanationTree(node, level) {
+        const indent = '  '.repeat(level);
+        const rule = node.derivationRule || 'assertion';
+        const template = this.explanationTemplates[rule] || this.explanationTemplates['default'];
+
+        const premise1 = node.premises?.[0] ? this._formatHyperedge(node.premises[0]) : 'a previous belief';
+        const premise2 = node.premises?.[1] ? this._formatHyperedge(node.premises[1]) : 'another belief';
+
+        let formattedStep = template
+            .replace('{conclusion}', this._formatHyperedge(node))
+            .replace('{premise1}', premise1)
+            .replace('{premise2}', premise2);
+
+        let output = `${indent}- ${formattedStep} (Confidence: ${this._formatConfidence(node.truth)})\n`;
+
+        if (node.premises && node.premises.length > 0) {
+            node.premises.forEach(premiseNode => {
+                output += this._formatExplanationTree(premiseNode, level + 1);
+            });
+        }
+
+        return output;
+    }
+
+    _formatTechnicalExplanation(rootNode) {
+        const flatPath = [];
+        this._flattenTree(rootNode, flatPath);
+        return flatPath.map((step, i) =>
             `Step ${i + 1}: [${step.id}] ${step.type}(${step.args.join(', ')}) | ` +
-            `Truth(f: ${step.truth.frequency.toFixed(2)}, c: ${step.truth.confidence.toFixed(2)}) | ` +
-            `Rule: ${step.derivationRule} | Premises: [${step.premises.join(', ')}]`
+            `Truth(f: ${step.truth.frequency.toFixed(2)}, c: ${step.truth.confidence.toFixed(2)}, d: ${(step.truth.doubt || 0).toFixed(2)}) | ` +
+            `Rule: ${step.derivationRule} | Premises: [${step.premises.map(p => p.id).join(', ')}]`
         ).join('\n');
     }
 
-    _generateStoryExplanation(path) {
-        if (!path || path.length === 0) return "I don't have a story for that.";
-        const conclusion = path[path.length - 1];
+    _generateStoryExplanation(rootNode) {
+        if (!rootNode) return "I don't have a story for that.";
+        const conclusion = rootNode;
 
         let story = `Let me tell you how I came to believe that ${this._formatTermForStory(conclusion)}. `;
-        if (path.length > 1) {
-            const premises = path.slice(0, -1).map(p => this._formatTermForStory(p));
+        if (conclusion.premises && conclusion.premises.length > 0) {
+            const premises = conclusion.premises.map(p => this._formatTermForStory(p));
             story += `It's based on a few things I know. For instance, I know that ${premises.join(' and that ')}. `;
         }
         story += `From this, it is reasonable to conclude that ${this._formatTermForStory(conclusion)}.`;
@@ -331,11 +365,20 @@ export class ExplanationSystem {
         }
     }
 
-    _formatConfidence(confidence) {
-        if (confidence >= 0.9) return `Very High (${(confidence * 100).toFixed(0)}%)`;
-        if (confidence >= 0.75) return `High (${(confidence * 100).toFixed(0)}%)`;
-        if (confidence >= 0.5) return `Moderate (${(confidence * 100).toFixed(0)}%)`;
-        if (confidence >= 0.25) return `Low (${(confidence * 100).toFixed(0)}%)`;
-        return `Very Low (${(confidence * 100).toFixed(0)}%)`;
+    _formatConfidence(truth) {
+        const confidence = truth.confidence;
+        const doubt = truth.doubt || 0;
+        let description;
+
+        if (confidence >= 0.9) description = `Very High (${(confidence * 100).toFixed(0)}%)`;
+        else if (confidence >= 0.75) description = `High (${(confidence * 100).toFixed(0)}%)`;
+        else if (confidence >= 0.5) description = `Moderate (${(confidence * 100).toFixed(0)}%)`;
+        else if (confidence >= 0.25) description = `Low (${(confidence * 100).toFixed(0)}%)`;
+        else description = `Very Low (${(confidence * 100).toFixed(0)}%)`;
+
+        if (doubt > 0.6) description += " (significant doubt)";
+        else if (doubt > 0.3) description += " (some doubt)";
+
+        return description;
     }
 }
