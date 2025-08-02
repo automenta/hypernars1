@@ -19,6 +19,7 @@ class NALParserError extends Error {
 export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     constructor(nar) {
         super(nar);
+        // This operator list is now used inside the new parser logic
         this.operators = [
             { symbol: '==>', precedence: 4, type: 'Implication' },
             { symbol: '<=>', precedence: 4, type: 'Equivalence' },
@@ -74,7 +75,6 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
         try {
             let results;
-            // Direct ID lookup if it's a simple string without operators/wildcards
             if (!pattern.match(/[<*?&|]/)) {
                 const hyperedge = this.nar.state.hypergraph.get(pattern);
                 if (hyperedge && hyperedge.getTruth().expectation() >= minExpectation) {
@@ -88,14 +88,12 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 return [];
             }
 
-            // Handle simple wildcard queries with the old logic for now.
             if (pattern.includes('*') && !pattern.includes('<')) {
                  results = this._wildcardQuery(pattern, options);
             } else {
                 results = this.queryWithBinding(pattern, options);
             }
 
-            // Sort and limit results
             this._sortQueryResults(results, sortBy);
             return results.slice(0, limit);
         } catch (e) {
@@ -103,7 +101,6 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             return [];
         } finally {
             const duration = Date.now() - startTime;
-            // Optionally record query performance
         }
     }
 
@@ -125,19 +122,11 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         return results.filter(r => r.expectation >= minExpectation);
     }
 
-    /**
-     * Enhanced query processing with variable binding and constraint satisfaction,
-     * based on the `enhance.b.md` and `enhance.d.md` proposals.
-     * @param {string} pattern - The query pattern, e.g., '<$x --> bird>'.
-     * @param {object} options - Query options like { limit, minExpectation }.
-     * @returns {Array} A list of matching results with bindings.
-     */
     queryWithBinding(pattern, options = {}) {
         const { minExpectation = 0.5 } = options;
         const results = [];
         const parsedPattern = this.parse(pattern);
 
-        // Find all hyperedges that could potentially match the pattern's top-level type.
         const candidateEdges = this.nar.state.index.byType.get(parsedPattern.type) || new Set();
 
         for (const edgeId of candidateEdges) {
@@ -163,52 +152,37 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
     _matchRecursive(patternNode, hyperedgeNode, bindings) {
         if (!patternNode || !hyperedgeNode) return false;
+        if (patternNode.type !== hyperedgeNode.type) return false;
+        if (patternNode.args.length !== hyperedgeNode.args.length) return false;
 
-        // Type mismatch
-        if (patternNode.type !== hyperedgeNode.type) {
-            return false;
-        }
-
-        // Argument count mismatch
-        if (patternNode.args.length !== hyperedgeNode.args.length) {
-            return false;
-        }
-
-        // Recursively match arguments
         for (let i = 0; i < patternNode.args.length; i++) {
             const patternArg = patternNode.args[i];
-            const hyperedgeArgId = hyperedgeNode.args[i]; // This is an ID string
+            const hyperedgeArgId = hyperedgeNode.args[i];
 
             if (typeof patternArg === 'object' && patternArg.type === 'Variable') {
                 const varName = patternArg.args[0];
                 if (bindings.has(varName)) {
-                    // If variable is already bound, it must match the current value (which is an ID)
-                    if (bindings.get(varName) !== hyperedgeArgId) {
-                        return false;
-                    }
+                    if (bindings.get(varName) !== hyperedgeArgId) return false;
                 } else {
-                    // New binding: bind the variable name to the hyperedge argument ID
                     bindings.set(varName, hyperedgeArgId);
                 }
             } else if (typeof patternArg === 'object' && patternArg.type === 'Term') {
-                if (patternArg.args[0] !== hyperedgeArgId) {
+                const expectedId = id(patternArg.type, patternArg.args);
+                // A hyperedge arg can be a simple string ('bird') or a full term ID ('Term(bird)')
+                // The pattern will always be a parsed term structure.
+                // We need to match against both possibilities.
+                if (expectedId !== hyperedgeArgId && patternArg.args[0] !== hyperedgeArgId) {
                     return false;
                 }
             } else if (typeof patternArg === 'object' && patternArg.type) {
-                // Nested structure: patternArg is a parsed object, hyperedgeArgId is the ID of the nested hyperedge
                 const nestedHyperedge = this.nar.state.hypergraph.get(hyperedgeArgId);
                 if (!nestedHyperedge || !this._matchRecursive(patternArg, nestedHyperedge, bindings)) {
                     return false;
                 }
             } else {
-                // Simple term match: patternArg is a string, hyperedgeArgId is a string
-                if (patternArg !== hyperedgeArgId) {
-                    return false;
-                }
+                if (patternArg !== hyperedgeArgId) return false;
             }
         }
-
-        // If all arguments matched, the pattern matches
         return true;
     }
 
@@ -243,7 +217,6 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         let priority = 1.0;
         let content = expression.trim();
 
-        // Match truth value and priority, which can be at the end
         const truthMatch = content.match(/(?:%([\d.]+);([\d.]+)(?:;([\d.]+))?%|#([\d.]+)#)\s*$/);
         if (truthMatch) {
             const freqStr = truthMatch[1];
@@ -260,57 +233,52 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 truth = new TruthValue(frequency, confidence);
             }
 
-            if (truthMatch[3]) priority = parseFloat(truthMatch[3]); // Priority from truth value
-            if (truthMatch[4]) priority = parseFloat(truthMatch[4]); // Priority from hash syntax
+            if (truthMatch[3]) priority = parseFloat(truthMatch[3]);
+            if (truthMatch[4]) priority = parseFloat(truthMatch[4]);
 
             content = content.substring(0, truthMatch.index).trim();
         }
 
-        // Handle sentence punctuation (e.g., belief assertions ending in '.')
         if (content.endsWith('.')) {
             content = content.slice(0, -1).trim();
         }
 
-        // Handle statements enclosed in <...>
         if (content.startsWith('<') && content.endsWith('>')) {
             content = content.slice(1, -1).trim();
         }
 
         try {
-            return this._parseRecursive(content, truth, priority);
+            const parsed = this._parseNALExpression(content);
+            parsed.truth = truth;
+            parsed.priority = priority;
+            return parsed;
         } catch (e) {
             if (e instanceof NALParserError) {
-                throw e; // Re-throw our custom errors
+                throw e;
             }
-            // Wrap other errors for consistency
             throw new NALParserError(`Failed to parse expression: ${e.message}`, { content });
         }
     }
 
-    _parseRecursive(content, truth, priority) {
+    _parseNALExpression(content) {
         content = content.trim();
 
         if (content.startsWith('!')) {
-            const negatedContent = content.substring(1).trim();
             return {
                 type: 'Negation',
-                args: [this._parseRecursive(negatedContent, truth, priority)],
-                truth,
-                priority
+                args: [this._parseNALExpression(content.substring(1))],
             };
         }
 
-        // Check for balanced parentheses
         let balance = 0;
         for (const char of content) {
             if (char === '(') balance++;
             else if (char === ')') balance--;
         }
         if (balance !== 0) {
-            throw new Error(`Mismatched parentheses in expression: ${content}`);
+            throw new NALParserError(`Mismatched parentheses in expression: ${content}`);
         }
 
-        // Handle parenthesis stripping
         if (content.startsWith('(') && content.endsWith(')')) {
             let balance = 0;
             let isPaired = true;
@@ -332,9 +300,10 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         let inQuotes = false;
 
         for (let i = 0; i < content.length; i++) {
-            if (content[i] === '(') depth++;
-            else if (content[i] === ')') depth--;
-            else if (content[i] === '"' || content[i] === "'") inQuotes = !inQuotes;
+            const char = content[i];
+            if (char === '(' || char === '[' || char === '{') depth++;
+            else if (char === ')' || char === ']' || char === '}') depth--;
+            else if (char === '"' || char === "'") inQuotes = !inQuotes;
 
             if (depth === 0 && !inQuotes) {
                 for (const op of this.operators) {
@@ -353,64 +322,31 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             return {
                 type: bestOp.type,
                 args: [
-                    this._parseRecursive(left, truth, priority),
-                    this._parseRecursive(right, truth, priority)
+                    this._parseNALExpression(left),
+                    this._parseNALExpression(right)
                 ],
-                truth,
-                priority
             };
         }
 
-        return this._parseTerm(content, truth, priority);
-    }
-
-    _parseTerm(content, truth, priority) {
-        // Handle product terms: (*, a, b, c)
         if (content.startsWith('(*') && content.endsWith(')')) {
             const terms = content.slice(2, -1).split(',').map(t => t.trim()).filter(t => t);
-            return { type: 'Product', args: terms, truth, priority };
+            return { type: 'Product', args: terms };
         }
 
-        // Handle image terms: (/, a, b) or (*, a, b, c)
         const imageMatch = content.match(/^\((\/|\*)\s*,\s*([^,]+)\s*,\s*([^)]+)\)/);
         if (imageMatch) {
             const isExtensional = imageMatch[1] === '/';
             return {
                 type: isExtensional ? 'ImageExt' : 'ImageInt',
                 args: [imageMatch[2].trim(), imageMatch[3].trim()],
-                truth,
-                priority
             };
         }
 
         if (content.startsWith('$') || content.startsWith('?')) {
-            const match = content.match(/^([$?]\w+)(?:\{(.*)\})?$/);
-            if (match) {
-                const [, varName, constraintsStr] = match;
-                const constraints = constraintsStr ? this._parseConstraints(constraintsStr) : {};
-                return { type: 'Variable', args: [varName], constraints, truth, priority };
-            }
-            // Fallback for simple variables without constraints
-            return { type: 'Variable', args: [content], constraints: {}, truth, priority };
+            return { type: 'Variable', args: [content] };
         }
 
-        // Default to a simple term
-        return { type: 'Term', args: [content], truth, priority };
-    }
-
-    _parseConstraints(constraintsStr) {
-        const constraints = {};
-        const constraintPairs = constraintsStr.split(',');
-        for (const pair of constraintPairs) {
-            const parts = pair.split('=');
-            if (parts.length === 2) {
-                const key = parts[0].trim();
-                const value = parts[1].trim();
-                // A more advanced implementation would parse the value type (number, bool, etc.)
-                constraints[key] = value;
-            }
-        }
-        return constraints;
+        return { type: 'Term', args: [content] };
     }
 
     _addParsedStructure(parsed, options) {

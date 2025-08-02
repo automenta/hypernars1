@@ -29,16 +29,13 @@ export class Hyperedge {
         timestamp: Date.now()
     };
 
-    // Add the new belief to the list
     this.beliefs.push(newBelief);
 
-    // Sort beliefs by budget priority and prune to capacity
     this.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
     if (this.beliefs.length > beliefCapacity) {
         this.beliefs = this.beliefs.slice(0, beliefCapacity);
     }
 
-    // Always signal an update occurred
     return { newBelief, needsUpdate: true };
   }
 

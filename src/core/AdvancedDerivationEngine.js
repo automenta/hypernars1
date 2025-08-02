@@ -6,17 +6,10 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   constructor(nar) {
     super(nar);
     this.rules = new Map();
-    this.inferenceCount = 0; // For meta-reasoning
+    this.inferenceCount = 0;
     this._registerDefaultRules();
   }
 
-  /**
-   * Register a custom derivation rule
-   * @param {string} name - Rule name
-   * @param {Function} condition - When to apply (returns boolean)
-   * @param {Function} action - What to do when applied
-   * @param {Object} [options] - Rule options
-   */
   registerRule(name, condition, action, options = {}) {
     this.rules.set(name, {
       condition,
@@ -30,10 +23,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     this._sortRules();
   }
 
-  /**
-   * Evaluates and updates rule priorities based on statistics from the Learning Engine.
-   * This creates a feedback loop where the system learns to prioritize effective rules.
-   */
   evaluateRules() {
     const stats = this.nar.learningEngine.getRuleProductivityStats();
     if (!stats) return;
@@ -41,18 +30,15 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     let rulesChanged = false;
     for (const [name, rule] of this.rules) {
         const ruleStats = stats.get(name);
-        if (ruleStats && ruleStats.attempts > 5) { // Only adjust after a few attempts
+        if (ruleStats && ruleStats.attempts > 5) {
             const newSuccessRate = ruleStats.successes / ruleStats.attempts;
 
-            // Smoothly update the success rate to avoid drastic changes
             const oldSuccessRate = rule.successRate;
             rule.successRate = oldSuccessRate * 0.9 + newSuccessRate * 0.1;
 
-            // Recalculate priority
             rule.priority = rule.successRate * 0.7 + rule.applicability * 0.3;
             rulesChanged = true;
         } else {
-            // Slowly decay priority of unused or untested rules
             rule.priority *= 0.995;
         }
     }
@@ -62,11 +48,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     }
   }
 
-  /**
-   * Get active rules for the current event/context
-   * @param {Object} event - The current event
-   * @returns {Array} Active rules
-   */
   getActiveRules(event) {
     return [...this.rules.values()]
       .filter(rule => rule.condition(event))
@@ -96,12 +77,10 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     const hyperedge = this.nar.state.hypergraph.get(target);
     if (!hyperedge || activation <= this.nar.config.inferenceThreshold || pathLength > this.nar.config.maxDerivationDepth) return;
 
-    // Get active and enabled rules
     const activeRules = [...this.rules.values()].filter(rule => rule.enabled !== false && rule.condition(event));
 
     if (activeRules.length === 0) return;
 
-    // Probabilistic selection of one rule
     const totalPriority = activeRules.reduce((sum, rule) => sum + rule.priority, 0);
     if (totalPriority === 0) return;
 
@@ -116,30 +95,23 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         }
     }
 
-    // Fallback to the last rule if something goes wrong with floating point math
     if (!selectedRule) {
         selectedRule = activeRules[activeRules.length - 1];
     }
 
-    // Apply only the selected rule
     if (selectedRule) {
-        // Find the name of the rule to pass to the action
         for (const [name, ruleObject] of this.rules.entries()) {
             if (ruleObject === selectedRule) {
                 selectedRule.action(hyperedge, event, name);
                 selectedRule.lastUsed = Date.now();
                 selectedRule.usageCount++;
-                this.inferenceCount++; // Increment inference counter
+                this.inferenceCount++;
                 break;
             }
         }
     }
   }
 
-  /**
-   * Returns the number of inferences made since the last call and resets the counter.
-   * @returns {number}
-   */
   getAndResetInferenceCount() {
       const count = this.inferenceCount;
       this.inferenceCount = 0;
@@ -169,7 +141,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     const currentHyperedge = this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate]));
 
 
-    // Case 1: Forward Chaining. Current is <S->P>. Find <P->Q>. Derive <S->Q>.
     (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
         const forwardChainEdge = this.nar.state.hypergraph.get(termId);
         if (forwardChainEdge?.type === 'Inheritance' && getArgId(forwardChainEdge.args[0]) === predicateId) {
@@ -185,7 +156,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         }
     });
 
-    // Case 2: Backward Chaining. Current is <S->P>. Find <R->S>. Derive <R->P>.
     (this.nar.state.index.byArg.get(subjectId) || new Set()).forEach(termId => {
         const backwardChainEdge = this.nar.state.hypergraph.get(termId);
         if (backwardChainEdge?.type === 'Inheritance' && getArgId(backwardChainEdge.args[1]) === subjectId) {
@@ -245,14 +215,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     }
   }
 
-  /**
-   * Derives an inductive similarity statement from two inheritance statements.
-   * E.g., if <A --> C> and <B --> C>, then <A <-> B> (A is similar to B).
-   * @param {string} subject - The subject of the first inheritance (A).
-   * @param {string} predicateId - The predicate (C).
-   * @param {string} ruleName - The name of the rule being applied.
-   * @param {Object} event - The current event object.
-   */
   _findAndDeriveInductionFromInheritance(subject, predicateId, ruleName, event) {
     (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
       const other = this.nar.state.hypergraph.get(termId);
@@ -299,12 +261,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     });
   }
 
-  /**
-   * Derives an inductive similarity statement from two inheritance statements.
-   * E.g., if <A --> C> and <B --> C>, then <A <-> B> (A is similar to B).
-   * @param {Object} context - The context object containing terms and premises.
-   * @param {Object} event - The current event object.
-   */
   _performInductiveSimilarityDerivation(context, event) {
     const { term1, term2, predicate, premise1, premise2 } = context;
     const { budget, pathHash, pathLength } = event;
@@ -383,11 +339,9 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
       const eventHyperedge = this.nar.state.hypergraph.get(event.target);
       if (!eventHyperedge) return;
 
-      // Find all temporal relations that conclude with our premise: (X --rel1--> P)
       (this.nar.state.index.byArg.get(premiseId) || new Set()).forEach(termId => {
           const middle = this.nar.state.hypergraph.get(termId);
 
-          // Ensure it's a temporal relation ending in our premise
           if (middle?.type === 'TemporalRelation' && getArgId(middle.args[1]) === premiseId) {
               const firstTerm = middle.args[0];
               const firstRelation = middle.args[2];
@@ -395,7 +349,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
               const composedRelations = this._composeTemporalRelations(firstRelation, relation);
               if (composedRelations) {
                   composedRelations.forEach(newRelation => {
-                      // Derive the new transitive relation: (firstTerm --new_relation--> conclusion)
                       this.nar.api.addHyperedge('TemporalRelation', [firstTerm, conclusion, newRelation], {
                           truth: TruthValue.transitive(middle.getTruth(), eventHyperedge.getTruth()),
                           budget: event.budget.scale(0.7),

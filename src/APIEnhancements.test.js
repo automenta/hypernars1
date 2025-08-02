@@ -27,8 +27,8 @@ describe('API Enhancements', () => {
 
         console.log('Hypergraph state after run:', nar.saveState());
 
-        // Query for the derived belief
-        const derivedBeliefs = nar.query('Inheritance(tweety,flyer)');
+        // Query for the derived belief using the correct NAL syntax
+        const derivedBeliefs = nar.query('<tweety --> flyer>');
         expect(derivedBeliefs.length).toBeGreaterThan(0);
         const conclusionId = derivedBeliefs[0].id;
         const explanation = nar.explain(conclusionId, {
@@ -38,6 +38,13 @@ describe('API Enhancements', () => {
 
         expect(explanation).toContain('Counterfactual analysis');
         expect(explanation).toContain('If we assume "<tweety --> penguin>." instead of');
+    });
+
+    it('should find a directly added complex term', () => {
+        const nar = new NARHyper({ useAdvanced: true });
+        nar.nal('<tweety --> flyer>.');
+        const results = nar.query('<tweety --> flyer>');
+        expect(results.length).toBe(1);
     });
 
     it('should get and resolve contradictions', () => {

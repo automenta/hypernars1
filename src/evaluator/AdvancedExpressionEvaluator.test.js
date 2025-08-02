@@ -34,8 +34,9 @@ describe('AdvancedExpressionEvaluator', () => {
         expect(result.args[0].type).toBe('Negation');
         const inner = result.args[0].args[0];
         expect(inner.type).toBe('Inheritance');
-        expect(inner.truth.frequency).toBe(0.9);
-        expect(inner.truth.confidence).toBe(0.9);
+        // The truth value belongs to the top-level statement, not the inner one.
+        expect(result.truth.frequency).toBe(0.9);
+        expect(result.truth.confidence).toBe(0.9);
     });
 
     it('should handle negation with default truth value', () => {

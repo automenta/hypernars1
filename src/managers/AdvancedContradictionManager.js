@@ -3,56 +3,10 @@ import { TruthValue } from '../support/TruthValue.js';
 import { Hyperedge } from '../support/Hyperedge.js';
 import { Budget } from '../support/Budget.js';
 
-/**
- * @file Advanced Contradiction Manager for HyperNAR
- * @description Implements the comprehensive contradiction handling system for HyperNAR.
- *
- * At its core, HyperNAR's approach to contradictions is fundamentally different from
- * traditional logic systems. Instead of treating contradictions as errors that invalidate
- * the system, it views them as a natural and essential part of reasoning with incomplete
- * and uncertain real-world knowledge. Contradictions are valuable signals that point to
- * areas of conflict in the system's knowledge that need refinement.
- *
- * The process can be broken down into four main stages:
- *
- * ### 1. Detection
- * A contradiction is detected when two beliefs about the **same concept** have strongly
- * opposing truth values (e.g., one has a high frequency, the other has a low frequency,
- * and both are held with high confidence). This detection happens automatically whenever
- * a belief is revised with new evidence.
- *
- * ### 2. Analysis
- * Once a contradiction is detected, the system performs a detailed analysis. It gathers
- * all available information: the conflicting beliefs, their truth values, their budgets
- * (priority/importance), and any supporting evidence. It calculates an "evidence strength"
- * for each conflicting belief and then suggests a resolution strategy.
- *
- * ### 3. Resolution
- * The system has a sophisticated toolkit of strategies to resolve the contradiction, which
- * can be triggered automatically or manually. The main strategies include:
- *
- * - **Dominant Evidence:** If one belief is backed by significantly stronger evidence,
- *   it "wins," and the weaker belief is suppressed.
- * - **Merge:** If the conflicting beliefs have similar strength, they can be merged. This
- *   typically results in a new belief with a revised truth value that reflects the
- *   uncertainty of the conflict.
- * - **Specialize (Contextualization):** If the beliefs might be true in different contexts,
- *   the system can create a new, more specific concept. For example, faced with the
- *   contradiction that "birds fly" but "penguins don't fly," it can create a specialized
- *   belief: `<(bird, context:penguin) --> NOT flyer>`. This adds nuance rather than deleting knowledge.
- * - **Recency-Biased:** This strategy resolves a conflict by favoring the most recent information,
- *   leveraging the timestamp attached to every belief.
- *
- * ### 4. Learning
- * The system learns from this entire process. The LearningEngine observes which resolution
- * strategies lead to successful outcomes (e.g., better predictions). Over time, it can learn
- * to automatically choose the best strategy for a given type of conflict, making its
- * reasoning more robust and efficient.
- */
 export class AdvancedContradictionManager extends ContradictionManagerBase {
     constructor(nar) {
         super(nar);
-        this.contradictions = new Map(); // Maps hyperedge ID to contradiction records
+        this.contradictions = new Map();
         this.resolutionStrategies = {
             'dominant_evidence': this._resolveByDominantEvidence.bind(this),
             'merge': this._resolveByMerging.bind(this),
@@ -63,24 +17,15 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             'default': this._defaultResolution.bind(this)
         };
 
-        // Circuit breaker state for contradiction resolution
         this.circuitBreaker = {
             failures: 0,
             lastFailure: 0,
             openUntil: 0,
-            threshold: 5, // 5 failures in a short period
-            duration: 30000 // 30 seconds
+            threshold: 5,
+            duration: 30000
         };
     }
 
-    /**
-     * Explicitly marks a contradiction between two beliefs, as proposed in `enhance.g.md`.
-     * This can be used to flag known inconsistencies for the system to resolve.
-     * @param {string} belief1Id - ID of the first hyperedge in the contradiction.
-     * @param {string} belief2Id - ID of the second hyperedge.
-     * @param {object} [options={}] - Options like context and strength.
-     * @returns {string|null} The ID of the created contradiction record, or null if beliefs are invalid.
-     */
     contradict(belief1Id, belief2Id, { strength = 0.7, context = null } = {}) {
         const belief1 = this.nar.state.hypergraph.get(belief1Id);
         const belief2 = this.nar.state.hypergraph.get(belief2Id);
@@ -90,8 +35,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             return null;
         }
 
-        // A contradiction is typically about the same concept having opposing truths.
-        // We'll use the ID of the first belief as the primary key for the contradiction.
         const hyperedgeId = belief1Id;
         const contradictionId = this.nar.api.id('Contradiction', [belief1Id, belief2Id, context]);
 
@@ -107,28 +50,20 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         this.contradictions.set(hyperedgeId, {
             timestamp: Date.now(),
-            pairs: [contradictionData], // Simplified for explicit contradiction
+            pairs: [contradictionData],
             resolved: false
         });
 
         this.nar.emit('contradiction-detected', { hyperedgeId, contradictions: [contradictionData] });
 
-        // Optionally trigger immediate resolution
         this.resolveContradictions();
 
         return contradictionId;
     }
 
-    /**
-     * Detects contradictions for a hyperedge after a revision.
-     * If a contradiction is found, it's tracked in the `this.contradictions` map.
-     * @param {string} hyperedgeId - The ID of the hyperedge to check.
-     * @returns {boolean} True if a new contradiction was detected.
-     */
     detectContradiction(hyperedgeId) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge || hyperedge.beliefs.length < 2) {
-            // If there were contradictions before but now there's only one belief, it's resolved.
             if (this.contradictions.has(hyperedgeId)) {
                 this.contradictions.delete(hyperedgeId);
                 this.nar.emit('contradiction-resolved', { hyperedgeId, reason: 'belief_pruned' });
@@ -170,12 +105,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         return false;
     }
 
-    /**
-     * Register evidence for a belief on a hyperedge.
-     * This is kept for compatibility with tests and for cases where evidence is provided externally.
-     * @param {string} hyperedgeId - Target hyperedge ID.
-     * @param {Object} evidence - Evidence details { source, strength, beliefIndex }.
-     */
     addEvidence(hyperedgeId, beliefId, evidence) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return;
@@ -191,13 +120,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         this.nar.emit('evidence-added', { hyperedgeId, beliefId });
     }
 
-    /**
-     * Iterates through tracked contradictions and resolves them using the best strategy.
-     * This is intended to be called periodically by the main system loop.
-     * Includes a circuit breaker to prevent runaway resolution processes.
-     */
     resolveContradictions() {
-        // Check circuit breaker
         const now = Date.now();
         if (now < this.circuitBreaker.openUntil) {
             this.nar.emit('log', { message: 'Contradiction resolution circuit breaker is open.', level: 'warn' });
@@ -218,7 +141,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             }
         }
 
-        // Update circuit breaker state
         if (failuresThisRun > 0) {
             this.circuitBreaker.failures += failuresThisRun;
             this.circuitBreaker.lastFailure = now;
@@ -227,18 +149,10 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                 this.nar.emit('log', { message: `Contradiction resolution circuit breaker tripped for ${this.circuitBreaker.duration}ms.`, level: 'error' });
             }
         } else {
-            // Reset failures on a successful run
             this.circuitBreaker.failures = 0;
         }
     }
 
-    /**
-     * Manually resolves a contradiction on a hyperedge using a specified strategy.
-     * @param {string} hyperedgeId - The ID of the hyperedge with the contradiction.
-     * @param {string} strategyName - The name of the strategy to use.
-     * @param {Object} [customParams={}] - Custom parameters for the strategy.
-     * @returns {object|null} The resolution result or null if failed.
-     */
     manualResolve(hyperedgeId, strategyName, customParams = {}) {
         const contradiction = this.contradictions.get(hyperedgeId);
         if (!contradiction) return null;
@@ -562,11 +476,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         return belief.source || 'unknown';
     }
 
-    /**
-     * Provides a detailed analysis of a contradiction on a hyperedge without resolving it.
-     * @param {string} hyperedgeId
-     * @returns {Object|null} An analysis report or null if no contradiction exists.
-     */
     analyze(hyperedgeId) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge || !hyperedge.beliefs || hyperedge.beliefs.length < 2) {
