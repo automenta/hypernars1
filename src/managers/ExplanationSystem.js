@@ -284,6 +284,12 @@ export class ExplanationSystem {
             explanation += `\nNOTE: This belief was part of a contradiction that was resolved using the '${contradiction.resolutionStrategy}' strategy.\n`;
         }
 
+        // Add temporal context if relevant, as per enhance.a.md
+        const temporalContext = this.nar.temporalManager.getContext();
+        if (temporalContext && temporalContext.currentPeriod) {
+            explanation += `\nTEMPORAL CONTEXT: The reasoning occurred during the ${temporalContext.currentPeriod} in the ${temporalContext.season}.\n`;
+        }
+
         return explanation;
     }
 

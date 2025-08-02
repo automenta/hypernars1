@@ -195,17 +195,44 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
         }
     }
 
+    /**
+     * Allocate resources based on task importance and context.
+     * This implementation is taken directly from `enhance.a.md`.
+     */
     allocateResources(task, context = {}) {
-        const fullContext = {
-            ...context,
-            systemLoad: this.nar.state.eventQueue.heap.length / 1000,
-            noveltyScore: context.noveltyScore || 0, // Should be provided by caller
-            successHistory: context.successHistory || 0, // Should be provided by caller
-            minPriorityThreshold: this.nar.config.minPriorityThreshold,
-            minDurabilityThreshold: this.nar.config.minDurabilityThreshold,
-        };
+        // Base priority on task type
+        let basePriority = 0.5;
+        switch (task.type) {
+            case 'question': basePriority = 0.9; break;
+            case 'critical-event': basePriority = 0.95; break;
+            case 'derivation': basePriority = 0.6; break;
+            case 'revision': basePriority = 0.7; break;
+        }
 
-        return Budget.dynamicAllocate(task, fullContext);
+        // Adjust based on context
+        if (context.urgency) {
+            basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
+        }
+        if (context.importance) {
+            basePriority = Math.min(1.0, basePriority + context.importance * 0.2);
+        }
+
+        // Apply current resource availability
+        const availability = this._getResourceAvailability();
+        const priority = basePriority * availability;
+
+        // Determine durability based on task nature
+        let durability;
+        if (task.type === 'question' || task.type === 'critical-event') {
+            durability = 0.9; // Need sustained attention
+        } else {
+            durability = 0.6; // Shorter attention span for derivations
+        }
+
+        // Quality depends on resource availability
+        const quality = Math.sqrt(availability) * 0.8;
+
+        return new Budget(priority, durability, quality);
     }
 
     _getResourceAvailability() {

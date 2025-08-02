@@ -187,15 +187,62 @@ export class TemporalReasoner extends TemporalManagerBase {
     }
 
     /**
-     * Defines that an event happens during a specific interval.
-     * This is a helper for compatibility with other managers and tests.
+     * Defines that an event happens during a specific interval or according to a recurring pattern.
+     * This enhancement from `enhance.a.md` allows for more flexible temporal definitions.
      * @param {string} eventTerm - The event that occurs.
-     * @param {number} start - The start time of the interval.
-     * @param {number} end - The end time of the interval.
+     * @param {string|number} start - The start time or a time-of-day for a recurring event (e.g., '9:00').
+     * @param {string|number} end - The end time or a recurrence pattern (e.g., 'daily', 'weekly').
      * @param {object} options - Truth and budget options.
      */
     during(eventTerm, start, end, options = {}) {
+        const patterns = ['daily', 'weekly', 'monthly'];
+        if (typeof end === 'string' && patterns.includes(end.toLowerCase())) {
+            return this._createRecurringInterval(eventTerm, start, end.toLowerCase(), options);
+        }
+
         const intervalTerm = `interval_${start}_${end}`;
+        const intervalId = this.interval(intervalTerm, start, end, options);
+        return this.addConstraint(eventTerm, intervalId, 'during', options);
+    }
+
+    /**
+     * Creates a recurring temporal interval based on a pattern.
+     * This is a helper method to support the enhanced `during` functionality.
+     * @private
+     */
+    _createRecurringInterval(eventTerm, timeString, pattern, options) {
+        // This is a simplified implementation. A real-world one would be more robust.
+        // It creates a single next interval for the recurring event.
+        const [hour, minute] = timeString.split(':').map(Number);
+        const now = new Date();
+        let nextEvent = new Date(now);
+        nextEvent.setHours(hour, minute, 0, 0);
+
+        switch (pattern) {
+            case 'daily':
+                if (nextEvent <= now) {
+                    nextEvent.setDate(nextEvent.getDate() + 1);
+                }
+                break;
+            case 'weekly':
+                if (nextEvent <= now) {
+                    nextEvent.setDate(nextEvent.getDate() + 7);
+                }
+                break;
+            case 'monthly':
+                 if (nextEvent <= now) {
+                    nextEvent.setMonth(nextEvent.getMonth() + 1);
+                }
+                break;
+        }
+
+        // Assume a 1-hour duration for simplicity
+        const start = nextEvent.getTime();
+        const end = start + 60 * 60 * 1000;
+
+        this.nar._log('info', `Created recurring interval for '${eventTerm}' at ${new Date(start).toISOString()}`);
+
+        const intervalTerm = `${eventTerm}_${pattern}_${start}`;
         const intervalId = this.interval(intervalTerm, start, end, options);
         return this.addConstraint(eventTerm, intervalId, 'during', options);
     }
@@ -508,13 +555,14 @@ export class TemporalReasoner extends TemporalManagerBase {
 
     /**
      * Predicts what might be true at a future time based on current temporal knowledge.
-     * Aligns with the `predict` method in the base class.
+     * Aligns with the `predict` method from `enhance.a.md`.
      * @param {string} term - The starting term for the prediction.
-     * @param {string} pattern - Not directly used here, but part of the base signature. Kept for compatibility.
-     * @param {number} horizon - How far into the future to project (in ms).
+     * @param {string} pattern - A pattern to guide prediction (e.g., 'during(commute)'). Currently used for logging.
+     * @param {number} horizonInMinutes - How far into the future to project (in minutes).
      * @returns {Array<object>} A list of predicted future events with confidence.
      */
-    predict(term, pattern, horizon) {
+    predict(term, pattern, horizonInMinutes) {
+        const horizon = horizonInMinutes * 60 * 1000; // Convert minutes to ms, as per enhance.a.md
         const now = Date.now();
         const futureTime = now + horizon;
         const predictions = new Map(); // Use map to avoid duplicate predictions
