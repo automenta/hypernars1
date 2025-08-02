@@ -7,4 +7,11 @@ export class StructuralIndex {
         }
         this.map.get(key).add(hyperedge.id);
     }
+
+    remove(hyperedge) {
+        const key = `${hyperedge.type}:${hyperedge.args.length}`;
+        if (this.map.has(key)) {
+            this.map.get(key).delete(hyperedge.id);
+        }
+    }
 }
