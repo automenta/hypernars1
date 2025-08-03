@@ -1,7 +1,7 @@
 export default {
   name: '2. Contradiction',
   description: 'Shows how the system handles and resolves a direct contradiction.',
-  skipped: true, // SKIPPED: Uncovered potential bug where belief revision does not decrease expectation as expected.
+  // SKIPPED: Uncovered potential bug where belief revision does not decrease expectation as expected.
   steps: [
     {
       comment: 'Establish the initial belief that Tweety is a flyer.',
