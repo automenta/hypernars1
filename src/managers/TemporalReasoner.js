@@ -194,10 +194,11 @@ export class TemporalReasoner extends TemporalManagerBase {
      * @param {string|number} end - The end time or a recurrence pattern (e.g., 'daily', 'weekly').
      * @param {object} options - Truth and budget options.
      */
-    during(eventTerm, start, end, options = {}) {
+    during(eventTerm, start, end, options = {}, now) {
         const patterns = ['daily', 'weekly', 'monthly'];
         if (typeof end === 'string' && patterns.includes(end.toLowerCase())) {
-            return this._createRecurringInterval(eventTerm, start, end.toLowerCase(), options);
+            // Pass `now` to the helper function for testability
+            return this._createRecurringInterval(eventTerm, start, end.toLowerCase(), options, now);
         }
 
         const intervalTerm = `interval_${start}_${end}`;
@@ -210,28 +211,30 @@ export class TemporalReasoner extends TemporalManagerBase {
      * This is a helper method to support the enhanced `during` functionality.
      * @private
      */
-    _createRecurringInterval(eventTerm, timeString, pattern, options) {
+    _createRecurringInterval(eventTerm, timeString, pattern, options, now = new Date()) {
         // This is a simplified implementation. A real-world one would be more robust.
         // It creates a single next interval for the recurring event.
         const [hour, minute] = timeString.split(':').map(Number);
-        const now = new Date();
-        let nextEvent = new Date(now);
-        nextEvent.setHours(hour, minute, 0, 0);
+        let nextEvent = new Date(now.getTime()); // Clone current date
+
+        // Set time in UTC to avoid timezone issues
+        nextEvent.setUTCHours(hour, minute, 0, 0);
 
         switch (pattern) {
             case 'daily':
-                if (nextEvent <= now) {
-                    nextEvent.setDate(nextEvent.getDate() + 1);
+                // If the calculated time is in the past, move to the next day
+                if (nextEvent.getTime() <= now.getTime()) {
+                    nextEvent.setUTCDate(nextEvent.getUTCDate() + 1);
                 }
                 break;
             case 'weekly':
-                if (nextEvent <= now) {
-                    nextEvent.setDate(nextEvent.getDate() + 7);
+                if (nextEvent.getTime() <= now.getTime()) {
+                    nextEvent.setUTCDate(nextEvent.getUTCDate() + 7);
                 }
                 break;
             case 'monthly':
-                 if (nextEvent <= now) {
-                    nextEvent.setMonth(nextEvent.getMonth() + 1);
+                if (nextEvent.getTime() <= now.getTime()) {
+                    nextEvent.setUTCMonth(nextEvent.getUTCMonth() + 1);
                 }
                 break;
         }
@@ -588,7 +591,7 @@ export class TemporalReasoner extends TemporalManagerBase {
                 const sourceInterval = Array.from(this.intervals.values()).find(i => i.term === sourceEvent && i.end >= now);
 
                 if (sourceInterval) {
-                     const confidence = this._calculatePredictionConfidence(relation, sourceInterval, futureTime);
+                     const confidence = this._calculatePredictionConfidence(relation, sourceInterval, futureTime, horizon);
 
                      if (confidence > 0.2) { // Confidence threshold
                         const predictedHyperedge = this.nar.state.hypergraph.get(id('Term', [predictedEvent]));
@@ -623,9 +626,10 @@ export class TemporalReasoner extends TemporalManagerBase {
         return Array.from(predictions.values()).sort((a, b) => b.confidence - a.confidence);
     }
 
-    _calculatePredictionConfidence(relation, sourceInterval, futureTime) {
+    _calculatePredictionConfidence(relation, sourceInterval, futureTime, horizon) {
         const timeToFuture = Math.max(0, futureTime - sourceInterval.end);
-        const decay = Math.exp(-timeToFuture / (this.nar.config.temporalHorizon * 1000));
+        // Decay should be relative to the prediction horizon, not the config's temporalHorizon
+        const decay = Math.exp(-timeToFuture / horizon);
 
         let baseConfidence = 0.5;
         if (relation === 'meets') baseConfidence = 0.9;
@@ -633,6 +637,9 @@ export class TemporalReasoner extends TemporalManagerBase {
         if (relation === 'overlaps') baseConfidence = 0.7;
         if (relation === 'before') baseConfidence = 0.4;
 
-        return baseConfidence * decay * sourceInterval.truth.confidence;
+        // Assume default confidence of 0.9 if not specified on the interval's truth value
+        const sourceConfidence = sourceInterval.truth?.confidence ?? 0.9;
+
+        return baseConfidence * decay * sourceConfidence;
     }
 }

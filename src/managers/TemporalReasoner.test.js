@@ -87,4 +87,43 @@ describe('TemporalReasoner', () => {
         expect(inferred.relation).toHaveLength(expectedRelations.length);
         expect(inferred.relation.sort()).toEqual(expectedRelations.sort());
     });
+
+    it('should handle recurring events using "during"', () => {
+        const now = new Date();
+        // Set a fixed time for deterministic testing: 10:00 AM UTC
+        now.setTime(Date.UTC(2025, 7, 3, 10, 0, 0, 0));
+
+        const tomorrowAt9UTC = new Date(now);
+        tomorrowAt9UTC.setUTCDate(now.getUTCDate() + 1);
+        tomorrowAt9UTC.setUTCHours(9, 0, 0, 0);
+
+        // Call 'during' with the mocked 'now'
+        temporalReasoner.during('daily_meeting', '09:00', 'daily', {}, now);
+
+        let createdInterval;
+        for (const interval of temporalReasoner.intervals.values()) {
+            if (interval.term.startsWith('daily_meeting_daily')) {
+                createdInterval = interval;
+                break;
+            }
+        }
+
+        expect(createdInterval).toBeDefined();
+        expect(createdInterval.start).toBe(tomorrowAt9UTC.getTime());
+    });
+
+    it('should predict a future event based on a "before" constraint', () => {
+        // If "coffee" happens before "work", and "coffee" is happening now,
+        // we should predict "work" will happen soon.
+        const now = Date.now();
+        temporalReasoner.interval('coffee', now, now + 1000 * 60 * 5); // Coffee for 5 mins
+        temporalReasoner.addConstraint('coffee', 'work', 'before');
+
+        const predictions = temporalReasoner.predict('coffee', 'start_work_routine', 10); // Predict 10 mins ahead
+
+        expect(predictions.length).toBeGreaterThan(0);
+        const workPrediction = predictions.find(p => p.term === 'work');
+        expect(workPrediction).toBeDefined();
+        expect(workPrediction.confidence).toBeGreaterThan(0);
+    });
 });

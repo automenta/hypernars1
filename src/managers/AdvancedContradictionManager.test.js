@@ -195,4 +195,39 @@ describe('AdvancedContradictionManager', () => {
         const similarityId = id('Similarity', [specializedTermId, term]);
         expect(nar.state.hypergraph.has(similarityId)).toBe(true);
     });
+
+    test('should create a dynamic similarity link after specialization', () => {
+        const term = id('Inheritance', ['penguin', 'flyer']);
+        const conflictingConfidence = 0.85;
+
+        // Strongest belief
+        nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.9, conflictingConfidence), budget: new Budget(0.81, 0.9, 0.9)});
+        // Weaker belief that will be specialized
+        nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.1, 0.9), budget: new Budget(0.8, 0.9, 0.9)});
+
+        const hyperedge = nar.state.hypergraph.get(term);
+        const beliefToSpecialize = hyperedge.beliefs.find(b => b.truth.frequency === 0.1);
+        const strongerBelief = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
+
+        // Add evidence so that beliefToSpecialize is weaker
+        nar.contradictionManager.addEvidence(term, beliefToSpecialize.id, { source: 'special_context', strength: 0.7 });
+        nar.contradictionManager.addEvidence(term, strongerBelief.id, { source: 'default', strength: 0.9 });
+
+
+        nar.contradictionManager.detectContradiction(term);
+        // Automatically select strategy, which should be 'specialize'
+        nar.contradictionManager.resolveContradictions();
+
+        const specializedTermId = `${term}|context:special_context`;
+        const similarityId = id('Similarity', [specializedTermId, term]);
+
+        expect(nar.state.hypergraph.has(specializedTermId)).toBe(true);
+        expect(nar.state.hypergraph.has(similarityId)).toBe(true);
+
+        const similarityLink = nar.state.hypergraph.get(similarityId);
+        // The specialized belief had confidence 0.9, so similarity freq should be 1.0 - 0.9 = 0.1
+        const expectedSimilarityFreq = 1.0 - beliefToSpecialize.truth.confidence;
+        expect(similarityLink.getTruth().frequency).toBeCloseTo(expectedSimilarityFreq);
+        expect(similarityLink.getTruth().confidence).toBe(0.9);
+    });
 });

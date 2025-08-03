@@ -1,5 +1,6 @@
-import {describe, expect, it} from '@jest/globals';
+import {describe, expect, it, beforeEach} from '@jest/globals';
 import {NARHyper} from '../NARHyper.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 describe('ExplanationSystem', () => {
     it('should identify a direct assertion', () => {
@@ -112,5 +113,26 @@ describe('ExplanationSystem', () => {
             expect(explanation).toContain('I know that A is a kind of B');
             expect(explanation).toContain('and that B is a kind of C');
         });
+    });
+
+    describe('Advanced Explanation Formats', () => {
+        let nar;
+        beforeEach(() => {
+            nar = new NARHyper({ useAdvanced: true });
+        });
+
+        it('should generate a justification with supporting and conflicting evidence', () => {
+            const term = nar.api.inheritance('penguin', 'bird');
+            // Add a conflicting belief
+            nar.api.inheritance('penguin', 'bird', { truth: new TruthValue(0.2, 0.7) });
+
+            const explanation = nar.explain(term, { format: 'justification' });
+
+            expect(explanation).toContain('Justification for: Inheritance(penguin, bird)');
+            expect(explanation).toContain('Supporting Evidence: This appears to be a base assertion.');
+            expect(explanation).toContain('Conflicting Evidence (overridden or merged):');
+            expect(explanation).toContain('An alternative belief exists with confidence');
+        });
+
     });
 });

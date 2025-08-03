@@ -16,14 +16,29 @@ export class SimpleTemporalManager extends TemporalManagerBase {
         return intervalId;
     }
 
-    temporalRelation(premise, conclusion, relation, options = {}) {
-        // Does nothing, returns a dummy ID
-        return `SimpleRelation(${premise},${conclusion})`;
-    }
-
     addConstraint(event1, event2, relation, options = {}) {
         // No-op in the simple manager, returns a dummy ID.
         return `SimpleConstraint(${event1},${event2})`;
+    }
+
+    relate(term1, term2, relation, options = {}) {
+        // No-op, returns a dummy ID
+        return `SimpleRelation(${term1},${term2})`;
+    }
+
+    relateById(intervalId1, intervalId2, options = {}) {
+        // No-op, returns null
+        return null;
+    }
+
+    during(eventTerm, start, end, options = {}) {
+        // No-op, returns a dummy ID
+        return `SimpleDuring(${eventTerm})`;
+    }
+
+    query(subject, constraints = {}) {
+        // No-op, returns empty array
+        return [];
     }
 
     inferRelationship(event1, event2) {
@@ -31,24 +46,24 @@ export class SimpleTemporalManager extends TemporalManagerBase {
         return null;
     }
 
+    processEventWithUncertainty(eventId, timeEstimate, uncertainty) {
+        // No-op
+    }
+
     describeTemporalRelationship(event1, event2) {
         // No-op, returns a placeholder string.
         return 'No temporal relationship known in SimpleTemporalManager.';
     }
 
-    processTemporalConstraints(target, activation, budget, pathHash, pathLength, derivationPath) {
-        // No-op
+    queryTimeWindow(start, end, options = {}) {
+        // No-op, returns empty array
+        return [];
     }
 
-    getContext() {
-        return {
-            timestamp: Date.now(),
-            currentPeriod: 'present'
-        };
-    }
-
-    predict(term, milliseconds, options = {}) {
+    predict(term, pattern, horizonInMinutes) {
         // Returns no predictions
         return [];
     }
+
+    // getContext() is inherited from base class
 }

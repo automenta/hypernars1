@@ -462,9 +462,13 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         });
         this.nar.state.hypergraph.set(newId, specialization);
 
-        // Add a similarity link between the original and the new specialized concept
+        // Add a similarity link between the original and the new specialized concept.
+        // The similarity is inversely related to the confidence of the conflicting belief.
+        // A high-confidence conflict suggests the contexts are very different (low similarity).
+        const similarityFreq = Math.max(0.1, 1.0 - conflictingBelief.truth.confidence);
+        const similarityConf = 0.9; // High confidence in the similarity assessment itself.
         this.nar.api.similarity(newId, originalHyperedge.id, {
-            truth: new TruthValue(0.8, 0.8), // High similarity
+            truth: new TruthValue(similarityFreq, similarityConf),
             budget: Budget.full().scale(0.5)
         });
 

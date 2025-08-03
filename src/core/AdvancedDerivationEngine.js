@@ -108,8 +108,24 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     if (selectedRule) {
         for (const [name, ruleObject] of this.rules.entries()) {
             if (ruleObject === selectedRule) {
+                const startTime = Date.now();
+                const initialBeliefCount = this.nar.state.hypergraph.size;
+
                 selectedRule.action(hyperedge, event, name);
-                selectedRule.lastUsed = Date.now();
+
+                const endTime = Date.now();
+                const finalBeliefCount = this.nar.state.hypergraph.size;
+                const success = finalBeliefCount > initialBeliefCount;
+                const computationalCost = endTime - startTime;
+
+                // Estimate value based on the budget of the resulting belief(s)
+                // This is a simplification; a more robust approach would be needed
+                const value = success ? event.budget.priority : 0;
+
+                this.nar.cognitiveExecutive.monitorDerivation(name, success, computationalCost, value);
+                this.nar.conceptFormation.trackUsage(target, event.activation, event.budget);
+
+                selectedRule.lastUsed = endTime;
                 selectedRule.usageCount++;
                 this.inferenceCount++;
                 break;

@@ -28,9 +28,11 @@ import { SimpleTemporalManager } from './managers/SimpleTemporalManager.js';
 import { TemporalReasoner } from './managers/TemporalReasoner.js';
 
 import { MetaReasoner } from './managers/MetaReasoner.js';
+import { CognitiveExecutive } from './managers/CognitiveExecutive.js';
 import { ExplanationSystem } from './managers/ExplanationSystem.js';
 import { GoalManagerBase } from './managers/GoalManagerBase.js';
 import { GoalManager } from './managers/GoalManager.js';
+import { ConceptFormation } from './managers/ConceptFormation.js';
 
 
 export class NARHyper extends EventEmitter {
@@ -51,6 +53,7 @@ export class NARHyper extends EventEmitter {
       memoryMaintenanceInterval: 100,
       logLevel: 'debug',
     }, config);
+    this.config.ruleConfig = this.config.ruleConfig || {};
 
     this.state = new State(this.config);
     this.propagation = new Propagation(this);
@@ -77,8 +80,10 @@ export class NARHyper extends EventEmitter {
 
     const singletonModules = {
         MetaReasoner,
+        CognitiveExecutive,
         ExplanationSystem,
         GoalManager,
+        ConceptFormation,
     };
 
     const moduleClasses = { ...moduleSelection, ...singletonModules, ...(config.modules || {}) };
@@ -91,8 +96,10 @@ export class NARHyper extends EventEmitter {
         learningEngine: new moduleClasses.LearningEngine(this),
         temporalManager: new moduleClasses.TemporalManager(this),
         metaReasoner: new moduleClasses.MetaReasoner(this),
+        cognitiveExecutive: new moduleClasses.CognitiveExecutive(this),
         explanationSystem: new moduleClasses.ExplanationSystem(this),
         goalManager: new moduleClasses.GoalManager(this),
+        conceptFormation: new moduleClasses.ConceptFormation(this),
     };
 
     Object.assign(this, modules);

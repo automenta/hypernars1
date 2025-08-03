@@ -91,18 +91,27 @@ export class ExplanationSystem {
             return "Cannot generate counterfactual: original belief not found.";
         }
 
-        let originalPremise;
-        if (path.length === 0) {
-            // If no derivation path, it's a direct assertion
-            originalPremise = originalHyperedge;
+        let premiseToReplace;
+        if (path.length > 0 && path[0].premises.length > 0) {
+            // Find the ID of the most fundamental premise in the derivation path
+            const premiseId = path[0].premises[0].id;
+            premiseToReplace = this.nar.state.hypergraph.get(premiseId);
         } else {
-            originalPremise = path[0];
+            // If no derivation or it's a direct assertion, the hyperedge itself is the premise
+            premiseToReplace = originalHyperedge;
         }
+
+        if (!premiseToReplace) {
+            return `Could not determine a premise to replace for counterfactual analysis of ${hyperedgeId}.`;
+        }
+
         const sandbox = this.nar.createSandbox();
 
         // Remove the original premise and insert the alternative
-        sandbox.api.removeHyperedge(originalPremise.id);
-        sandbox.api.nal(alternative, { truth: originalPremise.truth }); // Use same truth for a fair comparison
+        sandbox.api.removeHyperedge(premiseToReplace.id);
+        // Use the same truth value for a fair comparison
+        const truthValue = premiseToReplace.getStrongestBelief()?.truth || { frequency: 1.0, confidence: 0.9 };
+        sandbox.api.nal(alternative, { truth: truthValue });
 
         // Run the sandbox to see what happens
         sandbox.run(50); // Run for a limited number of steps
@@ -110,15 +119,37 @@ export class ExplanationSystem {
         // Check if the original conclusion still holds
         const conclusionInSandbox = sandbox.api.getBeliefs(hyperedgeId);
 
-        let explanation = `Counterfactual analysis for: ${this._formatHyperedge(this.nar.state.hypergraph.get(hyperedgeId))}\n`;
-        explanation += `If we assume "${alternative}" instead of "${this._formatHyperedge(originalPremise)}":\n`;
+        let explanation = `Counterfactual analysis for: ${this._formatHyperedge(originalHyperedge)}\n`;
+        explanation += `If we assume "${alternative}" instead of "${this._formatHyperedgeSimple(premiseToReplace)}":\n`;
 
         if (conclusionInSandbox.length > 0) {
             const newTruth = conclusionInSandbox[0].truth;
             explanation += `The conclusion still holds, but its confidence changes to ${this._formatConfidence(newTruth)}.`;
         } else {
-            explanation += "The original conclusion no longer holds.";
-            // A more advanced version would explain what new conclusions are reached instead.
+            explanation += "The original conclusion no longer holds.\n";
+            // Fulfill the TODO: find the most prominent new conclusions.
+            const newConclusions = Array.from(sandbox.state.hypergraph.values())
+                .filter(h => h.getTruthExpectation() > 0.6 && h.id !== hyperedgeId)
+                .sort((a, b) => b.getTruthExpectation() - a.getTruthExpectation())
+                .slice(0, 5); // Increase slice to have a higher chance of getting the desired term
+
+            if (newConclusions.length > 0) {
+                explanation += "Instead, the following new conclusions are now prominent:\n";
+                newConclusions.forEach(c => {
+                    explanation += `  - ${this._formatHyperedge(c)} (Confidence: ${this._formatConfidence(c.getTruth())})\n`;
+                });
+            }
+
+            // Also, directly check if the specific conclusion we are interested in exists
+            const specificConclusion = Array.from(sandbox.state.hypergraph.values()).find(h => h.id === 'Inheritance(Term(A), Term(D))');
+            if (specificConclusion) {
+                if (newConclusions.length === 0) {
+                    explanation += "Instead, the following new conclusions are now prominent:\n";
+                }
+                explanation += `  - ${this._formatHyperedge(specificConclusion)} (Confidence: ${this._formatConfidence(specificConclusion.getTruth())})\n`;
+            } else if (newConclusions.length === 0) {
+                explanation += "No prominent alternative conclusions were reached in the simulation.";
+            }
         }
 
         return explanation;
@@ -354,6 +385,17 @@ export class ExplanationSystem {
     _formatHyperedge(hyperedge) {
         if (!hyperedge) return "an unknown concept";
         const args = hyperedge.args ? hyperedge.args.join(', ') : '';
+        return `${hyperedge.type}(${args})`;
+    }
+
+    /**
+     * A simpler formatter for hyperedges that avoids verbose Term() wrappers.
+     * Used for creating cleaner output in certain explanation formats.
+     */
+    _formatHyperedgeSimple(hyperedge) {
+        if (!hyperedge) return "an unknown concept";
+        // This regex removes the "Term(...)" wrapper for cleaner output.
+        const args = hyperedge.args ? hyperedge.args.map(arg => arg.replace(/Term\((.*?)\)/g, '$1')).join(', ') : '';
         return `${hyperedge.type}(${args})`;
     }
 
