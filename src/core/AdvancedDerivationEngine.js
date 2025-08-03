@@ -328,8 +328,13 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   _deriveImplication({ args: [premise, conclusion] }, event, ruleName) {
       const premiseId = getArgId(premise);
       if (this.nar.state.hypergraph.has(premiseId)) {
+          let targetConclusion = conclusion;
+          if (typeof targetConclusion === 'string') {
+            targetConclusion = this.nar.expressionEvaluator.parse(targetConclusion);
+          }
+
           this.nar.propagation.propagate({
-              target: id(conclusion.type, conclusion.args),
+              target: id(targetConclusion.type, targetConclusion.args),
               activation: event.activation * 0.9,
               budget: event.budget.scale(0.75),
               pathHash: event.pathHash,

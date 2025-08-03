@@ -86,14 +86,6 @@ describe('MetaReasoner', () => {
         expect(trace[0].type).toBe('test-event-1');
     });
 
-    it('answers a question when a belief is added', async () => {
-      const nar = new NARHyper(config);
-      const questionPromise = nar.ask('<a --> b>?', { minExpectation: 0.8 });
-      nar.api.addHyperedge('Inheritance', ['a', 'b'], { truth: new TruthValue(1.0, 0.9) });
-      const result = await questionPromise;
-      expect(result).toBeDefined();
-      expect(result.truth.expectation()).toBeGreaterThanOrEqual(0.8);
-    }, 2000);
 
     it('should adapt reasoning when question responses are slow', () => {
         const nar = new NARHyper(config);

@@ -14,24 +14,26 @@ describe('All Tests', () => {
     it(`runs ${file}`, async () => {
       const testPath = path.join(testsDir, file);
       const testModule = await import(pathToFileURL(testPath));
-      const test = testModule.default;
+      const tests = Array.isArray(testModule.default) ? testModule.default : [testModule.default];
 
-      if (test.skipped) {
-        console.warn(`[SKIPPED] ${test.name}: ${test.description}`);
-        return; // Don't run the test, effectively skipping it.
+      for (const test of tests) {
+        if (test.skipped) {
+          console.warn(`[SKIPPED] ${test.name}: ${test.description}`);
+          continue; // Skip to the next test in the array
+        }
+
+        const { result, logs, name, description } = testRunner.run(test);
+
+        if (!result) {
+          console.error(`\n--- Test Failed: ${name} ---`);
+          console.error(`  ${description}`);
+          console.error('\n--- Logs ---');
+          logs.forEach(l => console.error(l));
+          console.error('--- End Logs ---\n');
+        }
+
+        expect(result).toBe(true);
       }
-
-      const { result, logs, name, description } = testRunner.run(test);
-
-      if (!result) {
-        console.error(`\n--- Test Failed: ${name} ---`);
-        console.error(`  ${description}`);
-        console.error('\n--- Logs ---');
-        logs.forEach(l => console.error(l));
-        console.error('--- End Logs ---\n');
-      }
-
-      expect(result).toBe(true);
     });
   });
 });
