@@ -1,4 +1,4 @@
-import { describe, it } from '@jest/globals';
+import { describe, it, expect } from '@jest/globals';
 import { TestRunner } from './testing/TestRunner.js';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -16,7 +16,7 @@ describe('All Tests', () => {
       const testModule = await import(pathToFileURL(testPath));
       const test = testModule.default;
 
-      const { result, logs, name, description } = testRunner.run(test);
+      const { result, logs, name, description, nar } = testRunner.run(test);
 
       console.log(`\n===== Running Test: ${name} =====`);
       console.log(`  ${description}`);
@@ -24,7 +24,9 @@ describe('All Tests', () => {
       logs.forEach(l => console.log(l));
       console.log('--- End Logs ---\n');
 
-      // TODO: Add assertions here
+      if (test.assert) {
+        test.assert(nar, logs, { expect });
+      }
     });
   });
 });

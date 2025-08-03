@@ -39,6 +39,7 @@ export class NARHyper extends EventEmitter {
   constructor(config = {}) {
     super();
     this.config = Object.assign({
+      logger: console,
       decay: 0.1,
       budgetDecay: 0.8,
       inferenceThreshold: 0.3,
@@ -221,12 +222,12 @@ export class NARHyper extends EventEmitter {
     const messageLevel = levels[level.toLowerCase()] || 1;
 
     if (messageLevel >= currentLevel) {
-      const timestamp = new Date().toISOString();
-      let logOutput = `[${timestamp}] [${level.toUpperCase()}] ${message}`;
-      if (Object.keys(details).length > 0) {
-        logOutput += ` ${JSON.stringify(details)}`;
-      }
-      console.log(logOutput);
+        const logMethod = this.config.logger[level.toLowerCase()] || this.config.logger.log || console.log;
+        let logOutput = `${message}`;
+        if (Object.keys(details).length > 0) {
+            logOutput += ` ${JSON.stringify(details)}`;
+        }
+        logMethod(logOutput);
     }
   }
 }
