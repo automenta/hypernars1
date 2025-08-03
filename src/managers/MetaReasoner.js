@@ -1,4 +1,5 @@
 import { Budget } from '../support/Budget.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 /**
  * Meta-reasoning system for self-monitoring, optimization, and resource management.
@@ -62,7 +63,7 @@ export class MetaReasoner {
         // 2. Detect issues and adapt system parameters (from original implementation)
         const issues = this._detectIssues(metrics);
         if (issues.length > 0) {
-            this._adaptParameters(issues, metrics);
+            this._adaptReasoning(issues, metrics);
         }
 
         // 3. Adjust high-level resource allocation and focus (from enhance.f.md)
@@ -175,12 +176,18 @@ export class MetaReasoner {
         const now = Date.now();
         const timeDelta = (now - this.lastMetricTimestamp) / 1000 || 1;
         const inferenceCount = this.nar.derivationEngine.getAndResetInferenceCount();
+        const responseTimes = this.nar.questionHandler.getAndResetQuestionResponseTimes();
+
+        const avgResponseTime = responseTimes.length > 0
+            ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+            : 0;
 
         const metrics = {
             timestamp: now,
             inferenceRate: Math.min(1.0, (inferenceCount / timeDelta) / 200), // Normalize
             contradictionRate: Math.min(1.0, (this.contradictionCount / timeDelta) / 5), // Normalize
             resourceUtilization: Math.min(1.0, this.nar.state.eventQueue.heap.length / 2000), // Normalize
+            questionResponseTime: Math.max(0, 1 - (avgResponseTime / this.nar.config.questionTimeout)), // Normalized 0-1
             queueSize: this.nar.state.eventQueue.heap.length,
         };
 
@@ -194,10 +201,11 @@ export class MetaReasoner {
         if (metrics.contradictionRate > 0.3) issues.push('high-contradictions');
         if (metrics.inferenceRate < 0.1 && metrics.queueSize > 100) issues.push('low-inference-rate');
         if (metrics.resourceUtilization > 0.8) issues.push('high-resource-utilization');
+        if (metrics.questionResponseTime < 0.4) issues.push('slow-question-response');
         return issues;
     }
 
-    _adaptParameters(issues, metrics) {
+    _adaptReasoning(issues, metrics) {
         this.addToTrace({ type: 'adaptation', issues, metrics });
         const policy = this.nar.config;
         const rate = 0.1;
@@ -214,6 +222,10 @@ export class MetaReasoner {
             policy.maxPathLength = Math.max(5, policy.maxPathLength - 1);
         } else if (policy.maxPathLength < this.nar.config.maxPathLength) {
             policy.maxPathLength++;
+        }
+
+        if (issues.includes('slow-question-response')) {
+            policy.questionTimeout = Math.min(10000, policy.questionTimeout * (1 + rate));
         }
 
         this._adaptRulePriorities();

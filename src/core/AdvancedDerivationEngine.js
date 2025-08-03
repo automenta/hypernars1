@@ -73,6 +73,15 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
   }
 
   applyDerivationRules(event) {
+    if (event.type === 'add-belief') {
+        const hyperedge = this.nar.state.hypergraph.get(event.target);
+        if (hyperedge) {
+            const { newBelief } = hyperedge.revise(event.belief);
+            this.nar.questionHandler.checkQuestionAnswers(hyperedge.id, newBelief);
+        }
+        return; // Stop further processing for this event
+    }
+
     const { target, activation, pathLength } = event;
     const hyperedge = this.nar.state.hypergraph.get(target);
     if (!hyperedge || activation <= this.nar.config.inferenceThreshold || pathLength > this.nar.config.maxDerivationDepth) return;

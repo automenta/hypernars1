@@ -1,8 +1,9 @@
-import { id } from '../support/utils.js';
+import { id, hash } from '../support/utils.js';
 
 export class QuestionHandler {
   constructor(nar) {
     this.nar = nar;
+    this.responseTimes = [];
   }
 
   ask(question, options = {}) {
@@ -19,7 +20,7 @@ export class QuestionHandler {
         reject(new Error(`Question timed out after ${timeout}ms: ${question}`));
       }, timeout);
 
-      this.nar.state.questionPromises.set(questionId, { resolve, reject, timer, options, answered: false });
+      this.nar.state.questionPromises.set(questionId, { resolve, reject, timer, options, answered: false, startTime: Date.now() });
       this._processQuestion(question, questionId);
     });
   }
@@ -67,7 +68,14 @@ export class QuestionHandler {
         else {
           const hyperedgeId = id('Inheritance', [subject, predicate]);
           const budget = this.nar.memoryManager.allocateResources({ type: 'question' }, { importance: 1.0, urgency: 1.0 });
-          this.nar.propagation.propagate(hyperedgeId, 1.0, budget, 0, 0, []);
+          this.nar.propagation.propagate({
+            target: hyperedgeId,
+            activation: 1.0,
+            budget: budget,
+            pathHash: hash(String(hyperedgeId)),
+            pathLength: 0,
+            derivationPath: []
+          });
         }
       }
 
@@ -82,6 +90,7 @@ export class QuestionHandler {
   }
 
   _answerQuestion(questionId, answer) {
+    console.log(`[DEBUG] _answerQuestion called for questionId: ${questionId}`);
     const promise = this.nar.state.questionPromises.get(questionId);
     if (!promise) return;
 
@@ -97,6 +106,7 @@ export class QuestionHandler {
         answer.truth.expectation() >= promise.options.minExpectation) {
       clearTimeout(promise.timer);
       this.nar.state.questionPromises.delete(questionId);
+      this.responseTimes.push(Date.now() - promise.startTime);
       promise.resolve(answer);
       return;
     }
@@ -120,10 +130,17 @@ export class QuestionHandler {
     if (promise) {
       clearTimeout(promise.timer);
       this.nar.state.questionPromises.delete(questionId);
+      this.responseTimes.push(Date.now() - promise.startTime);
       promise.resolve(bestAnswer);
     }
 
     this.nar.state.index.questionCache.delete(questionId);
+  }
+
+  getAndResetQuestionResponseTimes() {
+    const times = [...this.responseTimes];
+    this.responseTimes = [];
+    return times;
   }
 
   checkQuestionAnswers(hyperedgeId, belief) {
@@ -151,11 +168,20 @@ export class QuestionHandler {
         const { type, args } = this.nar.expressionEvaluator.parse(questionPattern);
 
         if (type === hyperedge.type) {
-          const matches = args.every((pattern, i) =>
-            pattern === '*' ||
-            pattern === hyperedge.args[i] ||
-            (pattern.startsWith('$') && hyperedge.args[i] !== undefined)
-          );
+          const matches = args.every((patternObj, i) => {
+            const hyperedgeArg = hyperedge.args[i];
+            if (typeof patternObj !== 'object' || !patternObj.type) {
+              return patternObj === hyperedgeArg; // Fallback for simple strings
+            }
+            if (patternObj.type === 'Variable') {
+              return hyperedgeArg !== undefined; // Matches any existing arg
+            }
+            if (patternObj.type === 'Term') {
+              return patternObj.args[0] === hyperedgeArg;
+            }
+            // Add more complex logic for nested statements if needed in the future
+            return false;
+          });
 
           if (matches) {
             this._answerQuestion(questionId, {
