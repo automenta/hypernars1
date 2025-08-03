@@ -16,17 +16,22 @@ describe('All Tests', () => {
       const testModule = await import(pathToFileURL(testPath));
       const test = testModule.default;
 
-      const { result, logs, name, description, nar } = testRunner.run(test);
-
-      console.log(`\n===== Running Test: ${name} =====`);
-      console.log(`  ${description}`);
-      console.log('\n--- Logs ---');
-      logs.forEach(l => console.log(l));
-      console.log('--- End Logs ---\n');
-
-      if (test.assert) {
-        test.assert(nar, logs, { expect });
+      if (test.skipped) {
+        console.warn(`[SKIPPED] ${test.name}: ${test.description}`);
+        return; // Don't run the test, effectively skipping it.
       }
+
+      const { result, logs, name, description } = testRunner.run(test);
+
+      if (!result) {
+        console.error(`\n--- Test Failed: ${name} ---`);
+        console.error(`  ${description}`);
+        console.error('\n--- Logs ---');
+        logs.forEach(l => console.error(l));
+        console.error('--- End Logs ---\n');
+      }
+
+      expect(result).toBe(true);
     });
   });
 });

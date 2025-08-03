@@ -32,6 +32,7 @@ export class TestRunner {
         if (step.assert) {
             const success = step.assert(nar, logs);
             if (!success) {
+                logs.push(`[ASSERT FAILED] Step failed: ${step.comment || 'Unnamed step'}`);
                 return {
                     result: false,
                     logs,

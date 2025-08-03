@@ -1,20 +1,22 @@
 export default {
   name: '5. Explanation',
   description: 'Shows the system generating a human-readable explanation for a belief.',
-  run: (nar, log) => {
-    log("===== 5. EXPLANATION DEMO =====");
+  steps: [
+    {
+      action: (nar) => {
+        nar.nal('((bird * animal) --> flyer). %0.9;0.8%');
+        nar.nal('(tweety --> bird).');
+        nar.run(50);
+      },
+      assert: (nar, logs) => {
+        // The belief that tweety is an animal is derived, not directly stated.
+        // We need to find its ID to explain it.
+        const tweetyIsAnimalId = nar.inheritance('tweety', 'animal');
+        const explanation = nar.explain(tweetyIsAnimalId, { format: 'story' });
 
-    // Setup the context for the explanation
-    nar.nal('((bird * animal) --> flyer). %0.9;0.8%');
-    nar.nal('(tweety --> bird).');
-    nar.run(50);
-
-    const tweetyIsAnimalId = nar.inheritance('tweety', 'animal');
-
-    log("\n--- Story about why Tweety is an animal ---");
-    const explanation = nar.explain(tweetyIsAnimalId, { format: 'story' });
-    log(explanation || 'No explanation could be generated.');
-
-    return "Explanation demo complete.";
-  }
+        // The original test was just a demo. We'll just assert that some explanation was produced.
+        return explanation && explanation.length > 0;
+      }
+    }
+  ]
 };
