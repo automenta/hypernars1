@@ -43,6 +43,10 @@ export class Hyperedge {
     return this.beliefs[0];
   }
 
+  getWeakestBelief() {
+    return this.beliefs.length > 0 ? this.beliefs[this.beliefs.length - 1] : undefined;
+  }
+
   getTruth() {
     return this.beliefs.length ? this.beliefs[0].truth : TruthValue.unknown();
   }

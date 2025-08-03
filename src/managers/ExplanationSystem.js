@@ -163,10 +163,16 @@ export class ExplanationSystem {
      */
     _formatJustification(hyperedgeId) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        if (!hyperedge) return `No information available for ${hyperedgeId}`;
+        if (!hyperedge) {
+            this.nar._log('debug', `_formatJustification: Hyperedge not found for ID: ${hyperedgeId}`);
+            return `No information available for ${hyperedgeId}`;
+        }
 
         const strongestBelief = hyperedge.getStrongestBelief();
-        if (!strongestBelief) return `No belief found for ${hyperedgeId}`;
+        if (!strongestBelief) {
+            this.nar._log('debug', `_formatJustification: No strongest belief found for ID: ${hyperedgeId}`);
+            return `No belief found for ${hyperedgeId}`;
+        }
 
         let explanation = `Justification for: ${this._formatHyperedge(hyperedge)}\n`;
         explanation += `Overall Confidence: ${this._formatConfidence(strongestBelief.truth)} (f: ${strongestBelief.truth.frequency.toFixed(2)})\n\n`;
@@ -197,7 +203,7 @@ export class ExplanationSystem {
         // 3. Mention if it was part of a resolved contradiction
         const contradiction = this.nar.contradictionManager.contradictions.get(hyperedgeId);
         if (contradiction && contradiction.resolved) {
-            explanation += `\nNote: This belief was part of a contradiction resolved via the '${contradiction.resolutionStrategy}' strategy.\n`;
+            explanation += `\nNote: This belief was part of a contradiction resolved via the '${contradiction.resolutionStrategy}' strategy.`;
         }
 
         return explanation;

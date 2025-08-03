@@ -13,6 +13,10 @@ export class LRUMap {
     return value;
   }
 
+  peek(key) {
+    return this.map.get(key);
+  }
+
   set(key, value) {
     if (this.map.has(key)) {
       this.map.delete(key);

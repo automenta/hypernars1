@@ -10,7 +10,7 @@ export function id(type, args) {
       return String(arg);
   };
   const stringArgs = args.map(stringify);
-  return `${type}(${stringArgs.join(',')})`;
+  return `${type}(${stringArgs.join(', ')})`;
 }
 
 export function getArgId(arg) {

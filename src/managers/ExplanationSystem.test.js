@@ -71,7 +71,7 @@ describe('ExplanationSystem', () => {
         const explanation = nar.explain(conclusionId, { format: 'detailed' });
 
         // The new formatter is more specific
-            expect(explanation).toContain('CONCLUSION: TemporalRelation(TimeInterval(event_A,1000,2000), TimeInterval(event_B,3000,4000), before)');
+        expect(explanation).toContain('CONCLUSION: TemporalRelation(TimeInterval(event_A, 1000, 2000), TimeInterval(event_B, 3000, 4000), before)');
         // Check for the template-based explanation
         expect(explanation).toContain('It is a direct assertion that');
     });
@@ -134,5 +134,36 @@ describe('ExplanationSystem', () => {
             expect(explanation).toContain('An alternative belief exists with confidence');
         });
 
+    });
+
+    describe('Contradiction Explanations', () => {
+        it('should include a note about a resolved contradiction in the justification', (done) => {
+            const nar = new NARHyper({ useAdvanced: true });
+            const conceptId = 'Inheritance(penguin,flyer)';
+
+            nar.on('contradiction-resolved', ({ resolution }) => {
+                if (resolution.reason === 'merged') {
+                    // Check if the hyperedge still exists
+                    if (!nar.state.hypergraph.has(conceptId)) {
+                        done(new Error(`Hyperedge ${conceptId} was deleted before explanation could be generated.`));
+                        return;
+                    }
+                    const explanation = nar.explain(conceptId, { format: 'justification' });
+                    try {
+                        expect(explanation).toContain("Note: This belief was part of a contradiction resolved via the 'merge' strategy.");
+                        done();
+                    } catch (error) {
+                        done(error);
+                    }
+                }
+            });
+
+            // Introduce two strong but contradictory beliefs
+            nar.api.inheritance('penguin', 'flyer', { truth: new TruthValue(0.9, 0.9) });
+            nar.api.inheritance('penguin', 'flyer', { truth: new TruthValue(0.1, 0.9) });
+
+            // Run the system to allow contradiction detection and resolution
+            nar.run(201);
+        });
     });
 });

@@ -32,6 +32,14 @@ export class PriorityQueue {
     }
   }
 
+  peek() {
+    return this.heap.length > 0 ? this.heap[0] : undefined;
+  }
+
+  get length() {
+    return this.heap.length;
+  }
+
   _siftDown(idx = 0) {
     const length = this.heap.length;
     const element = this.heap[idx];

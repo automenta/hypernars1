@@ -13,4 +13,8 @@ export class MemoryManagerBase {
     updateRelevance(hyperedgeId, activityType, intensity = 1.0) {
         throw new Error("Method 'updateRelevance()' must be implemented.");
     }
+
+    allocateResources(task, context = {}) {
+        throw new Error("Method 'allocateResources()' must be implemented.");
+    }
 }

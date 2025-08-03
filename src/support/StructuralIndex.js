@@ -1,6 +1,6 @@
 export class StructuralIndex {
     constructor() { this.map = new Map(); }
-    add(hyperedge) {
+    addToIndex(hyperedge) {
         const key = `${hyperedge.type}:${hyperedge.args.length}`;
         if (!this.map.has(key)) {
             this.map.set(key, new Set());
@@ -8,7 +8,7 @@ export class StructuralIndex {
         this.map.get(key).add(hyperedge.id);
     }
 
-    remove(hyperedge) {
+    removeFromIndex(hyperedge) {
         const key = `${hyperedge.type}:${hyperedge.args.length}`;
         if (this.map.has(key)) {
             this.map.get(key).delete(hyperedge.id);

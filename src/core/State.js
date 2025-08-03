@@ -30,9 +30,10 @@ export class State {
     this.stepsSinceMaintenance = 0;
     this.sourceReliability = new Map();
 
+    const nodeId = config.nodeId || `node-${Math.random().toString(36).substr(2, 9)}`;
     this.distributed = {
-        nodeId: config.nodeId || `node-${Math.random().toString(36).substr(2, 9)}`,
-        cluster: new Set([this.nodeId]),
+        nodeId,
+        cluster: new Set([nodeId]),
         knowledgePartition: new Map(),
         pendingRequests: new Map(),
         connectionManager: null

@@ -7,8 +7,10 @@ describe('Propagation', () => {
   let propagation;
 
   beforeEach(() => {
-    nar = new NARHyper();
+    nar = new NARHyper({ budgetThreshold: 0.1 }); // Use a higher threshold for testing
     propagation = nar.propagation;
+    // Ensure the event queue is clean before each test
+    nar.state.eventQueue = new nar.state.eventQueue.constructor((a, b) => b.budget.priority - a.budget.priority);
   });
 
   it('should add a valid event to the event queue', () => {
@@ -31,7 +33,7 @@ describe('Propagation', () => {
     const event = {
       target: 'some_target',
       activation: 0.8,
-      budget: new Budget({ priority: 0.01, durability: 0.9, quality: 0.9 }),
+      budget: new Budget(0.01, 0.9, 0.9),
       pathHash: 123,
       pathLength: 1,
       derivationPath: []

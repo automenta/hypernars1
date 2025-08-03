@@ -50,7 +50,7 @@ export class OptimizedIndex {
             }
         });
 
-        this.byStructure.add(hyperedge);
+        this.byStructure.addToIndex(hyperedge);
         this._updatePopularity(hyperedge.id);
     }
 
@@ -69,7 +69,7 @@ export class OptimizedIndex {
             }
         });
 
-        this.byStructure.remove(hyperedge);
+        this.byStructure.removeFromIndex(hyperedge);
 
         this.conceptPopularity.delete(hyperedge.id);
         this.activeConcepts.delete(hyperedge.id);

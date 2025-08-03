@@ -135,5 +135,22 @@ describe('TruthValue', () => {
             expect(result.confidence).toBeGreaterThan(0.5);
         });
     });
+
+    describe('revise', () => {
+        // This test highlights that the revision formula for confidence is a simple weighted average,
+        // which differs from the standard NARS formula where new evidence strengthens confidence.
+        // Standard formula: c_new = 1 - (1 - c1) * (1 - c2)
+        it('should fail: revision confidence should be strengthened by new evidence, not averaged', () => {
+            const t1 = new TruthValue(0.8, 0.6, 1.0); // priority 1
+            const t2 = new TruthValue(0.8, 0.7, 1.0); // priority 1
+            const revised = TruthValue.revise(t1, t2);
+
+            // Current implementation (weighted average): (0.6*1.0 + 0.7*1.0) / (1.0+1.0) = 0.65
+            // Standard NARS implementation: 1 - (1-0.6)*(1-0.7) = 1 - 0.4*0.3 = 1 - 0.12 = 0.88
+            // The assertion checks if confidence is greater than the max of the inputs.
+            const maxConfidence = Math.max(t1.confidence, t2.confidence);
+            expect(revised.confidence).toBeGreaterThan(maxConfidence);
+        });
+    });
   });
 });

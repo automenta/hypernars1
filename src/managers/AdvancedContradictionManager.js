@@ -249,6 +249,11 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         const newBelief = { ...belief1.belief, truth: mergedTruth, budget: mergedBudget, timestamp: Date.now() };
 
+        // Directly modify the hyperedge's beliefs
+        if (hyperedge) {
+            hyperedge.beliefs = [newBelief];
+        }
+
         return { reason: 'merged', newBelief };
     }
 
