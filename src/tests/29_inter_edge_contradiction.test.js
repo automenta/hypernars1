@@ -1,6 +1,3 @@
-import { describe, it, expect } from '@jest/globals';
-import { TestRunner } from '../testing/TestRunner.js';
-
 const test = {
   name: '29. Inter-edge Contradiction',
   description: 'Tests the system\'s ability to detect and resolve contradictions between different hyperedges.',
@@ -30,10 +27,4 @@ const test = {
   ]
 };
 
-describe(test.name, () => {
-  it(test.description, () => {
-    const runner = new TestRunner({ useAdvanced: true });
-    const result = runner.run(test);
-    expect(result.result).toBe(true);
-  });
-});
+export default test;

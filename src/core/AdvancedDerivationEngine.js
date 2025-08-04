@@ -190,7 +190,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
   _deriveTransitiveInheritance(context, event) {
     const { subject, predicate, premise1, premise2, ruleName } = context;
-    const { budget, pathHash, pathLength } = event;
+    const { activation, budget, pathHash, pathLength, derivationPath } = event;
 
     const subjectId = getArgId(subject);
     const predicateId = getArgId(predicate);
@@ -204,6 +204,8 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
     const truth = TruthValue.transitive(premise1.getTruth(), premise2.getTruth());
     this.nar.api.inheritance(subject, predicate, { truth, budget: budget.scale(0.7), premises: [premise1.id, premise2.id], derivedBy: 'transitivity' });
+
+    const currentHyperedge = this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate]));
 
     (this.nar.state.index.byArg.get(subjectId) || new Set()).forEach(termId => {
         const backwardChainEdge = this.nar.state.hypergraph.get(termId);
@@ -278,24 +280,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     });
 
     (this.nar.state.index.byArg.get(term1Id) || new Set()).forEach(termId => {
-  }
-
-  _deriveTransitiveInheritance(context, event) {
-    const { subject, predicate, premise1, premise2, ruleName } = context;
-    const { budget, pathHash, pathLength } = event;
-
-    const subjectId = getArgId(subject);
-    const predicateId = getArgId(predicate);
-    const key = this._memoKey('Inheritance', [subjectId, predicateId], pathHash);
-    if (this.nar.state.memoization.has(key) && this.nar.state.memoization.get(key) <= pathLength) return;
-    this.nar.state.memoization.set(key, pathLength);
-
-    const cacheKey = `${subjectId}→${predicateId}|${premise1.id}|${premise2.id}`;
-    if (this.nar.state.index.derivationCache.has(cacheKey)) return;
-    this.nar.state.index.derivationCache.set(cacheKey, true);
-
-    const truth = TruthValue.transitive(premise1.getTruth(), premise2.getTruth());
-    this.nar.api.inheritance(subject, predicate, { truth, budget: budget.scale(0.7), premises: [premise1.id, premise2.id], derivedBy: 'transitivity' });
       const premise = this.nar.state.hypergraph.get(termId);
       if (premise?.type === 'Inheritance' && getArgId(premise.args[0]) === term1Id) {
         const context = {
