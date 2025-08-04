@@ -1,9 +1,9 @@
-import React, { useContext, useEffect, useRef } from 'react';
-import { Box, Text } from 'ink';
-import { TuiContext } from '../contexts/TuiContext.js';
+import React, {useContext, useEffect, useRef} from 'react';
+import {Box, Text} from 'ink';
+import {TuiContext} from '../contexts/TuiContext.js';
 
 const LogView = () => {
-    const { nar, log, logs } = useContext(TuiContext);
+    const {nar, log, logs} = useContext(TuiContext);
     const boxRef = useRef(null);
 
     useEffect(() => {

@@ -1,11 +1,15 @@
 # Revised NARHyper Implementation with Enhanced Functionality
 
-I've identified several critical gaps in the current implementation and added significant functionality to create a more robust, practical, and complete Non-Axiomatic Reasoning system. The revisions focus on making the system truly functional for real-world applications while maintaining the core principles of NARS.
+I've identified several critical gaps in the current implementation and added significant functionality to create a more
+robust, practical, and complete Non-Axiomatic Reasoning system. The revisions focus on making the system truly
+functional for real-world applications while maintaining the core principles of NARS.
 
 ## Key Improvements Added
 
 ### 1. Comprehensive Temporal Reasoning System
-The original implementation had basic temporal handling but lacked proper interval-based reasoning. I've implemented a complete Allen's interval algebra system:
+
+The original implementation had basic temporal handling but lacked proper interval-based reasoning. I've implemented a
+complete Allen's interval algebra system:
 
 ```javascript
 /* ===== ENHANCED TEMPORAL REASONING ===== */
@@ -137,6 +141,7 @@ _composeTemporalRelations(rel1, rel2) {
 ```
 
 ### 2. Context-Aware Resource Management
+
 Added a dynamic resource allocation system that adapts to current reasoning context and system load:
 
 ```javascript
@@ -221,6 +226,7 @@ _isCommonKnowledge(hyperedge) {
 ```
 
 ### 3. Advanced Explanation System
+
 Enhanced the explanation capabilities to provide detailed, confidence-weighted reasoning paths:
 
 ```javascript
@@ -400,6 +406,7 @@ _formatJSONExplanation(explanation) {
 ```
 
 ### 4. Experience-Based Learning System
+
 Added mechanisms for the system to learn from its own reasoning history:
 
 ```javascript
@@ -632,6 +639,7 @@ _applyDerivationRules(event) {
 ```
 
 ### 5. Advanced Query System
+
 Enhanced the query capabilities to handle complex pattern matching and probabilistic queries:
 
 ```javascript
@@ -954,6 +962,7 @@ _sortQueryResults(results, sortBy) {
 ```
 
 ### 6. Enhanced Error Handling and Robustness
+
 Added comprehensive error handling mechanisms to prevent system failures:
 
 ```javascript
@@ -1202,6 +1211,7 @@ _handleReasoningLoop(target, derivationPath) {
 ```
 
 ### 7. Advanced Memory Management
+
 Added sophisticated memory management to handle long-running systems:
 
 ```javascript
@@ -1483,18 +1493,28 @@ _adjustMemoryConfiguration() {
 
 ## Summary of Key Enhancements
 
-1. **Complete Temporal Reasoning System**: Implemented Allen's interval algebra for proper temporal reasoning with composition rules and transitive relationship derivation.
+1. **Complete Temporal Reasoning System**: Implemented Allen's interval algebra for proper temporal reasoning with
+   composition rules and transitive relationship derivation.
 
-2. **Context-Aware Resource Management**: Added dynamic threshold adjustment based on system load and reasoning context, with utility-based budget allocation.
+2. **Context-Aware Resource Management**: Added dynamic threshold adjustment based on system load and reasoning context,
+   with utility-based budget allocation.
 
-3. **Advanced Explanation System**: Created a multi-format explanation system with confidence-weighted reasoning paths, provenance tracking, and alternative explanation options.
+3. **Advanced Explanation System**: Created a multi-format explanation system with confidence-weighted reasoning paths,
+   provenance tracking, and alternative explanation options.
 
-4. **Experience-Based Learning**: Added mechanisms for the system to learn from its own reasoning history, track rule productivity, and apply successful derivation patterns.
+4. **Experience-Based Learning**: Added mechanisms for the system to learn from its own reasoning history, track rule
+   productivity, and apply successful derivation patterns.
 
-5. **Sophisticated Query System**: Enhanced query capabilities with constraint-based pattern matching, probabilistic queries, and advanced sorting options.
+5. **Sophisticated Query System**: Enhanced query capabilities with constraint-based pattern matching, probabilistic
+   queries, and advanced sorting options.
 
-6. **Robust Error Handling**: Implemented circuit breakers, reasoning loop detection, and contradiction resolution mechanisms to ensure system stability.
+6. **Robust Error Handling**: Implemented circuit breakers, reasoning loop detection, and contradiction resolution
+   mechanisms to ensure system stability.
 
-7. **Advanced Memory Management**: Added importance-based forgetting, context-aware memory compaction, and dynamic configuration adjustment.
+7. **Advanced Memory Management**: Added importance-based forgetting, context-aware memory compaction, and dynamic
+   configuration adjustment.
 
-These enhancements make NARHyper a truly functional and practical implementation of Non-Axiomatic Reasoning that can handle real-world complexity while adhering to AIKR principles. The system is now resilient to combinatorial explosion, can handle contradictory information effectively, and learns from its own reasoning experience to become more efficient over time.
+These enhancements make NARHyper a truly functional and practical implementation of Non-Axiomatic Reasoning that can
+handle real-world complexity while adhering to AIKR principles. The system is now resilient to combinatorial explosion,
+can handle contradictory information effectively, and learns from its own reasoning experience to become more efficient
+over time.

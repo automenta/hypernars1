@@ -1,5 +1,8 @@
 export class TrieIndex {
-    constructor() { this.root = {}; }
+    constructor() {
+        this.root = {};
+    }
+
     add(word, id) {
         let node = this.root;
         for (const char of word) {
@@ -13,6 +16,7 @@ export class TrieIndex {
         }
         node._ids.add(id);
     }
+
     get(word) {
         let node = this.root;
         for (const char of word) {
@@ -23,6 +27,7 @@ export class TrieIndex {
         }
         return node._ids || new Set();
     }
+
     remove(word, id) {
         let node = this.root;
         for (const char of word) {

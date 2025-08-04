@@ -1,9 +1,9 @@
-import { describe, it, expect } from '@jest/globals';
-import { NARHyper } from '../NARHyper.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { Budget } from '../support/Budget.js';
-import { id } from '../support/utils.js';
-import { AdvancedContradictionManager } from './AdvancedContradictionManager.js';
+import {describe, expect, it} from '@jest/globals';
+import {NARHyper} from '../NARHyper.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {Budget} from '../support/Budget.js';
+import {id} from '../support/utils.js';
+import {AdvancedContradictionManager} from './AdvancedContradictionManager.js';
 
 // Use the AdvancedContradictionManager for these tests
 const config = {
@@ -20,16 +20,16 @@ describe('AdvancedContradictionManager', () => {
         const termId = id('Term', ['a']);
 
         // Add two contradictory beliefs
-        nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
-        nar.api.addHyperedge('Term', ['a'], { truth: new TruthValue(0.1, 0.9), budget: new Budget(0.1, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['a'], {truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9)});
+        nar.api.addHyperedge('Term', ['a'], {truth: new TruthValue(0.1, 0.9), budget: new Budget(0.1, 0.9, 0.9)});
 
         const hyperedge = nar.state.hypergraph.get(termId);
         expect(hyperedge.beliefs.length).toBe(2); // Both beliefs should exist initially
 
         const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
         const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.1);
-        nar.contradictionManager.addEvidence(termId, belief1.id, { source: 'A', strength: 0.9 });
-        nar.contradictionManager.addEvidence(termId, belief2.id, { source: 'B', strength: 0.2 });
+        nar.contradictionManager.addEvidence(termId, belief1.id, {source: 'A', strength: 0.9});
+        nar.contradictionManager.addEvidence(termId, belief2.id, {source: 'B', strength: 0.2});
 
         // Resolve the contradiction
         nar.contradictionManager.detectContradiction(termId);
@@ -49,15 +49,15 @@ describe('AdvancedContradictionManager', () => {
         const termId = id('Term', ['b']);
 
         // Add two contradictory beliefs, making them clearly contradictory under the new rules
-        nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
-        nar.api.addHyperedge('Term', ['b'], { truth: new TruthValue(0.2, 0.4), budget: new Budget(0.85, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['b'], {truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9)});
+        nar.api.addHyperedge('Term', ['b'], {truth: new TruthValue(0.2, 0.4), budget: new Budget(0.85, 0.9, 0.9)});
 
         const hyperedge = nar.state.hypergraph.get(termId);
 
         const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
         const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.2);
-        nar.contradictionManager.addEvidence(termId, belief1.id, { source: 'SourceA', strength: 0.8 });
-        nar.contradictionManager.addEvidence(termId, belief2.id, { source: 'SourceB', strength: 0.78 });
+        nar.contradictionManager.addEvidence(termId, belief1.id, {source: 'SourceA', strength: 0.8});
+        nar.contradictionManager.addEvidence(termId, belief2.id, {source: 'SourceB', strength: 0.78});
 
         // Resolve the contradiction
         nar.contradictionManager.detectContradiction(termId);
@@ -86,14 +86,14 @@ describe('AdvancedContradictionManager', () => {
         const nar = new NARHyper(config);
         const termId = id('Term', ['c']);
 
-        nar.api.addHyperedge('Term', ['c'], { truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
-        nar.api.addHyperedge('Term', ['c'], { truth: new TruthValue(0.2, 0.7), budget: new Budget(0.7, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['c'], {truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9)});
+        nar.api.addHyperedge('Term', ['c'], {truth: new TruthValue(0.2, 0.7), budget: new Budget(0.7, 0.9, 0.9)});
 
         const hyperedgeBefore = nar.state.hypergraph.get(termId);
         const belief1 = hyperedgeBefore.beliefs.find(b => b.truth.frequency === 0.9);
         const belief2 = hyperedgeBefore.beliefs.find(b => b.truth.frequency === 0.2);
-        nar.contradictionManager.addEvidence(termId, belief1.id, { source: 'A', strength: 0.9 });
-        nar.contradictionManager.addEvidence(termId, belief2.id, { source: 'B', strength: 0.3 });
+        nar.contradictionManager.addEvidence(termId, belief1.id, {source: 'A', strength: 0.9});
+        nar.contradictionManager.addEvidence(termId, belief2.id, {source: 'B', strength: 0.3});
         const beliefCountBefore = hyperedgeBefore.beliefs.length;
 
         const analysis = nar.contradictionManager.analyze(termId);
@@ -124,24 +124,24 @@ describe('AdvancedContradictionManager', () => {
 
         // Concept 1: Mild contradiction
         const termId1 = id('Term', ['d']);
-        nar.api.addHyperedge('Term', ['d'], { truth: new TruthValue(0.8, 0.9), budget: new Budget(0.8, 0.9, 0.9) });
-        nar.api.addHyperedge('Term', ['d'], { truth: new TruthValue(0.3, 0.9), budget: new Budget(0.7, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['d'], {truth: new TruthValue(0.8, 0.9), budget: new Budget(0.8, 0.9, 0.9)});
+        nar.api.addHyperedge('Term', ['d'], {truth: new TruthValue(0.3, 0.9), budget: new Budget(0.7, 0.9, 0.9)});
         let hyperedge1 = nar.state.hypergraph.get(termId1);
         let belief1_1 = hyperedge1.beliefs.find(b => b.truth.frequency === 0.8);
         let belief1_2 = hyperedge1.beliefs.find(b => b.truth.frequency === 0.3);
-        nar.contradictionManager.addEvidence(termId1, belief1_1.id, { source: 'A', strength: 0.7 });
-        nar.contradictionManager.addEvidence(termId1, belief1_2.id, { source: 'B', strength: 0.5 });
+        nar.contradictionManager.addEvidence(termId1, belief1_1.id, {source: 'A', strength: 0.7});
+        nar.contradictionManager.addEvidence(termId1, belief1_2.id, {source: 'B', strength: 0.5});
         nar.contradictionManager.detectContradiction(termId1);
 
         // Concept 2: Strong contradiction
         const termId2 = id('Term', ['e']);
-        nar.api.addHyperedge('Term', ['e'], { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9) });
-        nar.api.addHyperedge('Term', ['e'], { truth: new TruthValue(0.2, 0.9), budget: new Budget(0.88, 0.9, 0.9) });
+        nar.api.addHyperedge('Term', ['e'], {truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9)});
+        nar.api.addHyperedge('Term', ['e'], {truth: new TruthValue(0.2, 0.9), budget: new Budget(0.88, 0.9, 0.9)});
         let hyperedge2 = nar.state.hypergraph.get(termId2);
         let belief2_1 = hyperedge2.beliefs.find(b => b.truth.frequency === 0.9);
         let belief2_2 = hyperedge2.beliefs.find(b => b.truth.frequency === 0.2);
-        nar.contradictionManager.addEvidence(termId2, belief2_1.id, { source: 'C', strength: 0.8 });
-        nar.contradictionManager.addEvidence(termId2, belief2_2.id, { source: 'D', strength: 0.78 });
+        nar.contradictionManager.addEvidence(termId2, belief2_1.id, {source: 'C', strength: 0.8});
+        nar.contradictionManager.addEvidence(termId2, belief2_2.id, {source: 'D', strength: 0.78});
         nar.contradictionManager.detectContradiction(termId2);
 
         // Run the global resolution

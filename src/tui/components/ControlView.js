@@ -1,9 +1,9 @@
-import React, { useContext } from 'react';
-import { Box, Text } from 'ink';
-import { TuiContext } from '../contexts/TuiContext.js';
+import React, {useContext} from 'react';
+import {Box, Text} from 'ink';
+import {TuiContext} from '../contexts/TuiContext.js';
 
 const ControlView = () => {
-    const { start, pause, step, clear, isRunning, runDelay } = useContext(TuiContext);
+    const {start, pause, step, clear, isRunning, runDelay} = useContext(TuiContext);
 
     return (
         <Box flexDirection="column" padding={1}>

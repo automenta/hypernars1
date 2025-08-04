@@ -1,8 +1,8 @@
-import { TrieIndex } from '../support/TrieIndex.js';
-import { StructuralIndex } from '../support/StructuralIndex.js';
-import { LRUMap } from '../support/LRUMap.js';
-import { ExpiringMap } from '../support/ExpiringMap.js';
-import { TemporalIndex } from '../support/TemporalIndex.js';
+import {TrieIndex} from '../support/TrieIndex.js';
+import {StructuralIndex} from '../support/StructuralIndex.js';
+import {LRUMap} from '../support/LRUMap.js';
+import {ExpiringMap} from '../support/ExpiringMap.js';
+import {TemporalIndex} from '../support/TemporalIndex.js';
 
 /**
  * Optimized indexing system for large knowledge bases, as proposed
@@ -145,12 +145,12 @@ export class OptimizedIndex {
         const regex = new RegExp('^' + pattern.replace(/\*/g, '.*') + '$');
 
         for (const term of searchResults) {
-             if (regex.test(term)) {
-                 const hyperedges = this.byArg.get(term);
-                 if (hyperedges) {
-                     hyperedges.forEach(id => results.add(id));
-                 }
-             }
+            if (regex.test(term)) {
+                const hyperedges = this.byArg.get(term);
+                if (hyperedges) {
+                    hyperedges.forEach(id => results.add(id));
+                }
+            }
         }
         return results;
     }

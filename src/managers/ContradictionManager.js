@@ -1,6 +1,6 @@
-import { AdvancedContradictionManager } from './AdvancedContradictionManager.js';
+import {AdvancedContradictionManager} from './AdvancedContradictionManager.js';
 
 /**
  * Exports the AdvancedContradictionManager as the default ContradictionManager.
  */
-export { AdvancedContradictionManager as ContradictionManager };
+export {AdvancedContradictionManager as ContradictionManager};

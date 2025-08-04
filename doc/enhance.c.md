@@ -9,11 +9,14 @@ import dev.langchain4j.service.tool.ToolExecutor;
 import dev.langchain4j.service.tool.ToolProvider;
 import dev.langchain4j.service.tool.ToolProviderResult;# Revised NARHyper Implementation with Enhanced Functionality
 
-I've revised the NARHyper implementation to add critical functionality while maintaining the elegant, self-documenting style. The key improvements focus on memory management, temporal reasoning, error handling, performance, and advanced reasoning capabilities.
+I've revised the NARHyper implementation to add critical functionality while maintaining the elegant, self-documenting
+style. The key improvements focus on memory management, temporal reasoning, error handling, performance, and advanced
+reasoning capabilities.
 
 ## 1. Enhanced Memory Management & Forgetting Mechanisms
 
-Added sophisticated memory management that adheres to AIKR principles, with proper forgetting mechanisms based on activation, recency, and utility:
+Added sophisticated memory management that adheres to AIKR principles, with proper forgetting mechanisms based on
+activation, recency, and utility:
 
 ```javascript
 /**
@@ -899,18 +902,26 @@ checkHealth() {
 
 ## Summary of Key Improvements
 
-1. **Sophisticated Memory Management** - Added proper forgetting mechanisms based on activation, recency, and utility, ensuring the system remains responsive under resource constraints.
+1. **Sophisticated Memory Management** - Added proper forgetting mechanisms based on activation, recency, and utility,
+   ensuring the system remains responsive under resource constraints.
 
-2. **Advanced Temporal Reasoning** - Enhanced temporal capabilities with intervals, complex relationships, and better time decay models for more realistic reasoning about time.
+2. **Advanced Temporal Reasoning** - Enhanced temporal capabilities with intervals, complex relationships, and better
+   time decay models for more realistic reasoning about time.
 
-3. **Robust Error Handling** - Implemented a comprehensive error handling system with custom error classes and input validation for improved reliability.
+3. **Robust Error Handling** - Implemented a comprehensive error handling system with custom error classes and input
+   validation for improved reliability.
 
-4. **Performance Optimizations** - Added advanced indexing strategies (n-gram, word-based) and query capabilities for better performance with large knowledge bases.
+4. **Performance Optimizations** - Added advanced indexing strategies (n-gram, word-based) and query capabilities for
+   better performance with large knowledge bases.
 
-5. **Advanced Reasoning Capabilities** - Introduced modal reasoning (possibility/necessity), counterfactual reasoning, and goal-directed reasoning for more sophisticated inference.
+5. **Advanced Reasoning Capabilities** - Introduced modal reasoning (possibility/necessity), counterfactual reasoning,
+   and goal-directed reasoning for more sophisticated inference.
 
-6. **Enhanced Explanation System** - Improved the explanation capabilities with multiple output formats (text, JSON, visual) for better interpretability.
+6. **Enhanced Explanation System** - Improved the explanation capabilities with multiple output formats (text, JSON,
+   visual) for better interpretability.
 
 7. **System Maintenance** - Added periodic maintenance tasks and health checking for production readiness.
 
-These enhancements make NARHyper more robust, scalable, and capable while maintaining the elegant, self-documenting style of the original implementation. The system now better adheres to AIKR principles, handles combinatorial explosion more gracefully, and provides more sophisticated reasoning capabilities.
+These enhancements make NARHyper more robust, scalable, and capable while maintaining the elegant, self-documenting
+style of the original implementation. The system now better adheres to AIKR principles, handles combinatorial explosion
+more gracefully, and provides more sophisticated reasoning capabilities.

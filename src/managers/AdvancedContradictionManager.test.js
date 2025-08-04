@@ -1,8 +1,8 @@
-import { NARHyper } from '../NARHyper.js';
-import { AdvancedContradictionManager } from './AdvancedContradictionManager.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { Budget } from '../support/Budget.js';
-import { id } from '../support/utils.js';
+import {NARHyper} from '../NARHyper.js';
+import {AdvancedContradictionManager} from './AdvancedContradictionManager.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {Budget} from '../support/Budget.js';
+import {id} from '../support/utils.js';
 
 describe('AdvancedContradictionManager', () => {
     let nar;
@@ -29,8 +29,8 @@ describe('AdvancedContradictionManager', () => {
         // Add evidence to make the first belief dominant
         const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
         const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.1);
-        nar.contradictionManager.addEvidence(term, belief1.id, { source: 'textbook', strength: 0.9 });
-        nar.contradictionManager.addEvidence(term, belief2.id, { source: 'rumor', strength: 0.2 });
+        nar.contradictionManager.addEvidence(term, belief1.id, {source: 'textbook', strength: 0.9});
+        nar.contradictionManager.addEvidence(term, belief2.id, {source: 'rumor', strength: 0.2});
 
         nar.contradictionManager.detectContradiction(term);
         const result = nar.contradictionManager.manualResolve(term, 'dominant_evidence');
@@ -55,8 +55,8 @@ describe('AdvancedContradictionManager', () => {
         const hyperedge = nar.state.hypergraph.get(term);
         const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.1);
         const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
-        nar.contradictionManager.addEvidence(term, belief1.id, { source: 'biology_book', strength: 0.8 });
-        nar.contradictionManager.addEvidence(term, belief2.id, { source: 'common_sense', strength: 0.8 });
+        nar.contradictionManager.addEvidence(term, belief1.id, {source: 'biology_book', strength: 0.8});
+        nar.contradictionManager.addEvidence(term, belief2.id, {source: 'common_sense', strength: 0.8});
 
 
         nar.contradictionManager.detectContradiction(term);
@@ -80,16 +80,16 @@ describe('AdvancedContradictionManager', () => {
 
         // Beliefs are contradictory but not enough for dominant evidence or specialization
         // These values are chosen to pass the new _areContradictory check
-        nar.api.inheritance('bat', 'mammal', { truth: new TruthValue(0.8, 0.8), budget: new Budget(0.8, 0.9, 0.9) });
-        nar.api.inheritance('bat', 'mammal', { truth: new TruthValue(0.1, 0.8), budget: new Budget(0.78, 0.9, 0.9) });
+        nar.api.inheritance('bat', 'mammal', {truth: new TruthValue(0.8, 0.8), budget: new Budget(0.8, 0.9, 0.9)});
+        nar.api.inheritance('bat', 'mammal', {truth: new TruthValue(0.1, 0.8), budget: new Budget(0.78, 0.9, 0.9)});
 
         const hyperedge = nar.state.hypergraph.get(term);
         const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.8);
         const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.1);
 
         // Add evidence with the same source and similar strength
-        nar.contradictionManager.addEvidence(term, belief1.id, { source: 'default', strength: 0.8 });
-        nar.contradictionManager.addEvidence(term, belief2.id, { source: 'default', strength: 0.78 });
+        nar.contradictionManager.addEvidence(term, belief1.id, {source: 'default', strength: 0.8});
+        nar.contradictionManager.addEvidence(term, belief2.id, {source: 'default', strength: 0.78});
 
         nar.contradictionManager.detectContradiction(term);
         nar.contradictionManager.resolveContradictions(); // Use automatic resolution
@@ -142,12 +142,12 @@ describe('AdvancedContradictionManager', () => {
         const belief = hyperedge.beliefs[0];
 
         // Add evidence from a reliable source
-        nar.contradictionManager.addEvidence(term, belief.id, { source: 'nasa_website', strength: 0.9 });
+        nar.contradictionManager.addEvidence(term, belief.id, {source: 'nasa_website', strength: 0.9});
 
         const strength1 = nar.contradictionManager._calculateEvidenceStrength(term, belief);
 
         // Add evidence from an unreliable source
-        nar.contradictionManager.addEvidence(term, belief.id, { source: 'random_blog', strength: 0.9 });
+        nar.contradictionManager.addEvidence(term, belief.id, {source: 'random_blog', strength: 0.9});
         const strength2 = nar.contradictionManager._calculateEvidenceStrength(term, belief);
 
         expect(strength1).toBeGreaterThan(0.8);
@@ -170,15 +170,15 @@ describe('AdvancedContradictionManager', () => {
     test('should automatically select "specialize" strategy for different contexts', () => {
         const term = id('Inheritance', ['penguin', 'flyer']);
 
-        nar.api.inheritance('penguin', 'flyer', { truth: new TruthValue(0.1, 0.9), budget: new Budget(0.8, 0.9, 0.9) }); // Belief 1 from a biology book
-        nar.api.inheritance('penguin', 'flyer', { truth: new TruthValue(0.9, 0.9), budget: new Budget(0.81, 0.9, 0.9) }); // Belief 2 from common sense
+        nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.1, 0.9), budget: new Budget(0.8, 0.9, 0.9)}); // Belief 1 from a biology book
+        nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.9, 0.9), budget: new Budget(0.81, 0.9, 0.9)}); // Belief 2 from common sense
 
         // Add evidence with different sources to create distinct contexts
         const hyperedge = nar.state.hypergraph.get(term);
         const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.1);
         const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
-        nar.contradictionManager.addEvidence(term, belief1.id, { source: 'biology_book', strength: 0.8 });
-        nar.contradictionManager.addEvidence(term, belief2.id, { source: 'common_sense', strength: 0.8 });
+        nar.contradictionManager.addEvidence(term, belief1.id, {source: 'biology_book', strength: 0.8});
+        nar.contradictionManager.addEvidence(term, belief2.id, {source: 'common_sense', strength: 0.8});
 
         nar.contradictionManager.detectContradiction(term);
         nar.contradictionManager.resolveContradictions(); // Use automatic resolution
@@ -201,7 +201,10 @@ describe('AdvancedContradictionManager', () => {
         const conflictingConfidence = 0.85;
 
         // Strongest belief
-        nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.9, conflictingConfidence), budget: new Budget(0.81, 0.9, 0.9)});
+        nar.api.inheritance('penguin', 'flyer', {
+            truth: new TruthValue(0.9, conflictingConfidence),
+            budget: new Budget(0.81, 0.9, 0.9)
+        });
         // Weaker belief that will be specialized
         nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.1, 0.9), budget: new Budget(0.8, 0.9, 0.9)});
 
@@ -210,8 +213,8 @@ describe('AdvancedContradictionManager', () => {
         const strongerBelief = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
 
         // Add evidence so that beliefToSpecialize is weaker
-        nar.contradictionManager.addEvidence(term, beliefToSpecialize.id, { source: 'special_context', strength: 0.7 });
-        nar.contradictionManager.addEvidence(term, strongerBelief.id, { source: 'default', strength: 0.9 });
+        nar.contradictionManager.addEvidence(term, beliefToSpecialize.id, {source: 'special_context', strength: 0.7});
+        nar.contradictionManager.addEvidence(term, strongerBelief.id, {source: 'default', strength: 0.9});
 
 
         nar.contradictionManager.detectContradiction(term);

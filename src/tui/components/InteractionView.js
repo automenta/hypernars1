@@ -1,18 +1,19 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { Box, Text, useInput, useStdin } from 'ink';
+import React, {useContext, useEffect, useState} from 'react';
+import {Box, Text, useInput, useStdin} from 'ink';
 import TextInput from 'ink-text-input';
 import SelectInput from 'ink-select-input';
 import fs from 'fs/promises';
 import path from 'path';
-import { fileURLToPath } from 'url';
-import { TuiContext } from '../contexts/TuiContext.js';
+import {fileURLToPath} from 'url';
+import {TuiContext} from '../contexts/TuiContext.js';
 import pkg from 'cli-boxes';
-const { round } = pkg;
+
+const {round} = pkg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const demoDir = path.join(__dirname, '../../demos');
 
-const Tab = ({ label, isActive }) => (
+const Tab = ({label, isActive}) => (
     <Box
         marginRight={2}
         borderStyle={isActive ? round : undefined}
@@ -24,8 +25,8 @@ const Tab = ({ label, isActive }) => (
 );
 
 const InteractionView = () => {
-    const { handleCommand, runDemo, log } = useContext(TuiContext);
-    const { isRawModeSupported } = useStdin();
+    const {handleCommand, runDemo, log} = useContext(TuiContext);
+    const {isRawModeSupported} = useStdin();
     const [activeTab, setActiveTab] = useState('input'); // input, demos
 
     const [inputValue, setInputValue] = useState('');
@@ -76,7 +77,7 @@ const InteractionView = () => {
                 setInputValue(history[newIndex] || '');
             }
         }
-    }, { isActive: isRawModeSupported });
+    }, {isActive: isRawModeSupported});
 
     const handleSubmit = () => {
         if (handleCommand && inputValue) {
@@ -112,7 +113,7 @@ const InteractionView = () => {
     const renderDemos = () => (
         <Box flexDirection="column">
             {isRawModeSupported ? (
-                <SelectInput items={demos} onSelect={handleDemoSelect} />
+                <SelectInput items={demos} onSelect={handleDemoSelect}/>
             ) : (
                 <Text>[Input disabled in non-interactive mode]</Text>
             )}
@@ -122,8 +123,8 @@ const InteractionView = () => {
     return (
         <Box flexDirection="column" flexGrow={1}>
             <Box>
-                <Tab label="[I]nput" isActive={activeTab === 'input'} />
-                <Tab label="[D]emos" isActive={activeTab === 'demos'} />
+                <Tab label="[I]nput" isActive={activeTab === 'input'}/>
+                <Tab label="[D]emos" isActive={activeTab === 'demos'}/>
             </Box>
             <Box flexGrow={1}>
                 {activeTab === 'input' ? renderInput() : renderDemos()}

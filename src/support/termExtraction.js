@@ -1,4 +1,4 @@
-import { id as generateId } from './utils.js';
+import {id as generateId} from './utils.js';
 
 export const extractTerms = (parsed, terms = new Set()) => {
     if (!parsed) {

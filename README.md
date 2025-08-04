@@ -1,15 +1,20 @@
 # HyperNARS
 
 ## THIS IS AN UNTESTED GENERAL-PURPOSE REASONING SYSTEM DERIVED FROM NARS (NON-AXIOMATIC REASONING SYSTEM)
+
 ## USE AT YOUR OWN RISK
 
-**Seed** - `prompt.md` - This is the original content used to start the process.  This can always be improved, requiring restarting the development process.
+**Seed** - `prompt.md` - This is the original content used to start the process. This can always be improved, requiring
+restarting the development process.
 
-**Code** - `hypernars.?.js.md` - markdown files containing mostly JavaScript source code. the numbers are the version, derived directly from the previous.  it's possible that some data was lost between iterations.
+**Code** - `hypernars.?.js.md` - markdown files containing mostly JavaScript source code. the numbers are the version,
+derived directly from the previous. it's possible that some data was lost between iterations.
 
-**Enhancements** - `enhance.?.md` - proposals for design enhancements, often with source code.  each file includes several proposals and a summary.  among the files, there is some overlap that should be clustered and synthesized.
+**Enhancements** - `enhance.?.md` - proposals for design enhancements, often with source code. each file includes
+several proposals and a summary. among the files, there is some overlap that should be clustered and synthesized.
 
 ## TODO
+
 - Apply the best `enhance.?.md` enhancements to `hypernars.4.js.md`
 - Develop comprehensive Unit Tests
 - Test System
@@ -23,6 +28,7 @@
 ### AI assistance
 
 Model:
+
 ```
 Qwen3 GOOD
 Kimi K2 GOOD
@@ -33,9 +39,10 @@ ChatGPT ?
 
 Input `prompt.md` to initialize the specification.
 
-
 #### Generate enhancement proposals
+
 ```
 Revise the implementation, adding missing or helpful functionality.
 ```
+
 Repeating in Qwen3 generated more ideas, and more are possible, ex: `enhance.z.md`

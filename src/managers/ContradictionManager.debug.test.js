@@ -1,9 +1,9 @@
-import { describe, it, expect } from '@jest/globals';
-import { NARHyper } from '../NARHyper.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { Budget } from '../support/Budget.js';
-import { id } from '../support/utils.js';
-import { AdvancedContradictionManager } from './AdvancedContradictionManager.js';
+import {describe, expect, it} from '@jest/globals';
+import {NARHyper} from '../NARHyper.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {Budget} from '../support/Budget.js';
+import {id} from '../support/utils.js';
+import {AdvancedContradictionManager} from './AdvancedContradictionManager.js';
 
 const config = {
     modules: {
@@ -22,8 +22,8 @@ describe('ContradictionManager Debug', () => {
         const hyperedge = nar.state.hypergraph.get(term);
         const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
         const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.85);
-        nar.contradictionManager.addEvidence(term, belief1.id, { source: 'default', strength: 0.8 });
-        nar.contradictionManager.addEvidence(term, belief2.id, { source: 'default', strength: 0.78 });
+        nar.contradictionManager.addEvidence(term, belief1.id, {source: 'default', strength: 0.8});
+        nar.contradictionManager.addEvidence(term, belief2.id, {source: 'default', strength: 0.78});
 
         nar.contradictionManager.detectContradiction(term);
 

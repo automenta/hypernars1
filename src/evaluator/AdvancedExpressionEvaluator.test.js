@@ -1,4 +1,4 @@
-import { NARHyper } from '../NARHyper.js';
+import {NARHyper} from '../NARHyper.js';
 
 describe('AdvancedExpressionEvaluator', () => {
     let nar;

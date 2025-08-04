@@ -1,7 +1,7 @@
-import { MemoryManagerBase } from './MemoryManagerBase.js';
-import { OptimizedIndex } from './OptimizedIndex.js';
-import { Budget } from '../support/Budget.js';
-import { extractTerms } from '../support/termExtraction.js';
+import {MemoryManagerBase} from './MemoryManagerBase.js';
+import {OptimizedIndex} from './OptimizedIndex.js';
+import {Budget} from '../support/Budget.js';
+import {extractTerms} from '../support/termExtraction.js';
 
 export class AdvancedMemoryManager extends MemoryManagerBase {
     constructor(nar) {
@@ -68,7 +68,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
                 if (hyperedge.beliefs.length > 1) {
                     hyperedge.beliefs.sort((a, b) => a.budget.total() - b.budget.total());
                     const weakestBelief = hyperedge.beliefs.shift();
-                    this.nar.emit('belief-pruned', { hyperedgeId: id, belief: weakestBelief });
+                    this.nar.emit('belief-pruned', {hyperedgeId: id, belief: weakestBelief});
                 } else {
                     if (retentionScore < this.forgettingThreshold) {
                         this._removeHyperedge(id);
@@ -79,7 +79,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
         }
 
         if (prunedCount > 0) {
-            this.nar.emit('maintenance-info', { message: `Pruned ${prunedCount} concepts.` });
+            this.nar.emit('maintenance-info', {message: `Pruned ${prunedCount} concepts.`});
         }
     }
 
@@ -93,7 +93,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
 
         this.index.removeFromIndex(hyperedge);
 
-        this.nar.emit('knowledge-pruned', { id, type: hyperedge.type });
+        this.nar.emit('knowledge-pruned', {id, type: hyperedge.type});
     }
 
     _isImportantConcept(hyperedgeId) {
@@ -210,10 +210,18 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
         // Base priority on task type
         let basePriority = 0.5;
         switch (task.type) {
-            case 'question': basePriority = 0.9; break;
-            case 'critical-event': basePriority = 0.95; break;
-            case 'derivation': basePriority = 0.6; break;
-            case 'revision': basePriority = 0.7; break;
+            case 'question':
+                basePriority = 0.9;
+                break;
+            case 'critical-event':
+                basePriority = 0.95;
+                break;
+            case 'derivation':
+                basePriority = 0.6;
+                break;
+            case 'revision':
+                basePriority = 0.7;
+                break;
         }
 
         // Adjust based on context

@@ -1,4 +1,4 @@
-import { ContradictionManagerBase } from './ContradictionManagerBase.js';
+import {ContradictionManagerBase} from './ContradictionManagerBase.js';
 
 /**
  * A simple implementation of a contradiction manager.

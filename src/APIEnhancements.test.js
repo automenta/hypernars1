@@ -1,9 +1,9 @@
-import { describe, it, expect } from '@jest/globals';
-import { NARHyper } from './NARHyper.js';
+import {describe, expect, it} from '@jest/globals';
+import {NARHyper} from './NARHyper.js';
 
 describe('API Enhancements', () => {
     it('should handle queries with variable binding', () => {
-        const nar = new NARHyper({ useAdvanced: true });
+        const nar = new NARHyper({useAdvanced: true});
         nar.inheritance('bird', 'animal');
         nar.inheritance('robin', 'bird');
         nar.inheritance('sparrow', 'bird');
@@ -20,7 +20,7 @@ describe('API Enhancements', () => {
     });
 
     it('should provide counterfactual explanations', () => {
-        const nar = new NARHyper({ useAdvanced: true });
+        const nar = new NARHyper({useAdvanced: true});
         nar.nal('<tweety --> bird>.');
         nar.nal('<bird --> flyer>.');
         nar.run(50); // Allow derivation
@@ -41,14 +41,14 @@ describe('API Enhancements', () => {
     });
 
     it('should find a directly added complex term', () => {
-        const nar = new NARHyper({ useAdvanced: true });
+        const nar = new NARHyper({useAdvanced: true});
         nar.nal('<tweety --> flyer>.');
         const results = nar.query('<tweety --> flyer>');
         expect(results.length).toBe(1);
     });
 
     it('should get and resolve contradictions', () => {
-        const nar = new NARHyper({ useAdvanced: true });
+        const nar = new NARHyper({useAdvanced: true});
         nar.nal('<water --> wet>. %1.0;0.9%');
         nar.nal('<water --> wet>. %0.0;0.9%');
 
@@ -70,8 +70,8 @@ describe('API Enhancements', () => {
     });
 
     it('should configure and get meta-reasoning strategy', () => {
-        const nar = new NARHyper({ useAdvanced: true });
-        nar.configureMetaStrategy({ context: 'test_context', strategy: 'test_strategy', priority: 100 });
+        const nar = new NARHyper({useAdvanced: true});
+        nar.configureMetaStrategy({context: 'test_context', strategy: 'test_strategy', priority: 100});
 
         // This is a bit tricky to test directly without more hooks,
         // but we can verify the configuration was stored.

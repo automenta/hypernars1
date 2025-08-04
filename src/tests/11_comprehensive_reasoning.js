@@ -19,14 +19,14 @@ export default {
                 const beliefId = nar.inheritance('sparrow', 'flies');
                 const belief = nar.getBeliefs(beliefId)[0];
                 if (!belief) return false;
-                nar.scratchpad = { initialConfidence: belief.truth.confidence };
+                nar.scratchpad = {initialConfidence: belief.truth.confidence};
                 return nar.scratchpad.initialConfidence > 0.5;
             }
         },
         {
             comment: '--- Step 2: Revise a belief ---',
             action: (nar) => {
-                nar.nal('<sparrow --> -flies>.', { truth: { frequency: 1.0, confidence: 0.95 } });
+                nar.nal('<sparrow --> -flies>.', {truth: {frequency: 1.0, confidence: 0.95}});
                 nar.run(20);
             },
             assert: (nar, log) => {

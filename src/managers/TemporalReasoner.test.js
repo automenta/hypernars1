@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeEach } from '@jest/globals';
-import { NARHyper } from '../NARHyper.js';
+import {beforeEach, describe, expect, it} from '@jest/globals';
+import {NARHyper} from '../NARHyper.js';
 
 describe('TemporalReasoner', () => {
     let nar;
     let temporalReasoner;
 
     beforeEach(() => {
-        nar = new NARHyper({ useAdvanced: true });
+        nar = new NARHyper({useAdvanced: true});
         temporalReasoner = nar.temporalManager;
     });
 
@@ -40,7 +40,7 @@ describe('TemporalReasoner', () => {
     it('should handle a chain of temporal relations', () => {
         const actions = ['wake_up', 'get_dressed', 'eat_breakfast', 'leave_for_work'];
         for (let i = 0; i < actions.length - 1; i++) {
-            temporalReasoner.addConstraint(actions[i], actions[i+1], 'before');
+            temporalReasoner.addConstraint(actions[i], actions[i + 1], 'before');
         }
 
         const inferred = temporalReasoner.inferRelationship('wake_up', 'leave_for_work');

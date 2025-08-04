@@ -1,12 +1,13 @@
-import React, { useContext, useState } from 'react';
-import { Box, Text, useInput, useStdin } from 'ink';
-import { TuiContext } from '../contexts/TuiContext.js';
+import React, {useContext, useState} from 'react';
+import {Box, Text, useInput, useStdin} from 'ink';
+import {TuiContext} from '../contexts/TuiContext.js';
 import pkg from 'cli-boxes';
-const { single } = pkg;
 
-const ConceptView = ({ conceptId, onClose }) => {
-    const { nar, handleSelectConcept } = useContext(TuiContext);
-    const { isRawModeSupported } = useStdin();
+const {single} = pkg;
+
+const ConceptView = ({conceptId, onClose}) => {
+    const {nar, handleSelectConcept} = useContext(TuiContext);
+    const {isRawModeSupported} = useStdin();
     const [showBeliefs, setShowBeliefs] = useState(false);
     const [showRelated, setShowRelated] = useState(false);
     const concept = nar.state.hypergraph.get(conceptId);
@@ -15,7 +16,7 @@ const ConceptView = ({ conceptId, onClose }) => {
         if (key.escape) onClose();
         else if (input === 'b') setShowBeliefs(v => !v);
         else if (input === 'r') setShowRelated(v => !v);
-    }, { isActive: isRawModeSupported });
+    }, {isActive: isRawModeSupported});
 
     if (!concept) {
         return <Text>Concept {conceptId} not found. Press ESC to close.</Text>;
@@ -27,7 +28,8 @@ const ConceptView = ({ conceptId, onClose }) => {
             {showBeliefs && concept.beliefs.slice(0, 5).map(belief => (
                 <Box key={belief.id} flexDirection="column" marginLeft={2}>
                     <Text>
-                        f:{belief.truth.f.toFixed(2)} c:{belief.truth.c.toFixed(2)} | B: p:{belief.budget.p.toFixed(2)} d:{belief.budget.d.toFixed(2)} q:{belief.budget.q.toFixed(2)}
+                        f:{belief.truth.f.toFixed(2)} c:{belief.truth.c.toFixed(2)} | B:
+                        p:{belief.budget.p.toFixed(2)} d:{belief.budget.d.toFixed(2)} q:{belief.budget.q.toFixed(2)}
                     </Text>
                     <Text color="gray">
                         Premises: {belief.premises.length > 0 ? belief.premises.map(p => p.substring(0, 10)).join(', ') : 'None'}

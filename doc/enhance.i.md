@@ -204,207 +204,207 @@ performance.
  * - Creates feedback loops for continuous improvement
  */
 class MetaReasoningNAR extends NARHyper {
-  constructor(config = {}) {
-    super(config);
-    this.meta = {
-      rulePerformance: new Map(),  // ruleName -> { successes, attempts, avgResource }
-      reasoningPatterns: new Map(), // patternId -> { frequency, successRate }
-      selfMonitoring: {
-        lastEvaluation: Date.now(),
-        evaluationInterval: 5000,   // Evaluate every 5 seconds
-        resourceThreshold: 0.2      // Only monitor rules using significant resources
-      }
-    };
-    
-    // Add meta-observation capability
-    this.on('step', this._monitorReasoning.bind(this));
-    this.on('belief-added', this._recordBeliefImpact.bind(this));
-  }
-  
-  /**
-   * Monitor reasoning effectiveness and resource usage
-   */
-  _monitorReasoning({ step, event, activation, queueSize }) {
-    // Periodically evaluate reasoning performance
-    if (Date.now() - this.meta.selfMonitoring.lastEvaluation > 
-        this.meta.selfMonitoring.evaluationInterval) {
-      
-      this._evaluateReasoningPerformance();
-      this.meta.selfMonitoring.lastEvaluation = Date.now();
+    constructor(config = {}) {
+        super(config);
+        this.meta = {
+            rulePerformance: new Map(),  // ruleName -> { successes, attempts, avgResource }
+            reasoningPatterns: new Map(), // patternId -> { frequency, successRate }
+            selfMonitoring: {
+                lastEvaluation: Date.now(),
+                evaluationInterval: 5000,   // Evaluate every 5 seconds
+                resourceThreshold: 0.2      // Only monitor rules using significant resources
+            }
+        };
+
+        // Add meta-observation capability
+        this.on('step', this._monitorReasoning.bind(this));
+        this.on('belief-added', this._recordBeliefImpact.bind(this));
     }
-    
-    // Track rule application
-    if (event.derivationPath.length > 0) {
-      const ruleName = event.derivationPath[event.derivationPath.length - 1];
-      this._recordRuleApplication(ruleName, event.budget);
+
+    /**
+     * Monitor reasoning effectiveness and resource usage
+     */
+    _monitorReasoning({step, event, activation, queueSize}) {
+        // Periodically evaluate reasoning performance
+        if (Date.now() - this.meta.selfMonitoring.lastEvaluation >
+            this.meta.selfMonitoring.evaluationInterval) {
+
+            this._evaluateReasoningPerformance();
+            this.meta.selfMonitoring.lastEvaluation = Date.now();
+        }
+
+        // Track rule application
+        if (event.derivationPath.length > 0) {
+            const ruleName = event.derivationPath[event.derivationPath.length - 1];
+            this._recordRuleApplication(ruleName, event.budget);
+        }
     }
-  }
-  
-  /**
-   * Evaluate overall reasoning performance
-   */
-  _evaluateReasoningPerformance() {
-    // Identify underperforming rules
-    this.meta.rulePerformance.forEach((stats, ruleName) => {
-      const successRate = stats.successes / Math.max(stats.attempts, 1);
-      
-      // If rule is inefficient, reduce its priority
-      if (successRate < 0.3 && stats.avgResource > this.config.budgetThreshold) {
-        this._adjustRulePriority(ruleName, -0.1);
-      }
-      // If rule is highly effective, increase its priority
-      else if (successRate > 0.7 && stats.avgResource < this.config.budgetThreshold * 2) {
-        this._adjustRulePriority(ruleName, 0.15);
-      }
-    });
-    
-    // Discover and reinforce successful reasoning patterns
-    this._discoverEffectivePatterns();
-  }
-  
-  /**
-   * Record when a rule is applied
-   */
-  _recordRuleApplication(ruleName, budget) {
-    if (!this.meta.rulePerformance.has(ruleName)) {
-      this.meta.rulePerformance.set(ruleName, {
-        successes: 0,
-        attempts: 0,
-        avgResource: 0,
-        lastSuccess: 0
-      });
-    }
-    
-    const stats = this.meta.rulePerformance.get(ruleName);
-    stats.attempts++;
-    stats.avgResource = (stats.avgResource * 0.9) + (budget.total() * 0.1);
-  }
-  
-  /**
-   * Record when a belief leads to useful outcomes
-   */
-  _recordBeliefImpact({ hyperedgeId, truth, expectation }) {
-    // Find the derivation path that created this belief
-    const derivationPath = this._getDerivationPath(hyperedgeId);
-    
-    if (derivationPath.length > 0) {
-      const ruleName = derivationPath[derivationPath.length - 1];
-      const stats = this.meta.rulePerformance.get(ruleName);
-      
-      if (stats) {
-        stats.successes++;
-        stats.lastSuccess = Date.now();
-        
-        // Create pattern identifier
-        const patternId = this._generatePatternId(derivationPath);
-        this._updatePatternSuccess(patternId);
-      }
-    }
-  }
-  
-  /**
-   * Adjust priority of a reasoning rule
-   */
-  _adjustRulePriority(ruleName, delta) {
-    // Find the rule in the derivation system
-    const ruleAdjustment = {
-      'transitivity': { path: '_deriveTransitiveInheritance', priorityFactor: 1.0 + delta },
-      'induction': { path: '_deriveInduction', priorityFactor: 1.0 + delta },
-      'abduction': { path: '_deriveAbduction', priorityFactor: 1.0 + delta },
-      'analogy': { path: '_deriveAnalogy', priorityFactor: 1.0 + delta }
-    }[ruleName];
-    
-    if (ruleAdjustment) {
-      // Store the adjustment for use during derivation
-      if (!this.meta.ruleAdjustments) this.meta.ruleAdjustments = new Map();
-      this.meta.ruleAdjustments.set(ruleName, {
-        factor: ruleAdjustment.priorityFactor,
-        timestamp: Date.now()
-      });
-    }
-  }
-  
-  /**
-   * Discover effective reasoning patterns
-   */
-  _discoverEffectivePatterns() {
-    // Analyze successful derivation paths
-    this.questionPromises.forEach((promise, questionId) => {
-      if (promise.resolved) {
-        // For each answer, trace back the derivation path
-        this.index.questionCache.get(questionId)?.forEach(answer => {
-          const path = this._traceDerivation(answer.hyperedgeId);
-          if (path.length > 2) {
-            const patternId = this._generatePatternId(path.map(p => p.type));
-            this._updatePatternSuccess(patternId, answer.truth.expectation());
-          }
+
+    /**
+     * Evaluate overall reasoning performance
+     */
+    _evaluateReasoningPerformance() {
+        // Identify underperforming rules
+        this.meta.rulePerformance.forEach((stats, ruleName) => {
+            const successRate = stats.successes / Math.max(stats.attempts, 1);
+
+            // If rule is inefficient, reduce its priority
+            if (successRate < 0.3 && stats.avgResource > this.config.budgetThreshold) {
+                this._adjustRulePriority(ruleName, -0.1);
+            }
+            // If rule is highly effective, increase its priority
+            else if (successRate > 0.7 && stats.avgResource < this.config.budgetThreshold * 2) {
+                this._adjustRulePriority(ruleName, 0.15);
+            }
         });
-      }
-    });
-    
-    // Promote high-success patterns
-    this.meta.reasoningPatterns.forEach((pattern, patternId) => {
-      if (pattern.successRate > 0.65 && pattern.frequency > 5) {
-        this._createMacroRule(patternId, pattern);
-      }
-    });
-  }
-  
-  /**
-   * Generate unique ID for a reasoning pattern
-   */
-  _generatePatternId(elements) {
-    return `Pattern(${elements.join('→')})`;
-  }
-  
-  /**
-   * Create a specialized macro rule from a successful pattern
-   */
-  _createMacroRule(patternId, pattern) {
-    // Don't create if already exists
-    if (this[`${patternId}Rule`]) return;
-    
-    // Create a custom derivation function
-    const ruleFunction = function(event) {
-      // Implementation would follow the successful pattern
-      // This is a simplified placeholder
-      const { target, activation, budget } = event;
-      this._propagate(target, activation * 1.1, budget.scale(1.05), 
-        event.pathHash, event.pathLength, [...event.derivationPath, patternId]);
-    };
-    
-    // Add to derivation system with high priority
-    this[`${patternId}Rule`] = ruleFunction;
-    
-    // Log for debugging/monitoring
-    console.log(`Created optimized macro rule: ${patternId}`);
-  }
-  
-  /**
-   * Context-aware derivation with meta-adjustments
-   */
-  _applyDerivationRules(event) {
-    const { target, activation, budget, pathHash, pathLength, derivationPath } = event;
-    const hyperedge = this.hypergraph.get(target);
-    
-    if (!hyperedge || activation <= this.config.inferenceThreshold || 
-        pathLength > this.config.maxDerivationDepth) return;
-    
-    // Apply meta-adjustments to budget based on rule performance
-    const ruleName = derivationPath[derivationPath.length - 1];
-    const adjustment = this.meta.ruleAdjustments?.get(ruleName);
-    
-    let adjustedBudget = budget;
-    if (adjustment && Date.now() - adjustment.timestamp < 30000) { // 30-second validity
-      adjustedBudget = budget.scale(adjustment.factor);
+
+        // Discover and reinforce successful reasoning patterns
+        this._discoverEffectivePatterns();
     }
-    
-    // Apply standard derivation rules with adjusted parameters
-    super._applyDerivationRules({
-      ...event,
-      budget: adjustedBudget
-    });
-  }
+
+    /**
+     * Record when a rule is applied
+     */
+    _recordRuleApplication(ruleName, budget) {
+        if (!this.meta.rulePerformance.has(ruleName)) {
+            this.meta.rulePerformance.set(ruleName, {
+                successes: 0,
+                attempts: 0,
+                avgResource: 0,
+                lastSuccess: 0
+            });
+        }
+
+        const stats = this.meta.rulePerformance.get(ruleName);
+        stats.attempts++;
+        stats.avgResource = (stats.avgResource * 0.9) + (budget.total() * 0.1);
+    }
+
+    /**
+     * Record when a belief leads to useful outcomes
+     */
+    _recordBeliefImpact({hyperedgeId, truth, expectation}) {
+        // Find the derivation path that created this belief
+        const derivationPath = this._getDerivationPath(hyperedgeId);
+
+        if (derivationPath.length > 0) {
+            const ruleName = derivationPath[derivationPath.length - 1];
+            const stats = this.meta.rulePerformance.get(ruleName);
+
+            if (stats) {
+                stats.successes++;
+                stats.lastSuccess = Date.now();
+
+                // Create pattern identifier
+                const patternId = this._generatePatternId(derivationPath);
+                this._updatePatternSuccess(patternId);
+            }
+        }
+    }
+
+    /**
+     * Adjust priority of a reasoning rule
+     */
+    _adjustRulePriority(ruleName, delta) {
+        // Find the rule in the derivation system
+        const ruleAdjustment = {
+            'transitivity': {path: '_deriveTransitiveInheritance', priorityFactor: 1.0 + delta},
+            'induction': {path: '_deriveInduction', priorityFactor: 1.0 + delta},
+            'abduction': {path: '_deriveAbduction', priorityFactor: 1.0 + delta},
+            'analogy': {path: '_deriveAnalogy', priorityFactor: 1.0 + delta}
+        }[ruleName];
+
+        if (ruleAdjustment) {
+            // Store the adjustment for use during derivation
+            if (!this.meta.ruleAdjustments) this.meta.ruleAdjustments = new Map();
+            this.meta.ruleAdjustments.set(ruleName, {
+                factor: ruleAdjustment.priorityFactor,
+                timestamp: Date.now()
+            });
+        }
+    }
+
+    /**
+     * Discover effective reasoning patterns
+     */
+    _discoverEffectivePatterns() {
+        // Analyze successful derivation paths
+        this.questionPromises.forEach((promise, questionId) => {
+            if (promise.resolved) {
+                // For each answer, trace back the derivation path
+                this.index.questionCache.get(questionId)?.forEach(answer => {
+                    const path = this._traceDerivation(answer.hyperedgeId);
+                    if (path.length > 2) {
+                        const patternId = this._generatePatternId(path.map(p => p.type));
+                        this._updatePatternSuccess(patternId, answer.truth.expectation());
+                    }
+                });
+            }
+        });
+
+        // Promote high-success patterns
+        this.meta.reasoningPatterns.forEach((pattern, patternId) => {
+            if (pattern.successRate > 0.65 && pattern.frequency > 5) {
+                this._createMacroRule(patternId, pattern);
+            }
+        });
+    }
+
+    /**
+     * Generate unique ID for a reasoning pattern
+     */
+    _generatePatternId(elements) {
+        return `Pattern(${elements.join('→')})`;
+    }
+
+    /**
+     * Create a specialized macro rule from a successful pattern
+     */
+    _createMacroRule(patternId, pattern) {
+        // Don't create if already exists
+        if (this[`${patternId}Rule`]) return;
+
+        // Create a custom derivation function
+        const ruleFunction = function (event) {
+            // Implementation would follow the successful pattern
+            // This is a simplified placeholder
+            const {target, activation, budget} = event;
+            this._propagate(target, activation * 1.1, budget.scale(1.05),
+                event.pathHash, event.pathLength, [...event.derivationPath, patternId]);
+        };
+
+        // Add to derivation system with high priority
+        this[`${patternId}Rule`] = ruleFunction;
+
+        // Log for debugging/monitoring
+        console.log(`Created optimized macro rule: ${patternId}`);
+    }
+
+    /**
+     * Context-aware derivation with meta-adjustments
+     */
+    _applyDerivationRules(event) {
+        const {target, activation, budget, pathHash, pathLength, derivationPath} = event;
+        const hyperedge = this.hypergraph.get(target);
+
+        if (!hyperedge || activation <= this.config.inferenceThreshold ||
+            pathLength > this.config.maxDerivationDepth) return;
+
+        // Apply meta-adjustments to budget based on rule performance
+        const ruleName = derivationPath[derivationPath.length - 1];
+        const adjustment = this.meta.ruleAdjustments?.get(ruleName);
+
+        let adjustedBudget = budget;
+        if (adjustment && Date.now() - adjustment.timestamp < 30000) { // 30-second validity
+            adjustedBudget = budget.scale(adjustment.factor);
+        }
+
+        // Apply standard derivation rules with adjusted parameters
+        super._applyDerivationRules({
+            ...event,
+            budget: adjustedBudget
+        });
+    }
 }
 ```
 

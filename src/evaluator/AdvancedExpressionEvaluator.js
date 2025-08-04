@@ -1,6 +1,6 @@
-import { ExpressionEvaluatorBase } from './ExpressionEvaluatorBase.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { id } from '../support/utils.js';
+import {ExpressionEvaluatorBase} from './ExpressionEvaluatorBase.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {id} from '../support/utils.js';
 
 // Custom error classes for precise error handling, as per `enhance.c.md`
 class NALParserError extends Error {
@@ -21,12 +21,12 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         super(nar);
         // This operator list is now used inside the new parser logic
         this.operators = [
-            { symbol: '==>', precedence: 4, type: 'Implication' },
-            { symbol: '<=>', precedence: 4, type: 'Equivalence' },
-            { symbol: '-->', precedence: 3, type: 'Inheritance' },
-            { symbol: '&&', precedence: 2, type: 'Conjunction' },
-            { symbol: '||', precedence: 2, type: 'Disjunction' },
-            { symbol: '<->', precedence: 1, type: 'Similarity' }
+            {symbol: '==>', precedence: 4, type: 'Implication'},
+            {symbol: '<=>', precedence: 4, type: 'Equivalence'},
+            {symbol: '-->', precedence: 3, type: 'Inheritance'},
+            {symbol: '&&', precedence: 2, type: 'Conjunction'},
+            {symbol: '||', precedence: 2, type: 'Disjunction'},
+            {symbol: '<->', precedence: 1, type: 'Similarity'}
         ];
     }
 
@@ -48,13 +48,13 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 reject(new Error(`Question timed out: ${cleanQuestion}`));
             }, this.nar.config.questionTimeout || 5000);
 
-            this.nar.state.questionPromises.set(questionId, { resolve, reject, timer, options });
+            this.nar.state.questionPromises.set(questionId, {resolve, reject, timer, options});
 
             const parsed = this.parse(cleanQuestion);
             if (!parsed || !parsed.type || !parsed.args) return;
 
-            const task = { type: 'question', hyperedgeType: parsed.type, args: parsed.args };
-            const budget = this.nar.memoryManager.allocateResources(task, { importance: 1.0, urgency: 1.0 });
+            const task = {type: 'question', hyperedgeType: parsed.type, args: parsed.args};
+            const budget = this.nar.memoryManager.allocateResources(task, {importance: 1.0, urgency: 1.0});
             const hyperedgeId = this._getParsedStructureId(parsed);
             if (hyperedgeId) {
                 this.nar.propagation.propagate({
@@ -70,7 +70,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     query(pattern, options = {}) {
-        const { limit = 10, minExpectation = 0.5, sortBy = 'expectation' } = options;
+        const {limit = 10, minExpectation = 0.5, sortBy = 'expectation'} = options;
         const startTime = Date.now();
 
         try {
@@ -120,7 +120,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
             return uniqueResults.slice(0, limit);
         } catch (e) {
-            this.nar.emit('log', { message: `Query execution failed: ${e.message}`, level: 'error', error: e });
+            this.nar.emit('log', {message: `Query execution failed: ${e.message}`, level: 'error', error: e});
             return [];
         } finally {
             const duration = Date.now() - startTime;
@@ -128,7 +128,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     _wildcardQuery(pattern, options) {
-        const { limit = 10, minExpectation = 0.0 } = options;
+        const {limit = 10, minExpectation = 0.0} = options;
         const results = [];
         const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\(/g, '\\(').replace(/\)/g, '\\)'));
         for (const [id, hyperedge] of this.nar.state.hypergraph.entries()) {
@@ -146,7 +146,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     queryWithBinding(pattern, options = {}) {
-        const { minExpectation = 0.5 } = options;
+        const {minExpectation = 0.5} = options;
         const results = [];
         const parsedPattern = this.parse(pattern);
 
@@ -268,7 +268,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
     parse(expression) {
         if (typeof expression !== 'string' || !expression.trim()) {
-            throw new NALParserError('Input must be a non-empty string.', { expression });
+            throw new NALParserError('Input must be a non-empty string.', {expression});
         }
 
         let truth = new TruthValue(1.0, 0.9);
@@ -283,10 +283,10 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 const frequency = parseFloat(freqStr);
                 const confidence = parseFloat(confStr);
                 if (isNaN(frequency) || frequency < 0 || frequency > 1) {
-                    throw new NALParserError('Invalid truth frequency value.', { value: freqStr });
+                    throw new NALParserError('Invalid truth frequency value.', {value: freqStr});
                 }
                 if (isNaN(confidence) || confidence < 0 || confidence > 1) {
-                    throw new NALParserError('Invalid truth confidence value.', { value: confStr });
+                    throw new NALParserError('Invalid truth confidence value.', {value: confStr});
                 }
                 truth = new TruthValue(frequency, confidence);
             }
@@ -314,7 +314,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             if (e instanceof NALParserError) {
                 throw e;
             }
-            throw new NALParserError(`Failed to parse expression: ${e.message}`, { content });
+            throw new NALParserError(`Failed to parse expression: ${e.message}`, {content});
         }
     }
 
@@ -323,12 +323,12 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
         // 1. Handle Negation
         if (content.startsWith('!')) {
-            return { type: 'Negation', args: [this._parseNALExpression(content.substring(1))] };
+            return {type: 'Negation', args: [this._parseNALExpression(content.substring(1))]};
         }
         // Handle alternative bracketed negation syntax
         if (content.startsWith('[-') && content.endsWith(']')) {
             const termContent = content.slice(2, -1).trim();
-            return { type: 'Negation', args: [{ type: 'Term', args: [termContent] }] };
+            return {type: 'Negation', args: [{type: 'Term', args: [termContent]}]};
         }
 
         // 2. Handle Parentheses
@@ -363,7 +363,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 for (const op of this.operators) {
                     if (content.substring(i, i + op.symbol.length) === op.symbol) {
                         if (!bestOp || op.precedence > bestOp.precedence) {
-                            bestOp = { ...op, position: i };
+                            bestOp = {...op, position: i};
                         }
                     }
                 }
@@ -373,21 +373,21 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         if (bestOp) {
             const left = content.substring(0, bestOp.position).trim();
             const right = content.substring(bestOp.position + bestOp.symbol.length).trim();
-            return { type: bestOp.type, args: [this._parseNALExpression(left), this._parseNALExpression(right)] };
+            return {type: bestOp.type, args: [this._parseNALExpression(left), this._parseNALExpression(right)]};
         }
 
         // 4. Handle specific term structures (Product, Image)
         const productMatch = content.match(/^\(\*\s*,\s*(.+)\)$/);
         if (productMatch) {
             const terms = productMatch[1].split(/\s*,\s*/).map(t => t.trim()).filter(Boolean);
-            return { type: 'Product', args: terms };
+            return {type: 'Product', args: terms};
         }
 
         const imageMatch = content.match(/^\((\/|\*)\s*,\s*(.+)\)$/);
         if (imageMatch) {
             const type = imageMatch[1] === '/' ? 'ImageExt' : 'ImageInt';
             const terms = imageMatch[2].split(/\s*,\s*/).map(t => t.trim()).filter(Boolean);
-            return { type, args: terms };
+            return {type, args: terms};
         }
 
         // 5. Handle Variables
@@ -396,13 +396,13 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             if (constraintMatch) {
                 const varName = constraintMatch[1];
                 const constraints = this._parseConstraints(constraintMatch[3]);
-                return { type: 'Variable', args: [varName], constraints };
+                return {type: 'Variable', args: [varName], constraints};
             }
-            return { type: 'Variable', args: [content] };
+            return {type: 'Variable', args: [content]};
         }
 
         // 6. Default to simple Term
-        return { type: 'Term', args: [content] };
+        return {type: 'Term', args: [content]};
     }
 
     _parseConstraints(constraintStr) {
@@ -435,7 +435,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         });
 
         // The top-level statement gets the specific truth/budget from the parsed expression.
-        const finalOptions = { ...options, truth: parsed.truth, priority: parsed.priority };
+        const finalOptions = {...options, truth: parsed.truth, priority: parsed.priority};
         return this.nar.api.addHyperedge(parsed.type, argIds, finalOptions);
     }
 

@@ -1,6 +1,8 @@
 # Revised NARHyper Implementation with Enhanced Functionality
 
-Based on the requirements and analysis of the current implementation, I've identified several critical areas for improvement to make NARHyper more robust, complete, and practical for real-world applications. Here's my revised implementation:
+Based on the requirements and analysis of the current implementation, I've identified several critical areas for
+improvement to make NARHyper more robust, complete, and practical for real-world applications. Here's my revised
+implementation:
 
 ## Key Improvements
 
@@ -1340,43 +1342,47 @@ robustRule(premise, conclusion, exception, options = {}) {
 ## Summary of Key Enhancements
 
 1. **Complete NAL Syntax Support**:
-   - Full parsing of nested expressions with proper operator precedence
-   - Enhanced variable handling and constraint satisfaction
-   - Comprehensive truth value annotation support
+    - Full parsing of nested expressions with proper operator precedence
+    - Enhanced variable handling and constraint satisfaction
+    - Comprehensive truth value annotation support
 
 2. **Advanced Budget Management**:
-   - Dynamic budget allocation based on system load and task importance
-   - Resource competition resolution with proportional allocation
-   - Novelty-based priority bonuses for new information
+    - Dynamic budget allocation based on system load and task importance
+    - Resource competition resolution with proportional allocation
+    - Novelty-based priority bonuses for new information
 
 3. **Sophisticated Contradiction Handling**:
-   - Explicit contradiction detection with context analysis
-   - Multiple resolution strategies (accept, reject, split)
-   - Context-specific concept creation for contradictory information
+    - Explicit contradiction detection with context analysis
+    - Multiple resolution strategies (accept, reject, split)
+    - Context-specific concept creation for contradictory information
 
 4. **Enhanced Temporal Reasoning**:
-   - Full Allen's interval algebra implementation
-   - Temporal constraint satisfaction
-   - Uncertainty-aware temporal processing
-   - Natural language temporal descriptions
+    - Full Allen's interval algebra implementation
+    - Temporal constraint satisfaction
+    - Uncertainty-aware temporal processing
+    - Natural language temporal descriptions
 
 5. **Scalability Improvements**:
-   - Optimized indexing with trie-based search
-   - Memory-conscious caching with intelligent pruning
-   - Path cache with usage-based optimization
-   - Concept popularity tracking for resource allocation
+    - Optimized indexing with trie-based search
+    - Memory-conscious caching with intelligent pruning
+    - Path cache with usage-based optimization
+    - Concept popularity tracking for resource allocation
 
 6. **Advanced Explanation System**:
-   - Multiple explanation styles (step-by-step, evidence-based, causal, natural)
-   - Counterfactual reasoning for "what if" scenarios
-   - Justification highlighting key evidence
-   - Natural language generation templates
+    - Multiple explanation styles (step-by-step, evidence-based, causal, natural)
+    - Counterfactual reasoning for "what if" scenarios
+    - Justification highlighting key evidence
+    - Natural language generation templates
 
 7. **Practical Macro Functions**:
-   - Context-aware rules and questions
-   - Temporal sequences with automatic timing
-   - Probabilistic rules with uncertainty handling
-   - Cited beliefs with provenance tracking
-   - Robust rules with exception handling
+    - Context-aware rules and questions
+    - Temporal sequences with automatic timing
+    - Probabilistic rules with uncertainty handling
+    - Cited beliefs with provenance tracking
+    - Robust rules with exception handling
 
-These enhancements make NARHyper a more complete, robust, and practical implementation of Non-Axiomatic Reasoning that better addresses the challenges of real-world AI applications while maintaining the core principles of NARS and the hybrid symbolic-subsymbolic approach. The system is now better equipped to handle complex reasoning tasks with contradictory evidence, temporal dynamics, and resource constraints, while providing clear, interpretable explanations of its reasoning process.
+These enhancements make NARHyper a more complete, robust, and practical implementation of Non-Axiomatic Reasoning that
+better addresses the challenges of real-world AI applications while maintaining the core principles of NARS and the
+hybrid symbolic-subsymbolic approach. The system is now better equipped to handle complex reasoning tasks with
+contradictory evidence, temporal dynamics, and resource constraints, while providing clear, interpretable explanations
+of its reasoning process.

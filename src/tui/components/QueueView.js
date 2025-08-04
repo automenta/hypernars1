@@ -1,10 +1,10 @@
-import React, { useState, useContext, useEffect } from 'react';
-import { Box, Text } from 'ink';
+import React, {useContext, useEffect, useState} from 'react';
+import {Box, Text} from 'ink';
 import SelectInput from 'ink-select-input';
-import { TuiContext } from '../contexts/TuiContext.js';
+import {TuiContext} from '../contexts/TuiContext.js';
 
 const QueueView = () => {
-    const { nar } = useContext(TuiContext);
+    const {nar} = useContext(TuiContext);
     const [events, setEvents] = useState([]);
 
     useEffect(() => {
@@ -28,7 +28,7 @@ const QueueView = () => {
     return (
         <Box flexDirection="column" paddingX={1} flexGrow={1}>
             <Text bold>Event Queue (Top 10 by Priority)</Text>
-            <SelectInput items={events} />
+            <SelectInput items={events}/>
         </Box>
     );
 };

@@ -25,7 +25,7 @@ export class ExplanationSystem {
      * @returns {string|Object} The formatted explanation.
      */
     explain(hyperedgeId, options = {}) {
-        const { depth = 3, format = 'detailed', perspective = 'evidential' } = options;
+        const {depth = 3, format = 'detailed', perspective = 'evidential'} = options;
 
         if (format === 'justification') {
             return this._formatJustification(hyperedgeId);
@@ -78,14 +78,14 @@ export class ExplanationSystem {
     }
 
     _formatCounterfactualExplanation(hyperedgeId, options) {
-        const { alternative } = options;
+        const {alternative} = options;
         if (!alternative) {
             return "Counterfactual explanation requires an 'alternative' premise to be provided in options.";
         }
 
         const path = [];
         this._traceDerivation(hyperedgeId, path, options.depth || 3, new Set());
-        
+
         const originalHyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!originalHyperedge) {
             return "Cannot generate counterfactual: original belief not found.";
@@ -110,8 +110,8 @@ export class ExplanationSystem {
         // Remove the original premise and insert the alternative
         sandbox.api.removeHyperedge(premiseToReplace.id);
         // Use the same truth value for a fair comparison
-        const truthValue = premiseToReplace.getStrongestBelief()?.truth || { frequency: 1.0, confidence: 0.9 };
-        sandbox.api.nal(alternative, { truth: truthValue });
+        const truthValue = premiseToReplace.getStrongestBelief()?.truth || {frequency: 1.0, confidence: 0.9};
+        sandbox.api.nal(alternative, {truth: truthValue});
 
         // Run the sandbox to see what happens
         sandbox.run(50); // Run for a limited number of steps
@@ -223,7 +223,7 @@ export class ExplanationSystem {
         const queue = [rootNode];
         const visited = new Set();
 
-        while(queue.length > 0) {
+        while (queue.length > 0) {
             const node = queue.shift();
             if (visited.has(node.id)) continue;
             visited.add(node.id);
@@ -236,12 +236,12 @@ export class ExplanationSystem {
 
             if (node.premises) {
                 node.premises.forEach(premise => {
-                    edges.push({ from: premise.id, to: node.id, label: node.derivationRule });
+                    edges.push({from: premise.id, to: node.id, label: node.derivationRule});
                     queue.push(premise);
                 });
             }
         }
-        return { nodes, edges };
+        return {nodes, edges};
     }
 
     // --- Private Helper Methods ---
@@ -281,7 +281,7 @@ export class ExplanationSystem {
     }
 
     _formatDetailedExplanation(hyperedgeId, path, options) {
-        const { includeConfidence = true, maxAlternatives = 2 } = options;
+        const {includeConfidence = true, maxAlternatives = 2} = options;
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return "Hyperedge not found";
 

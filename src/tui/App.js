@@ -1,13 +1,13 @@
-import React, { useState, useCallback } from 'react';
-import { useInput, useStdin } from 'ink';
+import React, {useCallback, useState} from 'react';
+import {useInput, useStdin} from 'ink';
 
 import ConceptView from './components/ConceptView.js';
 import MainLayout from './components/MainLayout.js';
-import { useNarSystem } from '../hooks/useNarSystem.js';
-import { TuiContext } from './contexts/TuiContext.js';
+import {useNarSystem} from '../hooks/useNarSystem.js';
+import {TuiContext} from './contexts/TuiContext.js';
 
-const App = ({ nar }) => {
-    const { isRawModeSupported } = useStdin();
+const App = ({nar}) => {
+    const {isRawModeSupported} = useStdin();
     const [logs, setLogs] = useState([]);
     const [selectedConceptId, setSelectedConceptId] = useState(null);
     const [activeTab, setActiveTab] = useState('memory'); // memory, queue, system
@@ -54,15 +54,21 @@ const App = ({ nar }) => {
         else if (input === '4') setActiveTab('contradictions');
         else if (input === '5') setActiveTab('temporal');
         else if (key.escape) process.exit();
-    }, { isActive: isRawModeSupported });
+    }, {isActive: isRawModeSupported});
 
     const handleCommand = (command) => {
         if (command.startsWith('/')) {
             const [cmd, ...args] = command.substring(1).split(' ');
             switch (cmd) {
-                case 'quit': process.exit(0); break;
-                case 'run': nar.run(parseInt(args[0], 10) || 1); break;
-                case 'ask': nar.ask(args.join(' ')).then(a => log(`Answer: ${JSON.stringify(a)}`)).catch(e => log(`Error: ${e.message}`)); break;
+                case 'quit':
+                    process.exit(0);
+                    break;
+                case 'run':
+                    nar.run(parseInt(args[0], 10) || 1);
+                    break;
+                case 'ask':
+                    nar.ask(args.join(' ')).then(a => log(`Answer: ${JSON.stringify(a)}`)).catch(e => log(`Error: ${e.message}`));
+                    break;
                 case 'contradict':
                     if (args.length === 2) {
                         const [belief1, belief2] = args;
@@ -89,7 +95,8 @@ const App = ({ nar }) => {
                         log('Usage: /resolve <hyperedge_id> [strategy]');
                     }
                     break;
-                default: log(`Unknown command: ${command}`);
+                default:
+                    log(`Unknown command: ${command}`);
             }
         } else {
             try {
@@ -117,14 +124,14 @@ const App = ({ nar }) => {
     if (selectedConceptId) {
         return (
             <TuiContext.Provider value={contextValue}>
-                <ConceptView conceptId={selectedConceptId} onClose={handleCloseConceptView} />
+                <ConceptView conceptId={selectedConceptId} onClose={handleCloseConceptView}/>
             </TuiContext.Provider>
         );
     }
 
     return (
         <TuiContext.Provider value={contextValue}>
-            <MainLayout />
+            <MainLayout/>
         </TuiContext.Provider>
     );
 };

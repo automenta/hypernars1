@@ -16,7 +16,7 @@ describe('NARHyper Manager Dependency Injection', () => {
     });
 
     it('should use Advanced managers when configured', () => {
-        const nar = new NARHyper({ useAdvanced: true });
+        const nar = new NARHyper({useAdvanced: true});
         expect(nar.contradictionManager).toBeInstanceOf(AdvancedContradictionManager);
         expect(nar.learningEngine).toBeInstanceOf(AdvancedLearningEngine);
         expect(nar.memoryManager).toBeInstanceOf(AdvancedMemoryManager);

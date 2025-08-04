@@ -1,10 +1,13 @@
 # Revised NARHyper Implementation: Enhanced Hybrid Reasoning System
 
-Based on the requirements and analysis of the current implementation, I've identified several critical areas for improvement to create a more robust, scalable, and practical hybrid reasoning system. Below are the key enhancements that address the missing functionality while maintaining the core principles of NARS.
+Based on the requirements and analysis of the current implementation, I've identified several critical areas for
+improvement to create a more robust, scalable, and practical hybrid reasoning system. Below are the key enhancements
+that address the missing functionality while maintaining the core principles of NARS.
 
 ## 1. Enhanced Temporal Reasoning System
 
-The current temporal implementation is too simplistic for real-world applications. I've added a complete temporal reasoning framework based on Allen's interval algebra with dynamic horizon adjustment:
+The current temporal implementation is too simplistic for real-world applications. I've added a complete temporal
+reasoning framework based on Allen's interval algebra with dynamic horizon adjustment:
 
 ```javascript
 /* ===== ENHANCED TEMPORAL REASONING ===== */
@@ -1630,212 +1633,208 @@ To improve transparency and explainability:
  * Advanced explanation generation with confidence metrics
  */
 class ExplanationSystem {
-  constructor(nar) {
-    this.nar = nar;
-    this.explanationTemplates = {
-      'transitivity': "Because {premise1} and {premise2}, therefore {conclusion}",
-      'induction': "Since both {term1} and {term2} are {predicate}, they are likely similar",
-      'abduction': "Given that {similar} is {predicate} and {subject} is similar to {similar}, {subject} is likely {predicate}",
-      'analogy': "Since {term1} is {predicate} and {term1} is similar to {term2}, {term2} is likely {predicate}",
-      'modus_ponens': "Because {premise} is true and {premise} implies {conclusion}, therefore {conclusion}",
-      'revision': "Updated belief based on new evidence: {newTruth} (was {oldTruth})"
-    };
-  }
-  
-  /**
-   * Generate a natural language explanation for a conclusion
-   */
-  explain(hyperedgeId, depth = 3) {
-    const explanation = this._buildExplanation(hyperedgeId, depth);
-    return this._formatExplanation(explanation);
-  }
-  
-  /**
-   * Generate a confidence-weighted explanation showing uncertainty
-   */
-  explainWithConfidence(hyperedgeId, depth = 3) {
-    const explanation = this._buildExplanation(hyperedgeId, depth);
-    return this._formatExplanationWithConfidence(explanation);
-  }
-  
-  /* ===== INTERNAL METHODS ===== */
-  _buildExplanation(hyperedgeId, depth, visited = new Set()) {
-    if (depth <= 0 || visited.has(hyperedgeId)) {
-      return null;
+    constructor(nar) {
+        this.nar = nar;
+        this.explanationTemplates = {
+            'transitivity': "Because {premise1} and {premise2}, therefore {conclusion}",
+            'induction': "Since both {term1} and {term2} are {predicate}, they are likely similar",
+            'abduction': "Given that {similar} is {predicate} and {subject} is similar to {similar}, {subject} is likely {predicate}",
+            'analogy': "Since {term1} is {predicate} and {term1} is similar to {term2}, {term2} is likely {predicate}",
+            'modus_ponens': "Because {premise} is true and {premise} implies {conclusion}, therefore {conclusion}",
+            'revision': "Updated belief based on new evidence: {newTruth} (was {oldTruth})"
+        };
     }
-    
-    visited.add(hyperedgeId);
-    const hyperedge = this.nar.hypergraph.get(hyperedgeId);
-    if (!hyperedge) return null;
-    
-    const explanation = {
-      id: hyperedgeId,
-      type: hyperedge.type,
-      args: hyperedge.args,
-      truth: hyperedge.getTruth(),
-      derivationPath: [],
-      premises: []
-    };
-    
-    // Find derivation sources
-    if (hyperedge.type === 'Inheritance') {
-      const [subject, predicate] = hyperedge.args;
-      
-      // Check for transitive derivation
-      const transitive = this._findTransitiveDerivation(subject, predicate);
-      if (transitive) {
-        explanation.derivationPath.push('transitivity');
-        explanation.premises = transitive;
-        return explanation;
-      }
-      
-      // Check for induction
-      const induction = this._findInductionDerivation(subject, predicate);
-      if (induction) {
-        explanation.derivationPath.push('induction');
-        explanation.premises = induction;
-        return explanation;
-      }
-      
-      // Check for revision
-      const revision = this._findRevisionDerivation(hyperedgeId);
-      if (revision) {
-        explanation.derivationPath.push('revision');
-        explanation.premises = revision;
-        return explanation;
-      }
+
+    /**
+     * Generate a natural language explanation for a conclusion
+     */
+    explain(hyperedgeId, depth = 3) {
+        const explanation = this._buildExplanation(hyperedgeId, depth);
+        return this._formatExplanation(explanation);
     }
-    else if (hyperedge.type === 'Implication') {
-      const [premise, conclusion] = hyperedge.args;
-      
-      // Check for modus ponens
-      if (this.nar.hypergraph.has(`Term(${premise})`)) {
-        explanation.derivationPath.push('modus_ponens');
-        explanation.premises = [premise, hyperedgeId];
-        return explanation;
-      }
+
+    /**
+     * Generate a confidence-weighted explanation showing uncertainty
+     */
+    explainWithConfidence(hyperedgeId, depth = 3) {
+        const explanation = this._buildExplanation(hyperedgeId, depth);
+        return this._formatExplanationWithConfidence(explanation);
     }
-    
-    // Default: just the statement itself
-    explanation.derivationPath.push('direct');
-    return explanation;
-  }
-  
-  _findTransitiveDerivation(subject, predicate) {
-    const premises = [];
-    
-    // Look for middle term: <subject --> X> and <X --> predicate>
-    for (const id of (this.nar.index.byArg.get(subject) || [])) {
-      const hyperedge = this.nar.hypergraph.get(id);
-      if (hyperedge?.type === 'Inheritance' && hyperedge.args[0] === subject) {
-        const middle = hyperedge.args[1];
-        
-        for (const id2 of (this.nar.index.byArg.get(middle) || [])) {
-          const hyperedge2 = this.nar.hypergraph.get(id2);
-          if (hyperedge2?.type === 'Inheritance' && 
-              hyperedge2.args[0] === middle && 
-              hyperedge2.args[1] === predicate) {
-            premises.push(hyperedge.id, hyperedge2.id);
-            return premises;
-          }
+
+    /* ===== INTERNAL METHODS ===== */
+    _buildExplanation(hyperedgeId, depth, visited = new Set()) {
+        if (depth <= 0 || visited.has(hyperedgeId)) {
+            return null;
         }
-      }
-    }
-    
-    return null;
-  }
-  
-  _findInductionDerivation(term, predicate) {
-    const premises = [];
-    
-    // Look for another term with the same predicate
-    for (const id of (this.nar.index.byArg.get(predicate) || [])) {
-      const hyperedge = this.nar.hypergraph.get(id);
-      if (hyperedge?.type === 'Inheritance' && 
-          hyperedge.args[1] === predicate && 
-          hyperedge.args[0] !== term) {
-        premises.push(hyperedge.id);
-        // Find the current belief
-        const currentId = this.nar._id('Inheritance', [term, predicate]);
-        if (this.nar.hypergraph.has(currentId)) {
-          premises.push(currentId);
-          return premises;
+
+        visited.add(hyperedgeId);
+        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        if (!hyperedge) return null;
+
+        const explanation = {
+            id: hyperedgeId,
+            type: hyperedge.type,
+            args: hyperedge.args,
+            truth: hyperedge.getTruth(),
+            derivationPath: [],
+            premises: []
+        };
+
+        // Find derivation sources
+        if (hyperedge.type === 'Inheritance') {
+            const [subject, predicate] = hyperedge.args;
+
+            // Check for transitive derivation
+            const transitive = this._findTransitiveDerivation(subject, predicate);
+            if (transitive) {
+                explanation.derivationPath.push('transitivity');
+                explanation.premises = transitive;
+                return explanation;
+            }
+
+            // Check for induction
+            const induction = this._findInductionDerivation(subject, predicate);
+            if (induction) {
+                explanation.derivationPath.push('induction');
+                explanation.premises = induction;
+                return explanation;
+            }
+
+            // Check for revision
+            const revision = this._findRevisionDerivation(hyperedgeId);
+            if (revision) {
+                explanation.derivationPath.push('revision');
+                explanation.premises = revision;
+                return explanation;
+            }
+        } else if (hyperedge.type === 'Implication') {
+            const [premise, conclusion] = hyperedge.args;
+
+            // Check for modus ponens
+            if (this.nar.hypergraph.has(`Term(${premise})`)) {
+                explanation.derivationPath.push('modus_ponens');
+                explanation.premises = [premise, hyperedgeId];
+                return explanation;
+            }
         }
-      }
+
+        // Default: just the statement itself
+        explanation.derivationPath.push('direct');
+        return explanation;
     }
-    
-    return null;
-  }
-  
-  _findRevisionDerivation(hyperedgeId) {
-    const hyperedge = this.nar.hypergraph.get(hyperedgeId);
-    if (!hyperedge || hyperedge.beliefs.length < 2) return null;
-    
-    // Return the two most recent beliefs
-    return [
-      this._getPreviousBeliefId(hyperedgeId),
-      hyperedgeId
-    ].filter(id => id !== null);
-  }
-  
-  _getPreviousBeliefId(hyperedgeId) {
-    // In a real system, this would track belief history
-    // For demonstration, we'll assume a naming convention
-    return `${hyperedgeId}_prev`;
-  }
-  
-  _formatExplanation(explanation) {
-    if (!explanation) return "No explanation available";
-    
-    // Format the main conclusion
-    const conclusion = this._formatStatement(explanation);
-    
-    // Format the reasoning path
-    let reasoning = "";
-    if (explanation.derivationPath.length > 0) {
-      const path = explanation.derivationPath[0];
-      const template = this.explanationTemplates[path] || "{conclusion}";
-      
-      if (path === 'transitivity' && explanation.premises.length >= 2) {
-        const premise1 = this._formatStatementFromId(explanation.premises[0]);
-        const premise2 = this._formatStatementFromId(explanation.premises[1]);
-        reasoning = template
-          .replace("{premise1}", premise1)
-          .replace("{premise2}", premise2)
-          .replace("{conclusion}", conclusion);
-      }
-      else if (path === 'induction' && explanation.premises.length >= 1) {
-        const [term1, term2, predicate] = this._extractInductionTerms(explanation);
-        reasoning = template
-          .replace("{term1}", term1)
-          .replace("{term2}", term2)
-          .replace("{predicate}", predicate);
-      }
-      else if (path === 'revision') {
-        const oldTruth = this._getPreviousTruth(explanation.id);
-        reasoning = template
-          .replace("{newTruth}", this._formatTruth(explanation.truth))
-          .replace("{oldTruth}", this._formatTruth(oldTruth));
-      }
-      else {
-        reasoning = `Based on ${path} reasoning: ${conclusion}`;
-      }
+
+    _findTransitiveDerivation(subject, predicate) {
+        const premises = [];
+
+        // Look for middle term: <subject --> X> and <X --> predicate>
+        for (const id of (this.nar.index.byArg.get(subject) || [])) {
+            const hyperedge = this.nar.hypergraph.get(id);
+            if (hyperedge?.type === 'Inheritance' && hyperedge.args[0] === subject) {
+                const middle = hyperedge.args[1];
+
+                for (const id2 of (this.nar.index.byArg.get(middle) || [])) {
+                    const hyperedge2 = this.nar.hypergraph.get(id2);
+                    if (hyperedge2?.type === 'Inheritance' &&
+                        hyperedge2.args[0] === middle &&
+                        hyperedge2.args[1] === predicate) {
+                        premises.push(hyperedge.id, hyperedge2.id);
+                        return premises;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
-    
-    // Add supporting evidence
-    let evidence = "";
-    if (explanation.premises && explanation.premises.length > 0) {
-      const premiseExplanations = explanation.premises
-        .map(id => this._formatStatementFromId(id))
-        .filter(text => text)
-        .slice(0, 2); // Limit to 2 premises for clarity
-      
-      if (premiseExplanations.length > 0) {
-        evidence = `
+
+    _findInductionDerivation(term, predicate) {
+        const premises = [];
+
+        // Look for another term with the same predicate
+        for (const id of (this.nar.index.byArg.get(predicate) || [])) {
+            const hyperedge = this.nar.hypergraph.get(id);
+            if (hyperedge?.type === 'Inheritance' &&
+                hyperedge.args[1] === predicate &&
+                hyperedge.args[0] !== term) {
+                premises.push(hyperedge.id);
+                // Find the current belief
+                const currentId = this.nar._id('Inheritance', [term, predicate]);
+                if (this.nar.hypergraph.has(currentId)) {
+                    premises.push(currentId);
+                    return premises;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    _findRevisionDerivation(hyperedgeId) {
+        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        if (!hyperedge || hyperedge.beliefs.length < 2) return null;
+
+        // Return the two most recent beliefs
+        return [
+            this._getPreviousBeliefId(hyperedgeId),
+            hyperedgeId
+        ].filter(id => id !== null);
+    }
+
+    _getPreviousBeliefId(hyperedgeId) {
+        // In a real system, this would track belief history
+        // For demonstration, we'll assume a naming convention
+        return `${hyperedgeId}_prev`;
+    }
+
+    _formatExplanation(explanation) {
+        if (!explanation) return "No explanation available";
+
+        // Format the main conclusion
+        const conclusion = this._formatStatement(explanation);
+
+        // Format the reasoning path
+        let reasoning = "";
+        if (explanation.derivationPath.length > 0) {
+            const path = explanation.derivationPath[0];
+            const template = this.explanationTemplates[path] || "{conclusion}";
+
+            if (path === 'transitivity' && explanation.premises.length >= 2) {
+                const premise1 = this._formatStatementFromId(explanation.premises[0]);
+                const premise2 = this._formatStatementFromId(explanation.premises[1]);
+                reasoning = template
+                    .replace("{premise1}", premise1)
+                    .replace("{premise2}", premise2)
+                    .replace("{conclusion}", conclusion);
+            } else if (path === 'induction' && explanation.premises.length >= 1) {
+                const [term1, term2, predicate] = this._extractInductionTerms(explanation);
+                reasoning = template
+                    .replace("{term1}", term1)
+                    .replace("{term2}", term2)
+                    .replace("{predicate}", predicate);
+            } else if (path === 'revision') {
+                const oldTruth = this._getPreviousTruth(explanation.id);
+                reasoning = template
+                    .replace("{newTruth}", this._formatTruth(explanation.truth))
+                    .replace("{oldTruth}", this._formatTruth(oldTruth));
+            } else {
+                reasoning = `Based on ${path} reasoning: ${conclusion}`;
+            }
+        }
+
+        // Add supporting evidence
+        let evidence = "";
+        if (explanation.premises && explanation.premises.length > 0) {
+            const premiseExplanations = explanation.premises
+                .map(id => this._formatStatementFromId(id))
+                .filter(text => text)
+                .slice(0, 2); // Limit to 2 premises for clarity
+
+            if (premiseExplanations.length > 0) {
+                evidence = `
 Supporting evidence:
 - ${premiseExplanations.join('
-- ')}`;
-      }
+                    - ')}`;
+                }
     }
     
     return reasoning + evidence;
@@ -1847,9 +1846,17 @@ Supporting evidence:
     const baseExplanation = this._formatExplanation(explanation);
     const confidence = this._calculateExplanationConfidence(explanation);
     
-    return `${baseExplanation}
+    return `
+                $
+                {
+                    baseExplanation
+                }
 
-Confidence: ${this._formatConfidence(confidence)}`;
+                Confidence: $
+                {
+                    this._formatConfidence(confidence)
+                }
+                `;
   }
   
   _calculateExplanationConfidence(explanation) {
@@ -1881,22 +1888,84 @@ Confidence: ${this._formatConfidence(confidence)}`;
   }
   
   _formatConfidence(confidence) {
-    if (confidence >= 0.9) return `High (${(confidence * 100).toFixed(0)}%) - Very reliable`;
-    if (confidence >= 0.7) return `Medium-High (${(confidence * 100).toFixed(0)}%) - Generally reliable`;
-    if (confidence >= 0.5) return `Medium (${(confidence * 100).toFixed(0)}%) - Somewhat reliable`;
-    if (confidence >= 0.3) return `Low-Medium (${(confidence * 100).toFixed(0)}%) - Questionable`;
-    return `Low (${(confidence * 100).toFixed(0)}%) - Unreliable`;
+    if (confidence >= 0.9) return `
+                High($
+                {
+                    (confidence * 100).toFixed(0)
+                }
+            %)
+                -Very
+                reliable`;
+    if (confidence >= 0.7) return `
+                Medium - High($
+                {
+                    (confidence * 100).toFixed(0)
+                }
+            %)
+                -Generally
+                reliable`;
+    if (confidence >= 0.5) return `
+                Medium($
+                {
+                    (confidence * 100).toFixed(0)
+                }
+            %)
+                -Somewhat
+                reliable`;
+    if (confidence >= 0.3) return `
+                Low - Medium($
+                {
+                    (confidence * 100).toFixed(0)
+                }
+            %)
+                -Questionable`;
+    return `
+                Low($
+                {
+                    (confidence * 100).toFixed(0)
+                }
+            %)
+                -Unreliable`;
   }
   
   /* ===== UTILITY METHODS ===== */
   _formatStatement(explanation) {
     switch (explanation.type) {
       case 'Inheritance':
-        return `<${explanation.args[0]} --> ${explanation.args[1]}>`;
+        return ` < $
+                {
+                    explanation.args[0]
+                }
+                -- > $
+                {
+                    explanation.args[1]
+                }
+            >
+                `;
       case 'Similarity':
-        return `<${explanation.args[0]} <-> ${explanation.args[1]}>`;
+        return ` < $
+                {
+                    explanation.args[0]
+                }
+                <->
+                $
+                {
+                    explanation.args[1]
+                }
+            >
+                `;
       case 'Implication':
-        return `<${explanation.args[0]} ==> ${explanation.args[1]}>`;
+        return ` < $
+                {
+                    explanation.args[0]
+                }
+            ==>
+                $
+                {
+                    explanation.args[1]
+                }
+            >
+                `;
       default:
         return explanation.id;
     }
@@ -1913,7 +1982,17 @@ Confidence: ${this._formatConfidence(confidence)}`;
   }
   
   _formatTruth(truth) {
-    return `frequency: ${truth.frequency.toFixed(2)}, confidence: ${truth.confidence.toFixed(2)}`;
+    return `
+                frequency: $
+                {
+                    truth.frequency.toFixed(2)
+                }
+            ,
+                confidence: $
+                {
+                    truth.confidence.toFixed(2)
+                }
+                `;
   }
   
   _extractInductionTerms(explanation) {
@@ -1997,4 +2076,7 @@ These revisions significantly enhance the NARHyper implementation by:
 5. Enhancing memory management with selective forgetting
 6. Improving explanation generation with confidence metrics
 
-The implementation remains true to the NARS principles while addressing the specific requirements outlined in the knowledge base. It maintains the symbolic nature of NARS without relying on lossy embeddings, handles combinatorial explosion through sophisticated resource management, and provides a practical, scalable system for real-world applications.
+The implementation remains true to the NARS principles while addressing the specific requirements outlined in the
+knowledge base. It maintains the symbolic nature of NARS without relying on lossy embeddings, handles combinatorial
+explosion through sophisticated resource management, and provides a practical, scalable system for real-world
+applications.

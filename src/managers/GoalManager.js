@@ -1,6 +1,6 @@
-import { GoalManagerBase } from './GoalManagerBase.js';
-import { id }from '../support/utils.js';
-import { TruthValue } from '../support/TruthValue.js';
+import {GoalManagerBase} from './GoalManagerBase.js';
+import {id} from '../support/utils.js';
+import {TruthValue} from '../support/TruthValue.js';
 
 class Goal {
     constructor(id, description, utility, constraints = {}, options = {}) {
@@ -41,7 +41,7 @@ export class GoalManager extends GoalManagerBase {
             goalId: goalId,
         });
 
-        this.nar.emit('goal-added', { goal });
+        this.nar.emit('goal-added', {goal});
         return goalId;
     }
 
@@ -62,13 +62,13 @@ export class GoalManager extends GoalManagerBase {
 
         if (Date.now() > goal.deadline) {
             goal.status = 'abandoned';
-            this.nar.emit('goal-abandoned', { goalId, reason: 'deadline' });
+            this.nar.emit('goal-abandoned', {goalId, reason: 'deadline'});
             return;
         }
 
         if (this._isGoalAchieved(goal)) {
             goal.status = 'achieved';
-            this.nar.emit('goal-achieved', { goalId });
+            this.nar.emit('goal-achieved', {goalId});
             return;
         }
 
@@ -85,7 +85,7 @@ export class GoalManager extends GoalManagerBase {
     _isGoalAchieved(goal) {
         // Check if the state described by the goal is true in the knowledge base
         // This requires querying the hypergraph.
-        const results = this.nar.query(goal.description, { minExpectation: 0.7 });
+        const results = this.nar.query(goal.description, {minExpectation: 0.7});
         return results.length > 0;
     }
 
@@ -113,7 +113,7 @@ export class GoalManager extends GoalManagerBase {
     _executeAction(actionHyperedge, goal) {
         // In a real embodied system, this would trigger a physical action.
         // Here, we'll just assert the action's effects into the knowledge base.
-        this.nar.emit('action-executed', { actionId: actionHyperedge.id, goalId: goal.id });
+        this.nar.emit('action-executed', {actionId: actionHyperedge.id, goalId: goal.id});
 
         // Assume the action's consequence is its description.
         // A more advanced system would have explicit effects.
@@ -128,7 +128,7 @@ export class GoalManager extends GoalManagerBase {
         const parsedGoal = this.nar.expressionEvaluator.parse(goal.description);
 
         if (parsedGoal.type === 'Conjunction' && parsedGoal.args.length > 1) {
-            this.nar.emit('goal-decomposed', { goalId: goal.id, subgoals: parsedGoal.args });
+            this.nar.emit('goal-decomposed', {goalId: goal.id, subgoals: parsedGoal.args});
             parsedGoal.args.forEach((subgoalAst, i) => {
                 // This is tricky because the subgoal is an AST, not a string.
                 // We need a way to turn it back into a string to create the subgoal.
@@ -141,7 +141,7 @@ export class GoalManager extends GoalManagerBase {
             goal.status = 'waiting';
         } else {
             // Cannot decompose, mark as stalled for now
-            this.nar.emit('goal-stalled', { goalId: goal.id, reason: 'cannot_decompose' });
+            this.nar.emit('goal-stalled', {goalId: goal.id, reason: 'cannot_decompose'});
         }
     }
 

@@ -1,11 +1,15 @@
 # Revised NARHyper Implementation with Enhanced Functionality
 
-Based on the requirements and analysis of the current implementation, I've revised NARHyper to add critical missing functionality while enhancing existing features. The key improvements focus on temporal reasoning, contradiction management, resource allocation, and meta-reasoning capabilities.
+Based on the requirements and analysis of the current implementation, I've revised NARHyper to add critical missing
+functionality while enhancing existing features. The key improvements focus on temporal reasoning, contradiction
+management, resource allocation, and meta-reasoning capabilities.
 
 ## Key Additions and Improvements
 
 ### 1. Advanced Temporal Reasoning System
-The previous temporal implementation was limited to basic after/before/simultaneous relationships. I've added a comprehensive temporal framework with:
+
+The previous temporal implementation was limited to basic after/before/simultaneous relationships. I've added a
+comprehensive temporal framework with:
 
 ```javascript
 /**
@@ -62,6 +66,7 @@ temporal: {
 ```
 
 ### 2. Enhanced Contradiction Management System
+
 The previous implementation could store contradictory beliefs but lacked sophisticated resolution mechanisms:
 
 ```javascript
@@ -153,6 +158,7 @@ contradictions: {
 ```
 
 ### 3. Meta-Reasoning and Self-Optimization
+
 Added critical meta-reasoning capabilities that were missing from the original implementation:
 
 ```javascript
@@ -229,6 +235,7 @@ meta: {
 ```
 
 ### 4. Enhanced Resource Management System
+
 Improved the budget system to better adhere to AIKR principles:
 
 ```javascript
@@ -316,6 +323,7 @@ _resources: {
 ```
 
 ### 5. Enhanced Explanation System
+
 Improved the explanation capabilities to provide more useful outputs:
 
 ```javascript
@@ -403,6 +411,7 @@ _formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives
 ```
 
 ### 6. Self-Optimizing Derivation Rules
+
 Added the ability for the system to adapt its own derivation rules:
 
 ```javascript
@@ -556,18 +565,27 @@ macros: {
 
 ## Summary of Improvements
 
-1. **Advanced Temporal Reasoning**: Added comprehensive temporal operators with intervals, durations, and predictive capabilities.
+1. **Advanced Temporal Reasoning**: Added comprehensive temporal operators with intervals, durations, and predictive
+   capabilities.
 
-2. **Sophisticated Contradiction Management**: Implemented evidence-based contradiction resolution with detailed analysis capabilities.
+2. **Sophisticated Contradiction Management**: Implemented evidence-based contradiction resolution with detailed
+   analysis capabilities.
 
-3. **Meta-Reasoning System**: Added self-monitoring and self-optimization capabilities that allow the system to adapt its reasoning strategies.
+3. **Meta-Reasoning System**: Added self-monitoring and self-optimization capabilities that allow the system to adapt
+   its reasoning strategies.
 
-4. **Enhanced Resource Management**: Improved the budget system to dynamically allocate resources based on task importance and system context.
+4. **Enhanced Resource Management**: Improved the budget system to dynamically allocate resources based on task
+   importance and system context.
 
-5. **Advanced Explanation Generation**: Created multi-format explanation system with detailed reasoning paths and alternative perspectives.
+5. **Advanced Explanation Generation**: Created multi-format explanation system with detailed reasoning paths and
+   alternative perspectives.
 
-6. **Self-Optimizing Derivation Rules**: Implemented a system where derivation rules can adapt based on their success rates and applicability.
+6. **Self-Optimizing Derivation Rules**: Implemented a system where derivation rules can adapt based on their success
+   rates and applicability.
 
-7. **Context-Aware Macro Functions**: Enhanced the macro functions to be aware of temporal, spatial, and reasoning context.
+7. **Context-Aware Macro Functions**: Enhanced the macro functions to be aware of temporal, spatial, and reasoning
+   context.
 
-These improvements make NARHyper more robust, adaptive, and capable of handling complex real-world reasoning tasks while maintaining strict adherence to AIKR principles. The system can now better handle contradictory information, optimize its own reasoning processes, and provide more useful explanations of its conclusions.
+These improvements make NARHyper more robust, adaptive, and capable of handling complex real-world reasoning tasks while
+maintaining strict adherence to AIKR principles. The system can now better handle contradictory information, optimize
+its own reasoning processes, and provide more useful explanations of its conclusions.

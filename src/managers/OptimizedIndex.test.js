@@ -1,6 +1,6 @@
-import { describe, beforeEach, test, expect, jest } from '@jest/globals';
-import { OptimizedIndex } from './OptimizedIndex.js';
-import { Hyperedge } from '../support/Hyperedge.js';
+import {beforeEach, describe, expect, jest, test} from '@jest/globals';
+import {OptimizedIndex} from './OptimizedIndex.js';
+import {Hyperedge} from '../support/Hyperedge.js';
 
 // Mock NAR system and its components
 const mockNar = {

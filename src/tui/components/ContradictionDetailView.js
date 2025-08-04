@@ -1,14 +1,18 @@
-import React, { useContext, useState, useEffect } from 'react';
-import { Box, Text, useInput, useStdin } from 'ink';
-import { TuiContext } from '../contexts/TuiContext.js';
+import React, {useContext, useEffect, useState} from 'react';
+import {Box, Text, useInput, useStdin} from 'ink';
+import {TuiContext} from '../contexts/TuiContext.js';
 import pkg from 'cli-boxes';
-const { single, hidden, rounded } = pkg;
 
-const Belief = ({ belief, isStrongest }) => (
-    <Box flexDirection="column" marginBottom={1} borderStyle={rounded} padding={1} borderColor={isStrongest ? 'green' : 'yellow'}>
+const {single, hidden, rounded} = pkg;
+
+const Belief = ({belief, isStrongest}) => (
+    <Box flexDirection="column" marginBottom={1} borderStyle={rounded} padding={1}
+         borderColor={isStrongest ? 'green' : 'yellow'}>
         <Text bold>Belief (Evidence Strength: {belief.evidenceStrength.toFixed(3)})</Text>
-        <Text>  Truth: f={belief.truth.frequency.toFixed(2)}, c={belief.truth.confidence.toFixed(2)} (exp: {belief.truth.expectation().toFixed(2)})</Text>
-        <Text>  Budget: p={belief.budget.priority.toFixed(2)}, d={belief.budget.durability.toFixed(2)}, q={belief.budget.quality.toFixed(2)}</Text>
+        <Text> Truth: f={belief.truth.frequency.toFixed(2)},
+            c={belief.truth.confidence.toFixed(2)} (exp: {belief.truth.expectation().toFixed(2)})</Text>
+        <Text> Budget: p={belief.budget.priority.toFixed(2)}, d={belief.budget.durability.toFixed(2)},
+            q={belief.budget.quality.toFixed(2)}</Text>
         {belief.evidence.length > 0 && (
             <Box flexDirection="column" marginLeft={2}>
                 <Text bold>Evidence:</Text>
@@ -20,9 +24,9 @@ const Belief = ({ belief, isStrongest }) => (
     </Box>
 );
 
-const ContradictionDetailView = ({ contradictionId, onClose }) => {
-    const { nar, log } = useContext(TuiContext);
-    const { isRawModeSupported } = useStdin();
+const ContradictionDetailView = ({contradictionId, onClose}) => {
+    const {nar, log} = useContext(TuiContext);
+    const {isRawModeSupported} = useStdin();
     const [analysis, setAnalysis] = useState(null);
     const [strategies, setStrategies] = useState([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
@@ -57,7 +61,7 @@ const ContradictionDetailView = ({ contradictionId, onClose }) => {
                 onClose();
             }
         }
-    }, { isActive: isRawModeSupported });
+    }, {isActive: isRawModeSupported});
 
     return (
         <Box flexDirection="column" padding={1} borderStyle={single} borderColor="red">
@@ -71,18 +75,21 @@ const ContradictionDetailView = ({ contradictionId, onClose }) => {
                     <>
                         <Text bold>Conflicting Beliefs:</Text>
                         {analysis.contradictions.map((belief, index) => (
-                            <Belief key={belief.belief.id || index} belief={belief} isStrongest={index === 0} />
+                            <Belief key={belief.belief.id || index} belief={belief} isStrongest={index === 0}/>
                         ))}
                         <Box marginTop={1} flexDirection="column">
                             <Text bold>Resolution Suggestion:</Text>
-                            <Text>  System Suggests: <Text color="cyan">{analysis.resolutionSuggestion.strategy}</Text></Text>
-                            <Text>  Reason: {analysis.resolutionSuggestion.details}</Text>
+                            <Text> System Suggests: <Text
+                                color="cyan">{analysis.resolutionSuggestion.strategy}</Text></Text>
+                            <Text> Reason: {analysis.resolutionSuggestion.details}</Text>
                         </Box>
                         <Box marginTop={1} flexDirection="column">
                             <Text bold>Manual Resolution:</Text>
                             {strategies.map((strategy, index) => (
-                                <Box key={strategy} borderStyle={index === selectedIndex ? single : hidden} paddingX={1}>
-                                    <Text color={index === selectedIndex ? 'cyan' : 'white'}>{`${index + 1}. ${strategy}`}</Text>
+                                <Box key={strategy} borderStyle={index === selectedIndex ? single : hidden}
+                                     paddingX={1}>
+                                    <Text
+                                        color={index === selectedIndex ? 'cyan' : 'white'}>{`${index + 1}. ${strategy}`}</Text>
                                 </Box>
                             ))}
                         </Box>

@@ -12,7 +12,7 @@ export class SimpleTemporalManager extends TemporalManagerBase {
 
     interval(term, start, end, options = {}) {
         const intervalId = `SimpleInterval(${term},${start},${end})`;
-        this.intervals.set(intervalId, { term, start, end });
+        this.intervals.set(intervalId, {term, start, end});
         return intervalId;
     }
 

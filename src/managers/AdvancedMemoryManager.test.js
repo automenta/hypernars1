@@ -1,8 +1,8 @@
-import { describe, it, expect, jest, afterEach } from '@jest/globals';
-import { NARHyper } from '../NARHyper.js';
-import { AdvancedMemoryManager } from './AdvancedMemoryManager.js';
-import { id } from '../support/utils.js';
-import { Budget } from '../support/Budget.js';
+import {afterEach, describe, expect, it, jest} from '@jest/globals';
+import {NARHyper} from '../NARHyper.js';
+import {AdvancedMemoryManager} from './AdvancedMemoryManager.js';
+import {id} from '../support/utils.js';
+import {Budget} from '../support/Budget.js';
 
 describe('AdvancedMemoryManager', () => {
     afterEach(() => {
@@ -23,7 +23,7 @@ describe('AdvancedMemoryManager', () => {
         jest.useFakeTimers();
         const nar = new NARHyper({
             useAdvanced: true,
-            modules: { MemoryManager: AdvancedMemoryManager }
+            modules: {MemoryManager: AdvancedMemoryManager}
         });
 
         const termId = id('Term', ['important_term.']);
@@ -53,13 +53,14 @@ describe('AdvancedMemoryManager', () => {
 
         // Clean up to avoid open handles
         jest.runAllTimers();
-        await questionPromise.catch(() => {});
+        await questionPromise.catch(() => {
+        });
     });
 
     it('should adjust belief capacity based on hypergraph size', () => {
         const nar = new NARHyper({
             useAdvanced: true,
-            modules: { MemoryManager: AdvancedMemoryManager },
+            modules: {MemoryManager: AdvancedMemoryManager},
             beliefCapacity: 8 // Start with a known capacity
         });
 
@@ -68,7 +69,7 @@ describe('AdvancedMemoryManager', () => {
             nar.nal(`term${i}.`);
         }
         // Force a large size for the test condition without adding 11000 hyperedges
-        Object.defineProperty(nar.state.hypergraph, 'size', { value: 11000, configurable: true });
+        Object.defineProperty(nar.state.hypergraph, 'size', {value: 11000, configurable: true});
 
         // Trigger maintenance
         nar.memoryManager.maintainMemory();
@@ -78,7 +79,7 @@ describe('AdvancedMemoryManager', () => {
         expect(reducedCapacity).toBeLessThan(8);
 
         // Mock a small hypergraph
-        Object.defineProperty(nar.state.hypergraph, 'size', { value: 4000, configurable: true });
+        Object.defineProperty(nar.state.hypergraph, 'size', {value: 4000, configurable: true});
 
         // Trigger maintenance
         nar.memoryManager.maintainMemory();
@@ -93,7 +94,7 @@ describe('AdvancedMemoryManager', () => {
         jest.useFakeTimers();
         const nar = new NARHyper({
             useAdvanced: true,
-            modules: { MemoryManager: AdvancedMemoryManager },
+            modules: {MemoryManager: AdvancedMemoryManager},
             minConceptsForForgetting: 1, // Force forgetting to run
             forgettingThreshold: 0.1,
         });
@@ -131,7 +132,10 @@ describe('AdvancedMemoryManager', () => {
 
         // Clean up to avoid open handles
         jest.runAllTimers();
-        try { await questionPromise; } catch(e) {} // Consume promise
+        try {
+            await questionPromise;
+        } catch (e) {
+        } // Consume promise
     });
 
     it.skip('should prioritize forgetting old, stale concepts by giving them a lower retention score', () => {
@@ -139,7 +143,7 @@ describe('AdvancedMemoryManager', () => {
         // It's temporarily skipped to focus on other features. A better test would check the
         // retention scores directly rather than the outcome.
         jest.useFakeTimers();
-        const nar = new NARHyper({ useAdvanced: true, minConceptsForForgetting: 1 });
+        const nar = new NARHyper({useAdvanced: true, minConceptsForForgetting: 1});
         const manager = nar.memoryManager;
 
         const oldTermId = nar.api.nal('old_term.');
@@ -173,7 +177,7 @@ describe('AdvancedMemoryManager', () => {
         // This test is flaky due to its reliance on the probabilistic nature of forgetting.
         // It's temporarily skipped to focus on other features. A better test would check the
         // retention scores directly rather than the outcome.
-        const nar = new NARHyper({ useAdvanced: true, minConceptsForForgetting: 1 });
+        const nar = new NARHyper({useAdvanced: true, minConceptsForForgetting: 1});
         const manager = nar.memoryManager;
 
         // High utility: high truth expectation and high budget priority
@@ -206,11 +210,11 @@ describe('AdvancedMemoryManager', () => {
     });
 
     it('should allocate a higher budget for a question than for a derivation', () => {
-        const nar = new NARHyper({ useAdvanced: true, modules: { MemoryManager: AdvancedMemoryManager } });
+        const nar = new NARHyper({useAdvanced: true, modules: {MemoryManager: AdvancedMemoryManager}});
         const manager = nar.memoryManager;
 
-        const questionTask = { type: 'question' };
-        const derivationTask = { type: 'derivation' };
+        const questionTask = {type: 'question'};
+        const derivationTask = {type: 'derivation'};
 
         const questionBudget = manager.allocateResources(questionTask);
         const derivationBudget = manager.allocateResources(derivationTask);
@@ -220,12 +224,12 @@ describe('AdvancedMemoryManager', () => {
     });
 
     test('should boost importance for concepts that lead to success', () => {
-        const nar = new NARHyper({ useAdvanced: true, modules: { MemoryManager: AdvancedMemoryManager } });
+        const nar = new NARHyper({useAdvanced: true, modules: {MemoryManager: AdvancedMemoryManager}});
         const termId = nar.api.nal('successful_premise.');
         nar.memoryManager.importanceScores.set(termId, 0.1); // Set a known initial score
 
         // Simulate a successful outcome from this premise by using the public API
-        nar.api.outcome(termId, { success: true });
+        nar.api.outcome(termId, {success: true});
 
         // Manually trigger the learning and memory maintenance
         nar.learningEngine.applyLearning();
@@ -237,15 +241,15 @@ describe('AdvancedMemoryManager', () => {
     });
 
     it('should prune low-value paths from the event queue', () => {
-        const nar = new NARHyper({ useAdvanced: true, modules: { MemoryManager: AdvancedMemoryManager } });
+        const nar = new NARHyper({useAdvanced: true, modules: {MemoryManager: AdvancedMemoryManager}});
         const manager = nar.memoryManager;
         const queue = nar.state.eventQueue;
 
         // Add events with varying budget totals
-        queue.push({ id: 'high_budget', budget: { priority: 0.8, durability: 0.8, quality: 0.8, total: () => 0.8 } });
-        queue.push({ id: 'medium_budget', budget: { priority: 0.3, durability: 0.3, quality: 0.3, total: () => 0.3 } });
-        queue.push({ id: 'low_budget_1', budget: { priority: 0.1, durability: 0.1, quality: 0.1, total: () => 0.1 } });
-        queue.push({ id: 'low_budget_2', budget: { priority: 0.05, durability: 0.05, quality: 0.05, total: () => 0.05 } });
+        queue.push({id: 'high_budget', budget: {priority: 0.8, durability: 0.8, quality: 0.8, total: () => 0.8}});
+        queue.push({id: 'medium_budget', budget: {priority: 0.3, durability: 0.3, quality: 0.3, total: () => 0.3}});
+        queue.push({id: 'low_budget_1', budget: {priority: 0.1, durability: 0.1, quality: 0.1, total: () => 0.1}});
+        queue.push({id: 'low_budget_2', budget: {priority: 0.05, durability: 0.05, quality: 0.05, total: () => 0.05}});
 
         expect(queue.heap.length).toBe(4);
 

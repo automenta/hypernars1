@@ -1,6 +1,7 @@
 # Revised NARHyper Implementation: Enhanced Hybrid Reasoning System
 
-After analyzing the current implementation, I've identified several critical areas for improvement to make NARHyper more robust, scalable, and aligned with NARS principles. Below are the key additions and modifications needed:
+After analyzing the current implementation, I've identified several critical areas for improvement to make NARHyper more
+robust, scalable, and aligned with NARS principles. Below are the key additions and modifications needed:
 
 ## 1. Enhanced Temporal Reasoning Framework
 
@@ -70,8 +71,10 @@ _hasTemporalEvidence(term1, term2, minDur, maxDur) {
 ```
 
 **Why this improves the system:**
+
 - Enables precise temporal reasoning with intervals and constraints
-- Supports real-world scenarios where timing relationships matter (e.g., "the light must turn red at least 2 seconds before the pedestrian crossing activates")
+- Supports real-world scenarios where timing relationships matter (e.g., "the light must turn red at least 2 seconds
+  before the pedestrian crossing activates")
 - Prevents invalid temporal inferences through constraint validation
 - Maintains symbolic precision while incorporating temporal uncertainty
 
@@ -213,6 +216,7 @@ _createContextualSpecialization(belief1, belief2, context) {
 ```
 
 **Why this improves the system:**
+
 - Provides explicit contradiction detection and resolution, not just passive storage
 - Implements multiple resolution strategies based on evidence strength
 - Creates contextual specializations instead of simply discarding contradictory beliefs
@@ -347,6 +351,7 @@ _traceUpward(hyperedge, path, maxDepth, currentDepth = 0) {
 ```
 
 **Why this improves the system:**
+
 - Creates a feedback loop where the system learns from outcomes
 - Adjusts truth values based on real-world success/failure
 - Tracks rule effectiveness to prioritize more reliable inference patterns
@@ -621,6 +626,7 @@ _removeHyperedge(id) {
 ```
 
 **Why this improves the system:**
+
 - Enables the system to monitor and optimize its own reasoning process
 - Dynamically adjusts resource policies based on real-time performance
 - Identifies and addresses reasoning bottlenecks through shortcut rules
@@ -845,6 +851,7 @@ _rebalanceKnowledgePartitions() {
 ```
 
 **Why this improves the system:**
+
 - Enables horizontal scaling across multiple nodes
 - Maintains the decentralized architecture while adding coordination
 - Implements intelligent knowledge partitioning to minimize cross-node communication
@@ -861,175 +868,181 @@ To improve explainability, I'll add:
  * Generate detailed natural language explanation
  * @example explainNL('Inheritance(tweety,flyer)', { depth: 3, format: 'detailed' })
  */
-explainNL(hyperedgeId, { depth = 3, format = 'concise' } = {}) {
-  const explanation = {
-    conclusion: this._formatTerm(hyperedgeId),
-    reasoningPath: [],
-    confidence: 0,
-    sources: new Set(),
-    contradictions: []
-  };
-  
-  // Trace the derivation path
-  this._traceDerivation(hyperedgeId, explanation.reasoningPath, depth);
-  
-  // Calculate overall confidence
-  if (explanation.reasoningPath.length > 0) {
-    explanation.confidence = explanation.reasoningPath[0].truth.expectation();
-  }
-  
-  // Identify contradictions
-  explanation.contradictions = this._findContradictions(hyperedgeId);
-  
-  // Format based on requested style
-  return this._formatExplanation(explanation, format);
+explainNL(hyperedgeId, {depth = 3, format = 'concise'} = {})
+{
+    const explanation = {
+        conclusion: this._formatTerm(hyperedgeId),
+        reasoningPath: [],
+        confidence: 0,
+        sources: new Set(),
+        contradictions: []
+    };
+
+    // Trace the derivation path
+    this._traceDerivation(hyperedgeId, explanation.reasoningPath, depth);
+
+    // Calculate overall confidence
+    if (explanation.reasoningPath.length > 0) {
+        explanation.confidence = explanation.reasoningPath[0].truth.expectation();
+    }
+
+    // Identify contradictions
+    explanation.contradictions = this._findContradictions(hyperedgeId);
+
+    // Format based on requested style
+    return this._formatExplanation(explanation, format);
 }
 
-_formatExplanation(explanation, format) {
-  const { conclusion, reasoningPath, confidence, contradictions } = explanation;
-  
-  if (format === 'concise') {
-    if (reasoningPath.length === 0) {
-      return `I have direct evidence that ${conclusion} (confidence: ${confidence.toFixed(2)}).`;
-    }
-    
-    const premises = reasoningPath.slice(1).map(step => 
-      this._formatTerm(step.id)).join(', ');
-      
-    return `Because ${premises}, I conclude that ${conclusion} (confidence: ${confidence.toFixed(2)}).`;
-  } 
-  else if (format === 'detailed') {
-    let explanationText = `Conclusion: ${conclusion} (confidence: ${confidence.toFixed(2)})\n\n`;
-    
-    if (reasoningPath.length > 0) {
-      explanationText += "Reasoning path:\n";
-      reasoningPath.forEach((step, i) => {
-        const indent = '  '.repeat(i);
-        const rule = step.derivationRule ? 
-          ` [${this._formatRuleName(step.derivationRule)}]` : '';
-          
-        explanationText += `${indent}• ${this._formatTerm(step.id)}${rule}\n`;
-        
-        if (step.evidence) {
-          explanationText += `${indent}  Evidence: ${step.evidence}\n`;
+_formatExplanation(explanation, format)
+{
+    const {conclusion, reasoningPath, confidence, contradictions} = explanation;
+
+    if (format === 'concise') {
+        if (reasoningPath.length === 0) {
+            return `I have direct evidence that ${conclusion} (confidence: ${confidence.toFixed(2)}).`;
         }
-      });
+
+        const premises = reasoningPath.slice(1).map(step =>
+            this._formatTerm(step.id)).join(', ');
+
+        return `Because ${premises}, I conclude that ${conclusion} (confidence: ${confidence.toFixed(2)}).`;
+    } else if (format === 'detailed') {
+        let explanationText = `Conclusion: ${conclusion} (confidence: ${confidence.toFixed(2)})\n\n`;
+
+        if (reasoningPath.length > 0) {
+            explanationText += "Reasoning path:\n";
+            reasoningPath.forEach((step, i) => {
+                const indent = '  '.repeat(i);
+                const rule = step.derivationRule ?
+                    ` [${this._formatRuleName(step.derivationRule)}]` : '';
+
+                explanationText += `${indent}• ${this._formatTerm(step.id)}${rule}\n`;
+
+                if (step.evidence) {
+                    explanationText += `${indent}  Evidence: ${step.evidence}\n`;
+                }
+            });
+        }
+
+        if (contradictions.length > 0) {
+            explanationText += `\nContradictory evidence:\n`;
+            contradictions.forEach((contra, i) => {
+                explanationText += `  • ${this._formatTerm(contra.belief2)} ` +
+                    `(confidence: ${contra.strength.toFixed(2)})\n`;
+                explanationText += `    Resolution: ${contra.resolution}\n`;
+            });
+        }
+
+        return explanationText;
+    } else if (format === 'story') {
+        // Generate narrative-style explanation
+        return this._generateStoryExplanation(explanation);
     }
-    
+
+    return explanation;
+}
+
+_findContradictions(hyperedgeId)
+{
+    return Array.from(this.contradictions.values()).filter(c =>
+        c.belief1 === hyperedgeId || c.belief2 === hyperedgeId);
+}
+
+_formatTerm(hyperedgeId)
+{
+    const hyperedge = this.hypergraph.get(hyperedgeId);
+    if (!hyperedge) return hyperedgeId;
+
+    switch (hyperedge.type) {
+        case 'Inheritance':
+            return `${hyperedge.args[0]} is a type of ${hyperedge.args[1]}`;
+        case 'Similarity':
+            return `${hyperedge.args[0]} is similar to ${hyperedge.args[1]}`;
+        case 'Implication':
+            return `if ${hyperedge.args[0]} then ${hyperedge.args[1]}`;
+        case 'Equivalence':
+            return `${hyperedge.args[0]} is equivalent to ${hyperedge.args[1]}`;
+        case 'Conjunction':
+            return hyperedge.args.join(' and ');
+        case 'Term':
+            return hyperedge.args[0];
+        default:
+            return `${hyperedge.type}(${hyperedge.args.join(', ')})`;
+    }
+}
+
+_formatRuleName(ruleName)
+{
+    const names = {
+        'transitivity': 'transitive relationship',
+        'induction': 'inductive reasoning',
+        'abduction': 'abductive reasoning',
+        'analogy': 'analogical reasoning',
+        'modus_ponens': 'direct application',
+        'conversion': 'conversion rule',
+        'property_derivation': 'property inference'
+    };
+    return names[ruleName] || ruleName.replace(/_/g, ' ');
+}
+
+_generateStoryExplanation(explanation)
+{
+    const {conclusion, reasoningPath, contradictions} = explanation;
+
+    if (reasoningPath.length === 0) {
+        return `Based on direct observations, I've determined that ${this._formatTermForStory(conclusion)}.`;
+    }
+
+    // Build a narrative from the reasoning path
+    const premises = reasoningPath.slice(1).map((step, i) => {
+        const term = this._formatTermForStory(step.id);
+        if (i === 0) {
+            return `First, ${term}`;
+        } else if (i === reasoningPath.length - 2) {
+            return `then, ${term}`;
+        } else {
+            return term;
+        }
+    });
+
+    let story = `Let me explain how I reached the conclusion about ${this._formatTermForStory(conclusion)}:\n\n`;
+
+    if (premises.length > 0) {
+        story += premises.join(', ') + '. ';
+    }
+
+    story += `This leads me to conclude that ${this._formatTermForStory(conclusion)}.`;
+
     if (contradictions.length > 0) {
-      explanationText += `\nContradictory evidence:\n`;
-      contradictions.forEach((contra, i) => {
-        explanationText += `  • ${this._formatTerm(contra.belief2)} ` +
-          `(confidence: ${contra.strength.toFixed(2)})\n`;
-        explanationText += `    Resolution: ${contra.resolution}\n`;
-      });
+        story += `\n\nI should note there was some contradictory information: `;
+        story += contradictions.map(c =>
+            this._formatTermForStory(c.belief2)).join(' and ');
+        story += `, but I determined the conclusion was stronger based on ${contradictions[0].resolution}.`;
     }
-    
-    return explanationText;
-  }
-  else if (format === 'story') {
-    // Generate narrative-style explanation
-    return this._generateStoryExplanation(explanation);
-  }
-  
-  return explanation;
+
+    return story;
 }
 
-_findContradictions(hyperedgeId) {
-  return Array.from(this.contradictions.values()).filter(c => 
-    c.belief1 === hyperedgeId || c.belief2 === hyperedgeId);
-}
+_formatTermForStory(hyperedgeId)
+{
+    const hyperedge = this.hypergraph.get(hyperedgeId);
+    if (!hyperedge) return hyperedgeId;
 
-_formatTerm(hyperedgeId) {
-  const hyperedge = this.hypergraph.get(hyperedgeId);
-  if (!hyperedge) return hyperedgeId;
-  
-  switch (hyperedge.type) {
-    case 'Inheritance':
-      return `${hyperedge.args[0]} is a type of ${hyperedge.args[1]}`;
-    case 'Similarity':
-      return `${hyperedge.args[0]} is similar to ${hyperedge.args[1]}`;
-    case 'Implication':
-      return `if ${hyperedge.args[0]} then ${hyperedge.args[1]}`;
-    case 'Equivalence':
-      return `${hyperedge.args[0]} is equivalent to ${hyperedge.args[1]}`;
-    case 'Conjunction':
-      return hyperedge.args.join(' and ');
-    case 'Term':
-      return hyperedge.args[0];
-    default:
-      return `${hyperedge.type}(${hyperedge.args.join(', ')})`;
-  }
-}
-
-_formatRuleName(ruleName) {
-  const names = {
-    'transitivity': 'transitive relationship',
-    'induction': 'inductive reasoning',
-    'abduction': 'abductive reasoning',
-    'analogy': 'analogical reasoning',
-    'modus_ponens': 'direct application',
-    'conversion': 'conversion rule',
-    'property_derivation': 'property inference'
-  };
-  return names[ruleName] || ruleName.replace(/_/g, ' ');
-}
-
-_generateStoryExplanation(explanation) {
-  const { conclusion, reasoningPath, contradictions } = explanation;
-  
-  if (reasoningPath.length === 0) {
-    return `Based on direct observations, I've determined that ${this._formatTermForStory(conclusion)}.`;
-  }
-  
-  // Build a narrative from the reasoning path
-  const premises = reasoningPath.slice(1).map((step, i) => {
-    const term = this._formatTermForStory(step.id);
-    if (i === 0) {
-      return `First, ${term}`;
-    } else if (i === reasoningPath.length - 2) {
-      return `then, ${term}`;
-    } else {
-      return term;
+    switch (hyperedge.type) {
+        case 'Inheritance':
+            return `${hyperedge.args[0]} is a ${hyperedge.args[1]}`;
+        case 'Implication':
+            return `when ${hyperedge.args[0]}, ${hyperedge.args[1]}`;
+        case 'Term':
+            return hyperedge.args[0].replace(/_/g, ' ');
+        default:
+            return this._formatTerm(hyperedgeId);
     }
-  });
-  
-  let story = `Let me explain how I reached the conclusion about ${this._formatTermForStory(conclusion)}:\n\n`;
-  
-  if (premises.length > 0) {
-    story += premises.join(', ') + '. ';
-  }
-  
-  story += `This leads me to conclude that ${this._formatTermForStory(conclusion)}.`;
-  
-  if (contradictions.length > 0) {
-    story += `\n\nI should note there was some contradictory information: `;
-    story += contradictions.map(c => 
-      this._formatTermForStory(c.belief2)).join(' and ');
-    story += `, but I determined the conclusion was stronger based on ${contradictions[0].resolution}.`;
-  }
-  
-  return story;
-}
-
-_formatTermForStory(hyperedgeId) {
-  const hyperedge = this.hypergraph.get(hyperedgeId);
-  if (!hyperedge) return hyperedgeId;
-  
-  switch (hyperedge.type) {
-    case 'Inheritance':
-      return `${hyperedge.args[0]} is a ${hyperedge.args[1]}`;
-    case 'Implication':
-      return `when ${hyperedge.args[0]}, ${hyperedge.args[1]}`;
-    case 'Term':
-      return hyperedge.args[0].replace(/_/g, ' ');
-    default:
-      return this._formatTerm(hyperedgeId);
-  }
 }
 ```
 
 **Why this improves the system:**
+
 - Provides natural language explanations that non-technical users can understand
 - Offers multiple explanation formats for different use cases
 - Includes information about contradictory evidence and how it was resolved
@@ -1047,6 +1060,10 @@ These revisions significantly enhance NARHyper by:
 5. **Enabling distributed processing** for horizontal scalability while maintaining the decentralized architecture
 6. **Enhancing explanation generation** with natural language formatting and multiple presentation styles
 
-These additions maintain the core principles of NARS while addressing the practical limitations of the original implementation. The system remains true to the AIKR principle by intelligently managing resources, avoids combinatorial explosion through sophisticated pruning and prioritization, and provides a unified symbolic/subsymbolic approach without relying on lossy embeddings.
+These additions maintain the core principles of NARS while addressing the practical limitations of the original
+implementation. The system remains true to the AIKR principle by intelligently managing resources, avoids combinatorial
+explosion through sophisticated pruning and prioritization, and provides a unified symbolic/subsymbolic approach without
+relying on lossy embeddings.
 
-The revised implementation is still elegant, modular, and adheres to the requirement of being programming language agnostic in its high-level design, while providing concrete implementation guidance for developers.
+The revised implementation is still elegant, modular, and adheres to the requirement of being programming language
+agnostic in its high-level design, while providing concrete implementation guidance for developers.

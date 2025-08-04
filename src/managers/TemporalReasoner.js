@@ -1,7 +1,7 @@
-import { TemporalManagerBase } from './TemporalManagerBase.js';
-import { TimeInterval } from '../support/TimeInterval.js';
-import { id } from '../support/utils.js';
-import { TruthValue } from '../support/TruthValue.js';
+import {TemporalManagerBase} from './TemporalManagerBase.js';
+import {TimeInterval} from '../support/TimeInterval.js';
+import {id} from '../support/utils.js';
+import {TruthValue} from '../support/TruthValue.js';
 
 /**
  * An advanced temporal reasoner that implements Allen's Interval Algebra,
@@ -19,86 +19,199 @@ export class TemporalReasoner extends TemporalManagerBase {
         // Allen's Interval Algebra Composition Table (Full)
         this.compositionTable = {
             'before': {
-                'before': 'before', 'meets': 'before', 'overlaps': 'before', 'finishedBy': 'before', 'contains': 'before',
-                'starts': 'before', 'equals': 'before', 'startedBy': 'before', 'during': ['before', 'meets', 'overlaps', 'starts', 'during'],
-                'finishes': ['before', 'meets', 'overlaps', 'starts', 'during'], 'overlappedBy': ['before', 'meets', 'overlaps', 'starts', 'during'],
-                'metBy': ['before', 'meets', 'overlaps', 'starts', 'during'], 'after': ['before', 'meets', 'overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy', 'metBy', 'after']
+                'before': 'before',
+                'meets': 'before',
+                'overlaps': 'before',
+                'finishedBy': 'before',
+                'contains': 'before',
+                'starts': 'before',
+                'equals': 'before',
+                'startedBy': 'before',
+                'during': ['before', 'meets', 'overlaps', 'starts', 'during'],
+                'finishes': ['before', 'meets', 'overlaps', 'starts', 'during'],
+                'overlappedBy': ['before', 'meets', 'overlaps', 'starts', 'during'],
+                'metBy': ['before', 'meets', 'overlaps', 'starts', 'during'],
+                'after': ['before', 'meets', 'overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy', 'metBy', 'after']
             },
             'meets': {
-                'before': 'before', 'meets': 'before', 'overlaps': 'before', 'finishedBy': 'before', 'contains': 'before',
-        'starts': 'overlaps', 'equals': 'meets', 'startedBy': 'meets', 'during': ['overlaps', 'starts', 'during'],
-                'finishes': ['overlaps', 'starts', 'during'], 'overlappedBy': ['overlaps', 'starts', 'during'],
-                'metBy': ['finishedBy', 'equals', 'finishes'], 'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
+                'before': 'before',
+                'meets': 'before',
+                'overlaps': 'before',
+                'finishedBy': 'before',
+                'contains': 'before',
+                'starts': 'overlaps',
+                'equals': 'meets',
+                'startedBy': 'meets',
+                'during': ['overlaps', 'starts', 'during'],
+                'finishes': ['overlaps', 'starts', 'during'],
+                'overlappedBy': ['overlaps', 'starts', 'during'],
+                'metBy': ['finishedBy', 'equals', 'finishes'],
+                'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
             },
             'overlaps': {
-                'before': 'before', 'meets': 'before', 'overlaps': ['before', 'meets', 'overlaps'], 'finishedBy': ['before', 'meets', 'overlaps'],
-                'contains': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'], 'starts': 'overlaps', 'equals': 'overlaps',
-                'startedBy': ['overlaps', 'finishedBy', 'contains'], 'during': ['overlaps', 'starts', 'during'], 'finishes': ['overlaps', 'starts', 'during'],
+                'before': 'before',
+                'meets': 'before',
+                'overlaps': ['before', 'meets', 'overlaps'],
+                'finishedBy': ['before', 'meets', 'overlaps'],
+                'contains': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'],
+                'starts': 'overlaps',
+                'equals': 'overlaps',
+                'startedBy': ['overlaps', 'finishedBy', 'contains'],
+                'during': ['overlaps', 'starts', 'during'],
+                'finishes': ['overlaps', 'starts', 'during'],
                 'overlappedBy': ['overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy'],
-                'metBy': ['contains', 'startedBy', 'overlappedBy'], 'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
+                'metBy': ['contains', 'startedBy', 'overlappedBy'],
+                'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
             },
             'finishedBy': {
-                'before': 'before', 'meets': 'meets', 'overlaps': 'overlaps', 'finishedBy': 'finishedBy', 'contains': 'contains',
-                'starts': 'overlaps', 'equals': 'finishedBy', 'startedBy': 'contains', 'during': ['overlaps', 'starts', 'during'],
-                'finishes': ['finishedBy', 'equals', 'finishes'], 'overlappedBy': ['contains', 'startedBy', 'overlappedBy'],
-                'metBy': ['contains', 'startedBy', 'overlappedBy'], 'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
+                'before': 'before',
+                'meets': 'meets',
+                'overlaps': 'overlaps',
+                'finishedBy': 'finishedBy',
+                'contains': 'contains',
+                'starts': 'overlaps',
+                'equals': 'finishedBy',
+                'startedBy': 'contains',
+                'during': ['overlaps', 'starts', 'during'],
+                'finishes': ['finishedBy', 'equals', 'finishes'],
+                'overlappedBy': ['contains', 'startedBy', 'overlappedBy'],
+                'metBy': ['contains', 'startedBy', 'overlappedBy'],
+                'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
             },
             'contains': {
-                'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'], 'meets': ['overlaps', 'finishedBy', 'contains'],
-                'overlaps': ['overlaps', 'finishedBy', 'contains'], 'finishedBy': 'contains', 'contains': 'contains', 'starts': ['overlaps', 'finishedBy', 'contains'],
-                'equals': 'contains', 'startedBy': 'contains', 'during': ['overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy'],
-                'finishes': ['contains', 'startedBy', 'overlappedBy'], 'overlappedBy': ['contains', 'startedBy', 'overlappedBy'],
-                'metBy': ['contains', 'startedBy', 'overlappedBy'], 'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
+                'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'],
+                'meets': ['overlaps', 'finishedBy', 'contains'],
+                'overlaps': ['overlaps', 'finishedBy', 'contains'],
+                'finishedBy': 'contains',
+                'contains': 'contains',
+                'starts': ['overlaps', 'finishedBy', 'contains'],
+                'equals': 'contains',
+                'startedBy': 'contains',
+                'during': ['overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy'],
+                'finishes': ['contains', 'startedBy', 'overlappedBy'],
+                'overlappedBy': ['contains', 'startedBy', 'overlappedBy'],
+                'metBy': ['contains', 'startedBy', 'overlappedBy'],
+                'after': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after']
             },
             'starts': {
-                'before': 'before', 'meets': 'before', 'overlaps': ['before', 'meets', 'overlaps'], 'finishedBy': ['before', 'meets', 'overlaps'],
-                'contains': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'], 'starts': 'starts', 'equals': 'starts',
-                'startedBy': ['starts', 'equals', 'startedBy'], 'during': 'during', 'finishes': 'during', 'overlappedBy': ['during', 'finishes', 'overlappedBy'],
-                'metBy': 'metBy', 'after': 'after'
+                'before': 'before',
+                'meets': 'before',
+                'overlaps': ['before', 'meets', 'overlaps'],
+                'finishedBy': ['before', 'meets', 'overlaps'],
+                'contains': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'],
+                'starts': 'starts',
+                'equals': 'starts',
+                'startedBy': ['starts', 'equals', 'startedBy'],
+                'during': 'during',
+                'finishes': 'during',
+                'overlappedBy': ['during', 'finishes', 'overlappedBy'],
+                'metBy': 'metBy',
+                'after': 'after'
             },
             'equals': {
-                'before': 'before', 'meets': 'meets', 'overlaps': 'overlaps', 'finishedBy': 'finishedBy', 'contains': 'contains',
-                'starts': 'starts', 'equals': 'equals', 'startedBy': 'startedBy', 'during': 'during', 'finishes': 'finishes',
-                'overlappedBy': 'overlappedBy', 'metBy': 'metBy', 'after': 'after'
+                'before': 'before',
+                'meets': 'meets',
+                'overlaps': 'overlaps',
+                'finishedBy': 'finishedBy',
+                'contains': 'contains',
+                'starts': 'starts',
+                'equals': 'equals',
+                'startedBy': 'startedBy',
+                'during': 'during',
+                'finishes': 'finishes',
+                'overlappedBy': 'overlappedBy',
+                'metBy': 'metBy',
+                'after': 'after'
             },
             'startedBy': {
-                'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'], 'meets': ['overlaps', 'finishedBy', 'contains'],
-                'overlaps': ['overlaps', 'finishedBy', 'contains'], 'finishedBy': 'contains', 'contains': 'contains',
-                'starts': ['starts', 'equals', 'startedBy'], 'equals': 'startedBy', 'startedBy': 'startedBy',
-                'during': ['during', 'finishes', 'overlappedBy'], 'finishes': 'overlappedBy', 'overlappedBy': 'overlappedBy', 'metBy': 'metBy', 'after': 'after'
+                'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'],
+                'meets': ['overlaps', 'finishedBy', 'contains'],
+                'overlaps': ['overlaps', 'finishedBy', 'contains'],
+                'finishedBy': 'contains',
+                'contains': 'contains',
+                'starts': ['starts', 'equals', 'startedBy'],
+                'equals': 'startedBy',
+                'startedBy': 'startedBy',
+                'during': ['during', 'finishes', 'overlappedBy'],
+                'finishes': 'overlappedBy',
+                'overlappedBy': 'overlappedBy',
+                'metBy': 'metBy',
+                'after': 'after'
             },
             'during': {
-                'before': 'before', 'meets': 'before', 'overlaps': ['before', 'meets', 'overlaps', 'starts', 'during'],
-                'finishedBy': ['before', 'meets', 'overlaps', 'starts', 'during'], 'contains': ['before', 'meets', 'overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy', 'metBy', 'after'],
-                'starts': 'during', 'equals': 'during', 'startedBy': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
-                'during': 'during', 'finishes': 'during', 'overlappedBy': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'], 'metBy': 'after', 'after': 'after'
+                'before': 'before',
+                'meets': 'before',
+                'overlaps': ['before', 'meets', 'overlaps', 'starts', 'during'],
+                'finishedBy': ['before', 'meets', 'overlaps', 'starts', 'during'],
+                'contains': ['before', 'meets', 'overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy', 'metBy', 'after'],
+                'starts': 'during',
+                'equals': 'during',
+                'startedBy': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
+                'during': 'during',
+                'finishes': 'during',
+                'overlappedBy': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
+                'metBy': 'after',
+                'after': 'after'
             },
             'finishes': {
-                'before': 'before', 'meets': 'meets', 'overlaps': ['overlaps', 'starts', 'during'], 'finishedBy': ['finishedBy', 'equals', 'finishes'],
-                'contains': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after'], 'starts': 'during', 'equals': 'finishes',
-                'startedBy': ['overlappedBy', 'metBy', 'after'], 'during': 'during', 'finishes': 'finishes',
-                'overlappedBy': ['overlappedBy', 'metBy', 'after'], 'metBy': 'after', 'after': 'after'
+                'before': 'before',
+                'meets': 'meets',
+                'overlaps': ['overlaps', 'starts', 'during'],
+                'finishedBy': ['finishedBy', 'equals', 'finishes'],
+                'contains': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after'],
+                'starts': 'during',
+                'equals': 'finishes',
+                'startedBy': ['overlappedBy', 'metBy', 'after'],
+                'during': 'during',
+                'finishes': 'finishes',
+                'overlappedBy': ['overlappedBy', 'metBy', 'after'],
+                'metBy': 'after',
+                'after': 'after'
             },
             'overlappedBy': {
-                'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'], 'meets': ['overlaps', 'finishedBy', 'contains'],
+                'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'],
+                'meets': ['overlaps', 'finishedBy', 'contains'],
                 'overlaps': ['overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy'],
-                'finishedBy': ['contains', 'startedBy', 'overlappedBy'], 'contains': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after'],
-                'starts': ['during', 'finishes', 'overlappedBy'], 'equals': 'overlappedBy', 'startedBy': ['overlappedBy', 'metBy', 'after'],
-                'during': ['during', 'finishes', 'overlappedBy'], 'finishes': 'overlappedBy', 'overlappedBy': ['overlappedBy', 'metBy', 'after'],
-                'metBy': 'after', 'after': 'after'
+                'finishedBy': ['contains', 'startedBy', 'overlappedBy'],
+                'contains': ['contains', 'startedBy', 'overlappedBy', 'metBy', 'after'],
+                'starts': ['during', 'finishes', 'overlappedBy'],
+                'equals': 'overlappedBy',
+                'startedBy': ['overlappedBy', 'metBy', 'after'],
+                'during': ['during', 'finishes', 'overlappedBy'],
+                'finishes': 'overlappedBy',
+                'overlappedBy': ['overlappedBy', 'metBy', 'after'],
+                'metBy': 'after',
+                'after': 'after'
             },
             'metBy': {
-                'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'], 'meets': ['starts', 'equals', 'startedBy'],
-                'overlaps': ['during', 'finishes', 'overlappedBy'], 'finishedBy': 'metBy', 'contains': 'after', 'starts': ['during', 'finishes', 'overlappedBy'],
-                'equals': 'metBy', 'startedBy': 'after', 'during': ['during', 'finishes', 'overlappedBy'], 'finishes': 'metBy',
-                'overlappedBy': 'after', 'metBy': 'after', 'after': 'after'
+                'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains'],
+                'meets': ['starts', 'equals', 'startedBy'],
+                'overlaps': ['during', 'finishes', 'overlappedBy'],
+                'finishedBy': 'metBy',
+                'contains': 'after',
+                'starts': ['during', 'finishes', 'overlappedBy'],
+                'equals': 'metBy',
+                'startedBy': 'after',
+                'during': ['during', 'finishes', 'overlappedBy'],
+                'finishes': 'metBy',
+                'overlappedBy': 'after',
+                'metBy': 'after',
+                'after': 'after'
             },
             'after': {
                 'before': ['before', 'meets', 'overlaps', 'finishedBy', 'contains', 'starts', 'equals', 'startedBy', 'during', 'finishes', 'overlappedBy', 'metBy', 'after'],
-                'meets': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'], 'overlaps': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
-                'finishedBy': 'after', 'contains': 'after', 'starts': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
-                'equals': 'after', 'startedBy': 'after', 'during': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
-                'finishes': 'after', 'overlappedBy': 'after', 'metBy': 'after', 'after': 'after'
+                'meets': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
+                'overlaps': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
+                'finishedBy': 'after',
+                'contains': 'after',
+                'starts': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
+                'equals': 'after',
+                'startedBy': 'after',
+                'during': ['during', 'finishes', 'overlappedBy', 'metBy', 'after'],
+                'finishes': 'after',
+                'overlappedBy': 'after',
+                'metBy': 'after',
+                'after': 'after'
             }
         };
     }
@@ -140,7 +253,7 @@ export class TemporalReasoner extends TemporalManagerBase {
             return null;
         }
 
-        const constraint = { id: constraintId, event1, event2, relation, ...options };
+        const constraint = {id: constraintId, event1, event2, relation, ...options};
         this.temporalConstraints.set(constraintId, constraint);
 
         // Add to hypergraph and propagate
@@ -286,16 +399,16 @@ export class TemporalReasoner extends TemporalManagerBase {
         for (const c of this.temporalConstraints.values()) {
             if (c.event1 === event1 && c.event2 === event2) return c;
             if (c.event1 === event2 && c.event2 === event1) {
-                return { ...c, event1, event2, relation: this._getInverseTemporalRelation(c.relation) };
+                return {...c, event1, event2, relation: this._getInverseTemporalRelation(c.relation)};
             }
         }
 
         // Transitive relationship check (BFS)
-        const queue = [{ event: event1, path: [] }];
+        const queue = [{event: event1, path: []}];
         const visited = new Set([event1]);
 
         while (queue.length > 0) {
-            const { event: currentEvent, path } = queue.shift();
+            const {event: currentEvent, path} = queue.shift();
             if (currentEvent === event2) {
                 return this._composePath(path); // Found a path, compose the relations
             }
@@ -303,7 +416,7 @@ export class TemporalReasoner extends TemporalManagerBase {
             for (const c of this.temporalConstraints.values()) {
                 if (c.event1 === currentEvent && !visited.has(c.event2)) {
                     visited.add(c.event2);
-                    queue.push({ event: c.event2, path: [...path, c] });
+                    queue.push({event: c.event2, path: [...path, c]});
                 }
             }
         }
@@ -317,9 +430,9 @@ export class TemporalReasoner extends TemporalManagerBase {
      * @param {number} uncertainty - A value (e.g., in ms) representing the uncertainty.
      */
     processEventWithUncertainty(eventId, timeEstimate, uncertainty) {
-        const timepoint = { id: `timepoint:${eventId}`, estimate: timeEstimate, uncertainty, timestamp: Date.now() };
+        const timepoint = {id: `timepoint:${eventId}`, estimate: timeEstimate, uncertainty, timestamp: Date.now()};
         this.timepoints.set(timepoint.id, timepoint);
-        this.nar.emit('temporal-update', { eventId, timepoint });
+        this.nar.emit('temporal-update', {eventId, timepoint});
     }
 
     /**
@@ -410,7 +523,7 @@ export class TemporalReasoner extends TemporalManagerBase {
         }
 
         if (iterations >= maxIterations && maxIterations > 10) {
-            this.nar.emit('log', { message: 'Temporal propagation reached max iterations.', level: 'warn' });
+            this.nar.emit('log', {message: 'Temporal propagation reached max iterations.', level: 'warn'});
         }
     }
 
@@ -495,7 +608,7 @@ export class TemporalReasoner extends TemporalManagerBase {
     }
 
     queryTimeWindow(start, end, options = {}) {
-        const { minConfidence = 0.5 } = options;
+        const {minConfidence = 0.5} = options;
         const results = [];
 
         for (const interval of this.intervals.values()) {
@@ -591,9 +704,9 @@ export class TemporalReasoner extends TemporalManagerBase {
                 const sourceInterval = Array.from(this.intervals.values()).find(i => i.term === sourceEvent && i.end >= now);
 
                 if (sourceInterval) {
-                     const confidence = this._calculatePredictionConfidence(relation, sourceInterval, futureTime, horizon);
+                    const confidence = this._calculatePredictionConfidence(relation, sourceInterval, futureTime, horizon);
 
-                     if (confidence > 0.2) { // Confidence threshold
+                    if (confidence > 0.2) { // Confidence threshold
                         const predictedHyperedge = this.nar.state.hypergraph.get(id('Term', [predictedEvent]));
                         if (!predictions.has(predictedEvent) || predictions.get(predictedEvent).confidence < confidence) {
                             predictions.set(predictedEvent, {
@@ -603,7 +716,7 @@ export class TemporalReasoner extends TemporalManagerBase {
                                 reason: `${sourceEvent} ${relation} ${predictedEvent}`
                             });
                         }
-                     }
+                    }
                 }
             }
         }

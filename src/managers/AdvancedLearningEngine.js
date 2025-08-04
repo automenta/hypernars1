@@ -1,7 +1,7 @@
-import { id } from '../support/utils.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { Budget } from '../support/Budget.js';
-import { LearningEngineBase } from './LearningEngineBase.js';
+import {id} from '../support/utils.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {Budget} from '../support/Budget.js';
+import {LearningEngineBase} from './LearningEngineBase.js';
 
 export class AdvancedLearningEngine extends LearningEngineBase {
     constructor(nar) {
@@ -66,8 +66,8 @@ export class AdvancedLearningEngine extends LearningEngineBase {
      * @param {Object} experience - The experience object to learn from.
      */
     _processLearningFromOutcome(experience) {
-        const { context, outcome, derivationPath } = experience;
-        const { success, consequence } = outcome;
+        const {context, outcome, derivationPath} = experience;
+        const {success, consequence} = outcome;
         const conclusionId = context.conclusionId || context.action;
 
         if (!conclusionId) return;
@@ -102,7 +102,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
 
             this.nar.api.addHyperedge('ActionConsequence', [actionId, consequence], {
                 truth: newTruth,
-                budget: new Budget({ priority: 0.7, durability: 0.8, quality: 0.8 })
+                budget: new Budget({priority: 0.7, durability: 0.8, quality: 0.8})
             });
         }
     }
@@ -124,7 +124,10 @@ export class AdvancedLearningEngine extends LearningEngineBase {
             if (belief) {
                 // Reduce confidence of the belief that led to the failure
                 belief.truth.confidence *= (1 - this.learningRate * 2); // Penalize failure more heavily
-                this.nar.emit('log', { message: `Reduced confidence of ${problematicStep.id} due to reasoning failure.`, level: 'info' });
+                this.nar.emit('log', {
+                    message: `Reduced confidence of ${problematicStep.id} due to reasoning failure.`,
+                    level: 'info'
+                });
             }
         }
 
@@ -132,7 +135,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         const ruleName = problematicStep.derivedBy;
         if (ruleName) {
             this._updateRuleProductivity(ruleName, false);
-            this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, 'failure', { penalty: 0.2 });
+            this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, 'failure', {penalty: 0.2});
         }
     }
 
@@ -189,7 +192,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
             belief.budget.quality
         );
 
-        hyperedge.revise({ truth: newTruth, budget: newBudget });
+        hyperedge.revise({truth: newTruth, budget: newBudget});
 
         if (belief.premises && belief.premises.length > 0) {
             belief.premises.forEach(premiseId => {
@@ -272,7 +275,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         patternCandidates.forEach(candidate => {
             const signature = this._patternSignature(candidate);
             if (!this.patternMemory.has(signature)) {
-                this.patternMemory.set(signature, { instances: [], successCount: 0, totalCount: 0 });
+                this.patternMemory.set(signature, {instances: [], successCount: 0, totalCount: 0});
             }
 
             const pattern = this.patternMemory.get(signature);
@@ -320,7 +323,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
                 0.5 // Default priority
             );
 
-            this.nar.api.addHyperedge('Concept', terms.sort(), { truth });
+            this.nar.api.addHyperedge('Concept', terms.sort(), {truth});
 
             // Create inheritance links from the new concept to its components
             terms.forEach(term => {
@@ -329,7 +332,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
                 });
             });
 
-            this.nar.emit('concept-formed', { conceptId, from: terms, signature });
+            this.nar.emit('concept-formed', {conceptId, from: terms, signature});
             // Clean up the pattern to avoid re-processing
             this.patternMemory.delete(signature);
         }
@@ -360,14 +363,14 @@ export class AdvancedLearningEngine extends LearningEngineBase {
 
         if (!this.nar.state.hypergraph.has(shortcutId)) {
             // First, ensure the conjunction exists as a concept
-            this.nar.api.addHyperedge('Conjunction', premises.sort(), { truth: new TruthValue(1.0, 0.9) });
+            this.nar.api.addHyperedge('Conjunction', premises.sort(), {truth: new TruthValue(1.0, 0.9)});
 
             this.nar.api.implication(premiseConjunctionId, conclusionId, {
                 truth: new TruthValue(0.9, confidence),
-                budget: new Budget({ priority: 0.9, durability: 0.9, quality: 0.9 }),
+                budget: new Budget({priority: 0.9, durability: 0.9, quality: 0.9}),
                 derivedBy: 'LearnedRule'
             });
-            this.nar.emit('shortcut-created', { from: premiseConjunctionId, to: conclusionId, confidence });
+            this.nar.emit('shortcut-created', {from: premiseConjunctionId, to: conclusionId, confidence});
         }
     }
 
@@ -377,7 +380,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
     _updateRuleProductivity(ruleName, wasSuccessful) {
         if (!ruleName) return;
         if (!this.ruleProductivity.has(ruleName)) {
-            this.ruleProductivity.set(ruleName, { successes: 0, attempts: 0 });
+            this.ruleProductivity.set(ruleName, {successes: 0, attempts: 0});
         }
         const stats = this.ruleProductivity.get(ruleName);
         stats.attempts++;

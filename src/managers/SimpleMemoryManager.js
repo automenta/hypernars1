@@ -1,5 +1,5 @@
-import { MemoryManagerBase } from './MemoryManagerBase.js';
-import { Budget } from '../support/Budget.js';
+import {MemoryManagerBase} from './MemoryManagerBase.js';
+import {Budget} from '../support/Budget.js';
 
 export class SimpleMemoryManager extends MemoryManagerBase {
     constructor(nar) {

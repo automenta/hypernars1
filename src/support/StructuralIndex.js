@@ -1,5 +1,8 @@
 export class StructuralIndex {
-    constructor() { this.map = new Map(); }
+    constructor() {
+        this.map = new Map();
+    }
+
     addToIndex(hyperedge) {
         const key = `${hyperedge.type}:${hyperedge.args.length}`;
         if (!this.map.has(key)) {

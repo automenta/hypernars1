@@ -1,13 +1,14 @@
-import React, { useContext, useState, useEffect, useCallback } from 'react';
-import { Box, Text, useInput, useStdin } from 'ink';
-import { TuiContext } from '../contexts/TuiContext.js';
+import React, {useCallback, useContext, useEffect, useState} from 'react';
+import {Box, Text, useInput, useStdin} from 'ink';
+import {TuiContext} from '../contexts/TuiContext.js';
 import ContradictionDetailView from './ContradictionDetailView.js';
 import pkg from 'cli-boxes';
-const { single, hidden } = pkg;
+
+const {single, hidden} = pkg;
 
 const ContradictionView = () => {
-    const { nar } = useContext(TuiContext);
-    const { isRawModeSupported } = useStdin();
+    const {nar} = useContext(TuiContext);
+    const {isRawModeSupported} = useStdin();
     const [contradictions, setContradictions] = useState([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
     const [selectedContradictionId, setSelectedContradictionId] = useState(null);
@@ -45,14 +46,14 @@ const ContradictionView = () => {
                 setSelectedContradictionId(contradictions[selectedIndex].id);
             }
         }
-    }, { isActive: isRawModeSupported });
+    }, {isActive: isRawModeSupported});
 
     const handleCloseDetailView = useCallback(() => {
         setSelectedContradictionId(null);
     }, []);
 
     if (selectedContradictionId) {
-        return <ContradictionDetailView contradictionId={selectedContradictionId} onClose={handleCloseDetailView} />;
+        return <ContradictionDetailView contradictionId={selectedContradictionId} onClose={handleCloseDetailView}/>;
     }
 
     return (
@@ -68,7 +69,8 @@ const ContradictionView = () => {
                             {`${contra.id} (${contra.pairs.length} conflicting pair(s))`}
                             {contra.resolved
                                 ? <Text color="green"> - Resolved: {contra.resolutionStrategy}</Text>
-                                : <Text color="yellow"> - Suggests: {contra.analysis?.resolutionSuggestion?.strategy || 'N/A'}</Text>
+                                : <Text color="yellow"> -
+                                    Suggests: {contra.analysis?.resolutionSuggestion?.strategy || 'N/A'}</Text>
                             }
                         </Text>
                     </Box>

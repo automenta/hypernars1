@@ -1,15 +1,15 @@
-import React, { useContext, useState, useEffect, useCallback } from 'react';
-import { Box, Text } from 'ink';
-import { TuiContext } from '../contexts/TuiContext.js';
+import React, {useCallback, useContext, useEffect, useState} from 'react';
+import {Box, Text} from 'ink';
+import {TuiContext} from '../contexts/TuiContext.js';
 
 const TemporalView = () => {
-    const { nar } = useContext(TuiContext);
-    const [temporalData, setTemporalData] = useState({ intervals: [], constraints: [] });
+    const {nar} = useContext(TuiContext);
+    const [temporalData, setTemporalData] = useState({intervals: [], constraints: []});
 
     const updateTemporalData = useCallback(() => {
         const intervals = Array.from(nar.temporalManager.intervals.values());
         const constraints = Array.from(nar.temporalManager.temporalConstraints.values());
-        setTemporalData({ intervals, constraints });
+        setTemporalData({intervals, constraints});
     }, [nar]);
 
     useEffect(() => {

@@ -1,4 +1,4 @@
-import { NARHyper } from '../NARHyper.js';
+import {NARHyper} from '../NARHyper.js';
 
 /**
  * Generates an array of simple Narsese belief statements.
@@ -6,11 +6,11 @@ import { NARHyper } from '../NARHyper.js';
  * @returns {string[]} An array of Narsese statements.
  */
 export function generateBeliefs(count) {
-  const beliefs = [];
-  for (let i = 0; i < count; i++) {
-    beliefs.push(`(<concept_${i} --> property_${i}>).`);
-  }
-  return beliefs;
+    const beliefs = [];
+    for (let i = 0; i < count; i++) {
+        beliefs.push(`(<concept_${i} --> property_${i}>).`);
+    }
+    return beliefs;
 }
 
 /**
@@ -20,10 +20,10 @@ export function generateBeliefs(count) {
  * @returns {number} The execution time in milliseconds.
  */
 export function runWithTiming(nar, cycles) {
-  const startTime = performance.now();
-  nar.run(cycles);
-  const endTime = performance.now();
-  return endTime - startTime;
+    const startTime = performance.now();
+    nar.run(cycles);
+    const endTime = performance.now();
+    return endTime - startTime;
 }
 
 /**
@@ -32,5 +32,5 @@ export function runWithTiming(nar, cycles) {
  * @returns {NARHyper} A new NARHyper instance.
  */
 export function createTestNar(config = {}) {
-  return new NARHyper({ useAdvanced: true, ...config });
+    return new NARHyper({useAdvanced: true, ...config});
 }

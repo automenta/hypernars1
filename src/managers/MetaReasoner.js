@@ -1,5 +1,5 @@
-import { Budget } from '../support/Budget.js';
-import { TruthValue } from '../support/TruthValue.js';
+import {Budget} from '../support/Budget.js';
+import {TruthValue} from '../support/TruthValue.js';
 
 /**
  * Meta-reasoning system for self-monitoring, optimization, and resource management.
@@ -25,7 +25,7 @@ export class MetaReasoner {
         };
         this.currentFocus = 'default';
 
-        this.configureStrategy({ context: 'default', strategy: 'balanced', priority: 0 });
+        this.configureStrategy({context: 'default', strategy: 'balanced', priority: 0});
 
         this.nar.on('contradiction-resolved', () => this.contradictionCount++);
     }
@@ -58,7 +58,7 @@ export class MetaReasoner {
         const metrics = this._calculateMetrics();
         this.metricsHistory.push(metrics);
         if (this.metricsHistory.length > 100) this.metricsHistory.shift();
-        this.addToTrace({ type: 'self-monitor', metrics });
+        this.addToTrace({type: 'self-monitor', metrics});
 
         // 2. Detect issues and adapt system parameters (from original implementation)
         const issues = this._detectIssues(metrics);
@@ -93,10 +93,10 @@ export class MetaReasoner {
      * @param {Object} [metrics] - Additional metrics like time or steps.
      */
     trackReasoningPath(pathId, outcome, metrics = {}) {
-        const record = this.performanceHistory.get(pathId) || { successes: 0, attempts: 0, metricsHistory: [] };
+        const record = this.performanceHistory.get(pathId) || {successes: 0, attempts: 0, metricsHistory: []};
         record.attempts++;
         if (outcome === 'success') record.successes++;
-        record.metricsHistory.push({ timestamp: Date.now(), outcome, ...metrics });
+        record.metricsHistory.push({timestamp: Date.now(), outcome, ...metrics});
         if (record.metricsHistory.length > 20) record.metricsHistory.shift();
         this.performanceHistory.set(pathId, record);
     }
@@ -107,7 +107,7 @@ export class MetaReasoner {
      * @param {string} outcome - 'success' or 'failure'.
      */
     updateStrategyEffectiveness(strategyName, outcome) {
-        const record = this.strategyEffectiveness.get(strategyName) || { successes: 0, attempts: 0, lastUpdated: 0 };
+        const record = this.strategyEffectiveness.get(strategyName) || {successes: 0, attempts: 0, lastUpdated: 0};
         record.attempts++;
         if (outcome === 'success') record.successes++;
         record.lastUpdated = Date.now();
@@ -119,7 +119,7 @@ export class MetaReasoner {
     }
 
     addToTrace(traceEntry) {
-        this.trace.push({ ...traceEntry, timestamp: Date.now() });
+        this.trace.push({...traceEntry, timestamp: Date.now()});
         if (this.trace.length > 50) this.trace.shift();
     }
 
@@ -159,7 +159,7 @@ export class MetaReasoner {
 
         this.nar.api.implication(premise, conclusion, {
             truth: new TruthValue(reliability, 0.8), // High confidence in the learned rule
-            budget: new Budget({ priority: reliability, durability: 0.9, quality: 0.9 }),
+            budget: new Budget({priority: reliability, durability: 0.9, quality: 0.9}),
             derivedBy: 'shortcut'
         });
 
@@ -206,7 +206,7 @@ export class MetaReasoner {
     }
 
     _adaptReasoning(issues, metrics) {
-        this.addToTrace({ type: 'adaptation', issues, metrics });
+        this.addToTrace({type: 'adaptation', issues, metrics});
         const policy = this.nar.config;
         const rate = 0.1;
 
@@ -260,11 +260,15 @@ export class MetaReasoner {
         });
 
         // The DerivationEngine can now use `getRulePriority` to get these dynamic weights.
-        this.nar.emit('log', { message: 'MetaReasoner adapted rule priorities.', level: 'debug', details: Object.fromEntries(ruleEfficiencies) });
+        this.nar.emit('log', {
+            message: 'MetaReasoner adapted rule priorities.',
+            level: 'debug',
+            details: Object.fromEntries(ruleEfficiencies)
+        });
     }
 
     _adjustResourceAllocation(metrics) {
-        const { inferenceRate, contradictionRate } = metrics;
+        const {inferenceRate, contradictionRate} = metrics;
         const alloc = this.resourceAllocation;
 
         if (inferenceRate < 0.2) {
@@ -300,7 +304,7 @@ export class MetaReasoner {
         }
 
         if (oldFocus !== this.currentFocus) {
-            this.addToTrace({ type: 'focus-change', from: oldFocus, to: this.currentFocus });
+            this.addToTrace({type: 'focus-change', from: oldFocus, to: this.currentFocus});
             this._applyFocusParameters(this.currentFocus);
         }
     }
@@ -349,7 +353,7 @@ export class MetaReasoner {
             if (beliefStrength > 0.8 && isStructural) continue;
 
             if (lastAccess < cutoff && beliefStrength < 0.2) {
-                candidates.push({ id, value: beliefStrength + (lastAccess / now) });
+                candidates.push({id, value: beliefStrength + (lastAccess / now)});
             }
         }
 

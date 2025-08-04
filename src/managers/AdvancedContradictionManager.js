@@ -1,8 +1,8 @@
-import { ContradictionManagerBase } from './ContradictionManagerBase.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { Hyperedge } from '../support/Hyperedge.js';
-import { Budget } from '../support/Budget.js';
-import { id } from '../support/utils.js';
+import {ContradictionManagerBase} from './ContradictionManagerBase.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {Hyperedge} from '../support/Hyperedge.js';
+import {Budget} from '../support/Budget.js';
+import {id} from '../support/utils.js';
 
 export class AdvancedContradictionManager extends ContradictionManagerBase {
     constructor(nar) {
@@ -27,12 +27,15 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         };
     }
 
-    contradict(belief1Id, belief2Id, { strength = 0.7, context = null } = {}) {
+    contradict(belief1Id, belief2Id, {strength = 0.7, context = null} = {}) {
         const belief1 = this.nar.state.hypergraph.get(belief1Id);
         const belief2 = this.nar.state.hypergraph.get(belief2Id);
 
         if (!belief1 || !belief2) {
-            this.nar.emit('log', { message: 'Cannot create contradiction: one or both beliefs not found.', level: 'warn' });
+            this.nar.emit('log', {
+                message: 'Cannot create contradiction: one or both beliefs not found.',
+                level: 'warn'
+            });
             return null;
         }
 
@@ -55,7 +58,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             resolved: false
         });
 
-        this.nar.emit('contradiction-detected', { hyperedgeId, contradictions: [contradictionData] });
+        this.nar.emit('contradiction-detected', {hyperedgeId, contradictions: [contradictionData]});
 
         this.resolveContradictions();
 
@@ -67,7 +70,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         if (!hyperedge || hyperedge.beliefs.length < 2) {
             if (this.contradictions.has(hyperedgeId)) {
                 this.contradictions.delete(hyperedgeId);
-                this.nar.emit('contradiction-resolved', { hyperedgeId, reason: 'belief_pruned' });
+                this.nar.emit('contradiction-resolved', {hyperedgeId, reason: 'belief_pruned'});
             }
             return false;
         }
@@ -86,7 +89,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         }
 
         if (contradictoryPairs.length > 0) {
-            this.nar._log('info', `Contradiction detected for ${hyperedgeId}`, { pairs: contradictoryPairs.length });
+            this.nar._log('info', `Contradiction detected for ${hyperedgeId}`, {pairs: contradictoryPairs.length});
             this.contradictions.set(hyperedgeId, {
                 timestamp: Date.now(),
                 pairs: contradictoryPairs,
@@ -157,13 +160,13 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             ...evidence,
             timestamp: Date.now()
         });
-        this.nar.emit('evidence-added', { hyperedgeId, beliefId });
+        this.nar.emit('evidence-added', {hyperedgeId, beliefId});
     }
 
     resolveContradictions() {
         const now = Date.now();
         if (now < this.circuitBreaker.openUntil) {
-            this.nar.emit('log', { message: 'Contradiction resolution circuit breaker is open.', level: 'warn' });
+            this.nar.emit('log', {message: 'Contradiction resolution circuit breaker is open.', level: 'warn'});
             return;
         }
 
@@ -186,7 +189,10 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             this.circuitBreaker.lastFailure = now;
             if (this.circuitBreaker.failures >= this.circuitBreaker.threshold) {
                 this.circuitBreaker.openUntil = now + this.circuitBreaker.duration;
-                this.nar.emit('log', { message: `Contradiction resolution circuit breaker tripped for ${this.circuitBreaker.duration}ms.`, level: 'error' });
+                this.nar.emit('log', {
+                    message: `Contradiction resolution circuit breaker tripped for ${this.circuitBreaker.duration}ms.`,
+                    level: 'error'
+                });
             }
         } else {
             this.circuitBreaker.failures = 0;
@@ -204,7 +210,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         let outcome = 'failure';
         if (resolution && hyperedge) {
-            this.nar._log('info', `Contradiction resolved for ${hyperedgeId} using strategy: ${strategyName}`, { resolution });
+            this.nar._log('info', `Contradiction resolved for ${hyperedgeId} using strategy: ${strategyName}`, {resolution});
             contradiction.resolved = true;
             contradiction.resolutionStrategy = strategyName;
             contradiction.resolvedValue = resolution;
@@ -232,7 +238,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                 operation: 'contradiction_resolution',
                 strategy: strategyName,
                 hyperedgeId: hyperedgeId,
-            }, { success: outcome === 'success' });
+            }, {success: outcome === 'success'});
         }
 
         return resolution || null;
@@ -252,7 +258,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         // Weaken the other beliefs instead of discarding them
         const modifiedBeliefs = otherBeliefs.map(item => {
-            const modifiedBelief = { ...item.belief };
+            const modifiedBelief = {...item.belief};
             modifiedBelief.truth = new TruthValue(
                 modifiedBelief.truth.frequency,
                 modifiedBelief.truth.confidence * 0.5,
@@ -264,7 +270,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         const newBeliefs = [strongest.belief, ...modifiedBeliefs];
 
-        return { reason: 'dominant_evidence', primaryBelief: strongest.belief, updatedBeliefs: newBeliefs };
+        return {reason: 'dominant_evidence', primaryBelief: strongest.belief, updatedBeliefs: newBeliefs};
     }
 
     _resolveByMerging(hyperedgeId, contradiction) {
@@ -287,14 +293,14 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         const mergedBudget = belief1.belief.budget.merge(belief2.belief.budget).scale(0.8);
 
-        const newBelief = { ...belief1.belief, truth: mergedTruth, budget: mergedBudget, timestamp: Date.now() };
+        const newBelief = {...belief1.belief, truth: mergedTruth, budget: mergedBudget, timestamp: Date.now()};
 
         // Directly modify the hyperedge's beliefs
         if (hyperedge) {
             hyperedge.beliefs = [newBelief];
         }
 
-        return { reason: 'merged', newBelief };
+        return {reason: 'merged', newBelief};
     }
 
     _resolveBySpecialization(hyperedgeId, contradiction) {
@@ -339,8 +345,8 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                 durability: 0.5,
                 quality: weightedConfidence / totalWeight
             });
-            hyperedge.beliefs = [{ truth: newTruth, budget: newBudget, timestamp: Date.now() }];
-            return { reason: 'evidence-weighted', newTruth };
+            hyperedge.beliefs = [{truth: newTruth, budget: newBudget, timestamp: Date.now()}];
+            return {reason: 'evidence-weighted', newTruth};
         }
         return null;
     }
@@ -349,10 +355,10 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         const mostRecent = [...hyperedge.beliefs].sort((a, b) => b.timestamp - a.timestamp)[0];
         hyperedge.beliefs = [mostRecent]; // Keep only the most recent
-        return { reason: 'recency-biased', primaryBelief: mostRecent };
+        return {reason: 'recency-biased', primaryBelief: mostRecent};
     }
 
-    _sourceReliabilityResolution(hyperedgeId, contradiction, { sourceWeights = {} } = {}) {
+    _sourceReliabilityResolution(hyperedgeId, contradiction, {sourceWeights = {}} = {}) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         let totalWeight = 0;
         let weightedFrequency = 0;
@@ -371,8 +377,8 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         if (totalWeight > 0) {
             const newTruth = new TruthValue(weightedFrequency / totalWeight, weightedConfidence / totalWeight);
-            hyperedge.beliefs = [{ truth: newTruth, budget: Budget.full().scale(0.85), timestamp: Date.now() }];
-            return { reason: 'source-reliability', newTruth };
+            hyperedge.beliefs = [{truth: newTruth, budget: Budget.full().scale(0.85), timestamp: Date.now()}];
+            return {reason: 'source-reliability', newTruth};
         }
         return null;
     }
@@ -471,8 +477,8 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const intrinsicStrength = belief.truth.confidence * belief.budget.priority;
 
         const finalStrength = (intrinsicStrength * intrinsicWeight) +
-                              (totalEvidenceStrength * evidenceWeight) +
-                              (sourceReliability * sourceReliabilityWeight);
+            (totalEvidenceStrength * evidenceWeight) +
+            (sourceReliability * sourceReliabilityWeight);
 
         return finalStrength / (intrinsicWeight + evidenceWeight + sourceReliabilityWeight);
     }
@@ -496,7 +502,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                 truth: specializedTruth,
                 budget: specializedBudget
             });
-            return { reason: 'specialized', newHyperedgeId: newId };
+            return {reason: 'specialized', newHyperedgeId: newId};
         }
 
         const newArgs = [...originalHyperedge.args, `context:${context}`];
@@ -522,7 +528,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             newId: newId,
             context: context
         });
-        return { reason: 'specialized', newHyperedgeId: newId };
+        return {reason: 'specialized', newHyperedgeId: newId};
     }
 
     _getBeliefContext(hyperedge, belief) {
@@ -570,7 +576,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         if (beliefsWithEvidence.length < 2) return null;
 
-        const strategy = this._selectResolutionStrategy(hyperedgeId, { pairs: [] }); // Get a suggestion
+        const strategy = this._selectResolutionStrategy(hyperedgeId, {pairs: []}); // Get a suggestion
 
         return {
             contradictions: beliefsWithEvidence,

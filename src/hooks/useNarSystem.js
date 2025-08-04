@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 
 export const useNarSystem = (nar, log) => {
     const [isRunning, setIsRunning] = useState(false);
@@ -20,7 +20,7 @@ export const useNarSystem = (nar, log) => {
 
     const pause = useCallback(() => {
         setIsRunning(false);
-        if(runInterval.current) {
+        if (runInterval.current) {
             clearTimeout(runInterval.current);
             runInterval.current = null;
         }
@@ -40,7 +40,7 @@ export const useNarSystem = (nar, log) => {
     }, [nar, log, runDelay]);
 
     const step = useCallback(() => {
-        if(isRunning) pause();
+        if (isRunning) pause();
         nar.step();
         log('-- Stepped --');
     }, [nar, log, isRunning, pause]);

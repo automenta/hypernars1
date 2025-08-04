@@ -1,13 +1,13 @@
-import React, { useState, useContext, useEffect, useMemo } from 'react';
-import { Box, Text, useInput, useStdin } from 'ink';
+import React, {useContext, useEffect, useMemo, useState} from 'react';
+import {Box, Text, useInput, useStdin} from 'ink';
 import SelectInput from 'ink-select-input';
-import { TuiContext } from '../contexts/TuiContext.js';
+import {TuiContext} from '../contexts/TuiContext.js';
 
 const PAGE_SIZE = 10;
 
 const MemoryView = () => {
-    const { nar, handleSelectConcept } = useContext(TuiContext);
-    const { isRawModeSupported } = useStdin();
+    const {nar, handleSelectConcept} = useContext(TuiContext);
+    const {isRawModeSupported} = useStdin();
     const [allConcepts, setAllConcepts] = useState([]);
     const [sortBy, setSortBy] = useState('confidence'); // confidence, frequency, recency
     const [filterType, setFilterType] = useState(null);
@@ -38,15 +38,27 @@ const MemoryView = () => {
     const totalPages = Math.ceil(sortedAndFilteredConcepts.length / PAGE_SIZE);
 
     useInput((input) => {
-        if (input === 'c') { setSortBy('confidence'); setPage(0); }
-        else if (input === 'f') { setSortBy('frequency'); setPage(0); }
-        else if (input === 'r') { setSortBy('recency'); setPage(0); }
-        else if (input === 'j') { setFilterType(t => t === 'judgement' ? null : 'judgement'); setPage(0); }
-        else if (input === 'q') { setFilterType(t => t === 'question' ? null : 'question'); setPage(0); }
-        else if (input === 'a') { setFilterType(null); setPage(0); }
-        else if (input === '>' || input === '.') setPage(p => Math.min(p + 1, totalPages - 1));
+        if (input === 'c') {
+            setSortBy('confidence');
+            setPage(0);
+        } else if (input === 'f') {
+            setSortBy('frequency');
+            setPage(0);
+        } else if (input === 'r') {
+            setSortBy('recency');
+            setPage(0);
+        } else if (input === 'j') {
+            setFilterType(t => t === 'judgement' ? null : 'judgement');
+            setPage(0);
+        } else if (input === 'q') {
+            setFilterType(t => t === 'question' ? null : 'question');
+            setPage(0);
+        } else if (input === 'a') {
+            setFilterType(null);
+            setPage(0);
+        } else if (input === '>' || input === '.') setPage(p => Math.min(p + 1, totalPages - 1));
         else if (input === '<' || input === ',') setPage(p => Math.max(p - 1, 0));
-    }, { isActive: isRawModeSupported });
+    }, {isActive: isRawModeSupported});
 
     const paginatedConcepts = useMemo(() => {
         const start = page * PAGE_SIZE;
@@ -82,7 +94,7 @@ const MemoryView = () => {
                 </Text>
             </Box>
             {isRawModeSupported ? (
-                <SelectInput items={paginatedConcepts} onSelect={handleSelect} />
+                <SelectInput items={paginatedConcepts} onSelect={handleSelect}/>
             ) : (
                 <Text>[Input disabled in non-interactive mode]</Text>
             )}

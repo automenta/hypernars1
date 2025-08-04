@@ -1,16 +1,16 @@
-import React, { useContext, useState, useEffect } from 'react';
-import { Box, Text, useInput, useStdin } from 'ink';
-import { TuiContext } from '../contexts/TuiContext.js';
+import React, {useContext, useEffect, useState} from 'react';
+import {Box, Text, useInput, useStdin} from 'ink';
+import {TuiContext} from '../contexts/TuiContext.js';
 
 const SystemView = () => {
-    const { nar, sps } = useContext(TuiContext);
-    const { isRawModeSupported } = useStdin();
-    const [history, setHistory] = useState({ concepts: [], queue: [], sps: [] });
+    const {nar, sps} = useContext(TuiContext);
+    const {isRawModeSupported} = useStdin();
+    const [history, setHistory] = useState({concepts: [], queue: [], sps: []});
     const [showConfig, setShowConfig] = useState(false);
 
     useInput((input) => {
         if (input === 'c') setShowConfig(v => !v);
-    }, { isActive: isRawModeSupported });
+    }, {isActive: isRawModeSupported});
 
     useEffect(() => {
         if (!nar) return;

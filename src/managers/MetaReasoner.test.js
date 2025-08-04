@@ -33,7 +33,7 @@ describe('MetaReasoner', () => {
 
     it('should run self-monitoring and produce metrics', () => {
         const nar = new NARHyper(config);
-        nar.state.eventQueue.push({ budget: { priority: 0.5 } });
+        nar.state.eventQueue.push({budget: {priority: 0.5}});
         const report = nar.metaReasoner.selfMonitor();
 
         expect(report).toBeDefined();
@@ -77,8 +77,8 @@ describe('MetaReasoner', () => {
 
     it('should provide a reasoning trace', () => {
         const nar = new NARHyper(config);
-        nar.metaReasoner.addToTrace({ type: 'test-event-1' });
-        nar.metaReasoner.addToTrace({ type: 'test-event-2' });
+        nar.metaReasoner.addToTrace({type: 'test-event-1'});
+        nar.metaReasoner.addToTrace({type: 'test-event-2'});
         const trace = nar.metaReasoner.getTrace(2);
         expect(trace.length).toBe(2);
         expect(trace[0].type).toBe('test-event-1');
@@ -101,7 +101,7 @@ describe('MetaReasoner', () => {
 
     it('should NOT adapt reasoning when metrics are good', () => {
         const nar = new NARHyper(config);
-        const initialConfig = { ...nar.config };
+        const initialConfig = {...nar.config};
 
         jest.spyOn(nar.metaReasoner, '_calculateMetrics').mockReturnValue({
             contradictionRate: 0.1,
