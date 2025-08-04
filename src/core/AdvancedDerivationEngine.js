@@ -92,7 +92,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
         const weightedRules = activeRules.map(rule => {
             const ruleName = [...this.rules.entries()].find(([name, r]) => r === rule)?.[0];
-            const dynamicFactor = this.nar.metaReasoner.getRulePriority(ruleName);
+            const dynamicFactor = this.nar.cognitiveExecutive.getRulePriority(ruleName);
             return {rule, weight: rule.priority * dynamicFactor};
         });
 
@@ -126,9 +126,6 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
                     const finalBeliefCount = this.nar.state.hypergraph.size;
                     const success = finalBeliefCount > initialBeliefCount;
                     const computationalCost = endTime - startTime;
-
-                    // Estimate value based on the budget of the resulting belief(s)
-                    // This is a simplification; a more robust approach would be needed
                     const value = success ? event.budget.priority : 0;
 
                     this.nar.cognitiveExecutive.monitorDerivation(name, success, computationalCost, value);
@@ -140,6 +137,10 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
                     break;
                 }
             }
+        } else {
+            // If no rule was selected to run, we can treat this as a "failure" for the given event context.
+            // We can't attribute it to a specific rule, but we can log it for general performance analysis.
+            this.nar.cognitiveExecutive.monitorDerivation('no_rule_selected', false, 0, 0);
         }
     }
 

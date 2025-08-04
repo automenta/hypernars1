@@ -27,7 +27,6 @@ import {TemporalManagerBase} from './managers/TemporalManagerBase.js';
 import {SimpleTemporalManager} from './managers/SimpleTemporalManager.js';
 import {TemporalReasoner} from './managers/TemporalReasoner.js';
 
-import {MetaReasoner} from './managers/MetaReasoner.js';
 import {CognitiveExecutive} from './managers/CognitiveExecutive.js';
 import {ExplanationSystem} from './managers/ExplanationSystem.js';
 import {GoalManagerBase} from './managers/GoalManagerBase.js';
@@ -79,7 +78,6 @@ export class NARHyper extends EventEmitter {
         };
 
         const singletonModules = {
-            MetaReasoner,
             CognitiveExecutive,
             ExplanationSystem,
             GoalManager,
@@ -95,7 +93,6 @@ export class NARHyper extends EventEmitter {
             contradictionManager: new moduleClasses.ContradictionManager(this),
             learningEngine: new moduleClasses.LearningEngine(this),
             temporalManager: new moduleClasses.TemporalManager(this),
-            metaReasoner: new moduleClasses.MetaReasoner(this),
             cognitiveExecutive: new moduleClasses.CognitiveExecutive(this),
             explanationSystem: new moduleClasses.ExplanationSystem(this),
             goalManager: new moduleClasses.GoalManager(this),
@@ -128,8 +125,8 @@ export class NARHyper extends EventEmitter {
             'probabilisticRule', 'citedBelief', 'robustRule', 'temporalInterval',
             'temporalConstraint', 'inferTemporalRelationship', 'projectTemporal',
             'getContradictions', 'analyzeContradiction', 'resolveContradiction',
-            'getMetaTrace', 'configureMetaStrategy', 'getActiveMetaStrategy',
-            'getMetaMetrics', 'getMetaFocus', 'term', 'inheritance', 'similarity',
+            'getTrace', 'configureStrategy', 'getActiveStrategy',
+            'getMetrics', 'getFocus', 'term', 'inheritance', 'similarity',
             'implication', 'equivalence', 'getBeliefs', 'addHyperedge', 'outcome',
             'revise', 'removeHyperedge'
         ];

@@ -90,24 +90,42 @@ export class GoalManager extends GoalManagerBase {
     }
 
     _findBestAction(goal) {
-        // Find actions that can achieve the goal's description (consequence)
-        // This involves querying for implications like <action ==> goal_description>
-        const potentialActions = [];
-        const implications = this.nar.query(`<(*, $action) ==> ${goal.description}>?`);
+        // Correctly query for implications that lead to the goal state
+        const implications = this.nar.query(`<$action ==> ${goal.description}>?`);
+        if (implications.length === 0) return null;
+
+        let bestAction = null;
+        let bestScore = -Infinity;
 
         for (const imp of implications) {
             const actionId = imp.bindings.$action;
             const actionHyperedge = this.nar.state.hypergraph.get(actionId);
-            if (actionHyperedge) {
-                potentialActions.push(actionHyperedge);
+            const implicationHyperedge = this.nar.state.hypergraph.get(imp.id);
+
+            if (actionHyperedge && implicationHyperedge) {
+                // Scoring logic based on proposals in `enhance.i.md`
+                const reliability = implicationHyperedge.getTruthExpectation(); // Confidence in the action's outcome
+                const cost = 1.0 - (actionHyperedge.getStrongestBelief()?.budget.priority || 0.5); // Inverse of priority as cost
+                const preconditionsMet = this._checkPreconditions(actionHyperedge);
+
+                // Simple utility score
+                const score = (reliability * goal.utility) - (cost * 0.5);
+
+                if (preconditionsMet && score > bestScore) {
+                    bestScore = score;
+                    bestAction = actionHyperedge;
+                }
             }
         }
 
-        if (potentialActions.length === 0) return null;
+        return bestAction;
+    }
 
-        // For now, just return the first potential action found.
-        // A more advanced implementation would score actions based on cost, reliability, etc.
-        return potentialActions[0];
+    _checkPreconditions(actionHyperedge) {
+        // Placeholder for precondition checking logic.
+        // A real implementation would query for preconditions associated with the action.
+        // For now, we assume they are met.
+        return true;
     }
 
     _executeAction(actionHyperedge, goal) {
@@ -123,25 +141,59 @@ export class GoalManager extends GoalManagerBase {
     }
 
     _decomposeGoal(goal) {
-        // Try to break down a complex goal into simpler subgoals.
-        // e.g., if goal is "(&&, <a --> b>, <c --> d>)", create two subgoals.
-        const parsedGoal = this.nar.expressionEvaluator.parse(goal.description);
+        try {
+            const parsedGoal = this.nar.expressionEvaluator.parse(goal.description);
 
-        if (parsedGoal.type === 'Conjunction' && parsedGoal.args.length > 1) {
-            this.nar.emit('goal-decomposed', {goalId: goal.id, subgoals: parsedGoal.args});
-            parsedGoal.args.forEach((subgoalAst, i) => {
-                // This is tricky because the subgoal is an AST, not a string.
-                // We need a way to turn it back into a string to create the subgoal.
-                // This part needs a more robust AST-to-string converter.
-                // For now, we'll skip this part of the implementation.
-                // const subgoalDescription = this.nar.expressionEvaluator.stringify(subgoalAst);
-                // this.addGoal(subgoalDescription, goal.utility * (0.8 - i*0.1), {}, { parent: goal.id });
-            });
-            // Mark original goal as "waiting" for subgoals
-            goal.status = 'waiting';
-        } else {
-            // Cannot decompose, mark as stalled for now
-            this.nar.emit('goal-stalled', {goalId: goal.id, reason: 'cannot_decompose'});
+            if (parsedGoal.type === 'Conjunction' && parsedGoal.args.length > 1) {
+                this.nar.emit('goal-decomposed', {goalId: goal.id, subgoals: parsedGoal.args});
+                parsedGoal.args.forEach((subgoalAst, i) => {
+                    const subgoalDescription = this._stringifyAST(subgoalAst);
+                    if (subgoalDescription) {
+                        // Add new sub-goal with slightly reduced utility and priority
+                        this.addGoal(subgoalDescription, goal.utility * 0.9, goal.constraints, {
+                            priority: goal.priority * 0.9,
+                            parent: goal.id
+                        });
+                    }
+                });
+                // Mark original goal as "waiting" for subgoals to be achieved
+                goal.status = 'waiting';
+            } else {
+                this.nar.emit('goal-stalled', {goalId: goal.id, reason: 'cannot_decompose'});
+            }
+        } catch (e) {
+            this.nar.emit('goal-stalled', {goalId: goal.id, reason: 'parse_error', error: e.message});
+        }
+    }
+
+    /**
+     * Converts a parsed AST node back into a NAL string representation.
+     * This is a simplified implementation for use in goal decomposition.
+     * @param {object} astNode - The AST node to stringify.
+     * @returns {string|null} The string representation or null if invalid.
+     */
+    _stringifyAST(astNode) {
+        if (typeof astNode === 'string') {
+            return astNode;
+        }
+        if (!astNode || !astNode.type) {
+            return null;
+        }
+
+        const args = astNode.args.map(arg => this._stringifyAST(arg)).join(', ');
+
+        switch (astNode.type) {
+            case 'Term':
+                return astNode.args[0];
+            case 'Inheritance':
+                return `<${this._stringifyAST(astNode.args[0])} --> ${this._stringifyAST(astNode.args[1])}>.`;
+            case 'Implication':
+                return `<${this._stringifyAST(astNode.args[0])} ==> ${this._stringifyAST(astNode.args[1])}>.`;
+            case 'Conjunction':
+                return `(&&, ${args})`;
+            // Add other types as needed
+            default:
+                return `${astNode.type}(${args})`;
         }
     }
 

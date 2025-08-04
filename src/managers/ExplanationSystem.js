@@ -91,65 +91,60 @@ export class ExplanationSystem {
             return "Cannot generate counterfactual: original belief not found.";
         }
 
-        let premiseToReplace;
-        if (path.length > 0 && path[0].premises.length > 0) {
-            // Find the ID of the most fundamental premise in the derivation path
-            const premiseId = path[0].premises[0].id;
-            premiseToReplace = this.nar.state.hypergraph.get(premiseId);
-        } else {
-            // If no derivation or it's a direct assertion, the hyperedge itself is the premise
-            premiseToReplace = originalHyperedge;
-        }
+        // Find a base premise to replace. If no derivation path, use the belief itself.
+        const premiseToReplace = (path.length > 0 && path[0].premises.length > 0)
+            ? this.nar.state.hypergraph.get(path[0].premises[0].id)
+            : originalHyperedge;
 
         if (!premiseToReplace) {
             return `Could not determine a premise to replace for counterfactual analysis of ${hyperedgeId}.`;
         }
 
-        const sandbox = this.nar.createSandbox();
+        const sandbox = this.nar.createSandbox({
+            // Copy knowledge, but maybe less strictly to allow for more novel derivations
+            minConfidence: 0.3
+        });
 
         // Remove the original premise and insert the alternative
         sandbox.api.removeHyperedge(premiseToReplace.id);
-        // Use the same truth value for a fair comparison
         const truthValue = premiseToReplace.getStrongestBelief()?.truth || {frequency: 1.0, confidence: 0.9};
         sandbox.api.nal(alternative, {truth: truthValue});
 
         // Run the sandbox to see what happens
-        sandbox.run(50); // Run for a limited number of steps
+        sandbox.run(100); // Run for more steps to allow for more complex derivations
 
-        // Check if the original conclusion still holds
         const conclusionInSandbox = sandbox.api.getBeliefs(hyperedgeId);
 
         let explanation = `Counterfactual analysis for: ${this._formatHyperedge(originalHyperedge)}\n`;
-        explanation += `If we assume "${alternative}" instead of "${this._formatHyperedgeSimple(premiseToReplace)}":\n`;
+        explanation += `If we were to assume "${alternative}" instead of "${this._formatHyperedgeSimple(premiseToReplace)}", the consequences would be:\n\n`;
 
         if (conclusionInSandbox.length > 0) {
             const newTruth = conclusionInSandbox[0].truth;
-            explanation += `The conclusion still holds, but its confidence changes to ${this._formatConfidence(newTruth)}.`;
+            explanation += `1.  The original conclusion **still holds**, but its confidence would change to ${this._formatConfidence(newTruth)}.\n`;
         } else {
-            explanation += "The original conclusion no longer holds.\n";
-            // Fulfill the TODO: find the most prominent new conclusions.
-            const newConclusions = Array.from(sandbox.state.hypergraph.values())
-                .filter(h => h.getTruthExpectation() > 0.6 && h.id !== hyperedgeId)
-                .sort((a, b) => b.getTruthExpectation() - a.getTruthExpectation())
-                .slice(0, 5); // Increase slice to have a higher chance of getting the desired term
+            explanation += `1.  The original conclusion **no longer holds**.\n`;
+        }
 
-            if (newConclusions.length > 0) {
-                explanation += "Instead, the following new conclusions are now prominent:\n";
-                newConclusions.forEach(c => {
-                    explanation += `  - ${this._formatHyperedge(c)} (Confidence: ${this._formatConfidence(c.getTruth())})\n`;
-                });
-            }
+        // Find the most prominent new conclusions in the sandbox
+        const originalBeliefIds = new Set(this.nar.state.hypergraph.keys());
+        const newConclusions = Array.from(sandbox.state.hypergraph.values())
+            .filter(h =>
+                !originalBeliefIds.has(h.id) && // It must be a new belief
+                h.getTruthExpectation() > 0.6 && // It must be reasonably strong
+                h.type !== 'Term' && // Exclude simple term assertions
+                h.id !== premiseToReplace.id && // Exclude the premise we removed
+                !h.id.includes(alternative) // Exclude the alternative we added
+            )
+            .sort((a, b) => b.getTruthExpectation() - a.getTruthExpectation())
+            .slice(0, 3); // Limit to the top 3 new conclusions
 
-            // Also, directly check if the specific conclusion we are interested in exists
-            const specificConclusion = Array.from(sandbox.state.hypergraph.values()).find(h => h.id === 'Inheritance(Term(A), Term(D))');
-            if (specificConclusion) {
-                if (newConclusions.length === 0) {
-                    explanation += "Instead, the following new conclusions are now prominent:\n";
-                }
-                explanation += `  - ${this._formatHyperedge(specificConclusion)} (Confidence: ${this._formatConfidence(specificConclusion.getTruth())})\n`;
-            } else if (newConclusions.length === 0) {
-                explanation += "No prominent alternative conclusions were reached in the simulation.";
-            }
+        if (newConclusions.length > 0) {
+            explanation += `2.  The following **new conclusions** would become prominent:\n`;
+            newConclusions.forEach(c => {
+                explanation += `    - ${this._formatHyperedge(c)} (Confidence: ${this._formatConfidence(c.getTruth())})\n`;
+            });
+        } else {
+            explanation += "2.  No other significant new conclusions would be reached in the simulation.\n";
         }
 
         return explanation;

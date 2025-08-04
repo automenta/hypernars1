@@ -205,25 +205,26 @@ export class Api {
         return this.nar.contradictionManager.manualResolve(hyperedgeId, strategy, options);
     }
 
-    /* ===== PUBLIC API: META-REASONING OPERATIONS ===== */
-    getMetaTrace(depth) {
-        return this.nar.metaReasoner.getTrace(depth);
+    /* ===== PUBLIC API: META-REASONING / COGNITIVE EXECUTIVE ===== */
+    getTrace(depth) {
+        return this.nar.cognitiveExecutive.getTrace(depth);
     }
 
-    configureMetaStrategy(config) {
-        return this.nar.metaReasoner.configureStrategy(config);
+    configureStrategy(config) {
+        return this.nar.cognitiveExecutive.configureStrategy(config);
     }
 
-    getActiveMetaStrategy() {
-        return this.nar.metaReasoner.getActiveStrategy();
+    getActiveStrategy() {
+        return this.nar.cognitiveExecutive.getActiveStrategy();
     }
 
-    getMetaMetrics() {
-        return this.nar.metaReasoner.metricsHistory.slice(-1)[0] || null;
+    getMetrics() {
+        const history = this.nar.cognitiveExecutive.metricsHistory;
+        return history[history.length - 1] || null;
     }
 
-    getMetaFocus() {
-        return this.nar.metaReasoner.currentFocus;
+    getFocus() {
+        return this.nar.cognitiveExecutive.currentFocus;
     }
 
     /* ===== PUBLIC API: STRUCTURAL OPERATIONS ===== */

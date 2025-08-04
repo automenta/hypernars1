@@ -462,25 +462,42 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
     _calculateEvidenceStrength(hyperedgeId, belief) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        const intrinsicWeight = this.nar.config.intrinsicStrengthWeight || 0.2;
-        const evidenceWeight = this.nar.config.evidenceStrengthWeight || 0.8;
-        const sourceReliabilityWeight = this.nar.config.sourceReliabilityWeight || 0.5;
+        if (!hyperedge) return 0;
 
+        const intrinsicWeight = this.nar.config.intrinsicStrengthWeight || 0.3;
+        const evidenceWeight = this.nar.config.evidenceStrengthWeight || 0.5;
+        const sourceReliabilityWeight = this.nar.config.sourceReliabilityWeight || 0.2;
+        const recencyWeight = this.nar.config.recencyWeight || 0.1;
+
+        const now = Date.now();
         const evidenceList = hyperedge.evidence?.filter(e => e.beliefId === belief.id) || [];
-        const totalEvidenceStrength = evidenceList.reduce((sum, e) => sum + (e.strength || 0), 0);
 
+        // Factor in temporal decay of evidence strength
+        const totalEvidenceStrength = evidenceList.reduce((sum, e) => {
+            const ageInSeconds = (now - e.timestamp) / 1000;
+            const decay = Math.exp(-ageInSeconds / (this.nar.config.temporalHorizon * 3600)); // Decay over hours
+            return sum + (e.strength || 0) * decay;
+        }, 0);
+
+        // Factor in source reliability
         const sourceReliability = evidenceList.reduce((sum, e) => {
             const reliability = this.nar.state.sourceReliability?.get(e.source) || 0.5;
             return sum + (e.strength * reliability);
-        }, 0);
+        }, 0) / (evidenceList.length || 1);
 
+        // Factor in recency of the belief itself
+        const beliefAgeInSeconds = (now - belief.timestamp) / 1000;
+        const recencyFactor = Math.exp(-beliefAgeInSeconds / (this.nar.config.temporalHorizon * 7200));
+
+        // Intrinsic strength of the belief
         const intrinsicStrength = belief.truth.confidence * belief.budget.priority;
 
         const finalStrength = (intrinsicStrength * intrinsicWeight) +
             (totalEvidenceStrength * evidenceWeight) +
-            (sourceReliability * sourceReliabilityWeight);
+            (sourceReliability * sourceReliabilityWeight) +
+            (recencyFactor * recencyWeight);
 
-        return finalStrength / (intrinsicWeight + evidenceWeight + sourceReliabilityWeight);
+        return finalStrength / (intrinsicWeight + evidenceWeight + sourceReliabilityWeight + recencyWeight);
     }
 
     _createContextualSpecialization(originalHyperedge, conflictingBelief, context) {
@@ -532,8 +549,30 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     }
 
     _getBeliefContext(hyperedge, belief) {
-        const evidence = hyperedge.evidence?.find(e => e.beliefId === belief.id);
-        return evidence?.source || 'default';
+        const evidenceList = hyperedge.evidence?.filter(e => e.beliefId === belief.id) || [];
+        if (evidenceList.length === 0) return 'default';
+
+        // Prioritize explicit context tags
+        for (const evidence of evidenceList) {
+            if (evidence.context) {
+                // Could be more complex, e.g., finding the most common context
+                return evidence.context;
+            }
+        }
+
+        // Fallback to the most prominent source
+        const sourceCounts = new Map();
+        evidenceList.forEach(e => {
+            if (e.source) {
+                sourceCounts.set(e.source, (sourceCounts.get(e.source) || 0) + 1);
+            }
+        });
+
+        if (sourceCounts.size > 0) {
+            return [...sourceCounts.entries()].sort((a, b) => b[1] - a[1])[0][0];
+        }
+
+        return 'default';
     }
 
     _areContradictory(truth1, truth2) {
@@ -563,10 +602,15 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     analyze(hyperedgeId) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge || !hyperedge.beliefs || hyperedge.beliefs.length < 2) {
-            return null;
+            return {
+                message: "No significant contradiction found for this hyperedge.",
+                contradictions: [],
+                resolutionSuggestion: null,
+            };
         }
 
-        const beliefsWithEvidence = hyperedge.beliefs.map(b => ({
+        const beliefsWithAnalysis = hyperedge.beliefs.map((b, i) => ({
+            index: i,
             belief: b,
             truth: b.truth,
             budget: b.budget,
@@ -574,17 +618,37 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             evidenceStrength: this._calculateEvidenceStrength(hyperedgeId, b)
         })).sort((a, b) => b.evidenceStrength - a.evidenceStrength);
 
-        if (beliefsWithEvidence.length < 2) return null;
-
-        const strategy = this._selectResolutionStrategy(hyperedgeId, {pairs: []}); // Get a suggestion
+        const strategy = this._selectResolutionStrategy(hyperedgeId, {pairs: []});
+        const suggestionDetails = this._getResolutionSuggestionDetails(hyperedgeId, strategy);
 
         return {
-            contradictions: beliefsWithEvidence,
+            hyperedgeId,
+            beliefCount: hyperedge.beliefs.length,
+            contradictions: beliefsWithAnalysis,
             resolutionSuggestion: {
                 strategy: strategy,
-                // In a real scenario, you might simulate the resolution to get more detail
-                details: `Strategy '${strategy}' would be chosen to resolve this contradiction.`
+                details: suggestionDetails,
+                confidence: Math.max(...beliefsWithAnalysis.map(b => b.evidenceStrength)) - Math.min(...beliefsWithAnalysis.map(b => b.evidenceStrength)),
             }
         };
+    }
+
+    _getResolutionSuggestionDetails(hyperedgeId, strategy) {
+        switch(strategy) {
+            case 'dominant_evidence':
+                return "One belief has significantly stronger evidence and would be prioritized.";
+            case 'specialize':
+                return "Beliefs seem to arise from different contexts. A new, more specific concept would be created.";
+            case 'merge':
+                return "Conflicting beliefs have similar strength and would be merged into a new, revised belief.";
+            case 'source-reliability':
+                return "Resolution would be based on the reliability of the information sources.";
+            case 'recency-biased':
+                return "The most recent information would be prioritized.";
+            case 'evidence-weighted':
+                return "A new belief would be formed by weighting all existing beliefs by their evidence strength.";
+            default:
+                return "A default resolution strategy would be applied.";
+        }
     }
 }
