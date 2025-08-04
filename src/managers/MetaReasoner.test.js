@@ -1,8 +1,6 @@
-import { describe, it, expect, jest } from '@jest/globals';
-import { NARHyper } from '../NARHyper.js';
-import { MetaReasoner } from './MetaReasoner.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { id } from '../support/utils.js';
+import {describe, expect, it, jest} from '@jest/globals';
+import {NARHyper} from '../NARHyper.js';
+import {MetaReasoner} from './MetaReasoner.js';
 
 const config = {
     useAdvanced: true,

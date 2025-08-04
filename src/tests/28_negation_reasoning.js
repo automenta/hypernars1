@@ -1,5 +1,3 @@
-import { TestRunner } from '../testing/TestRunner.js';
-
 const tests = [
   {
     name: 'Reasoning with Negations',
