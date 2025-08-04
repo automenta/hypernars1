@@ -178,6 +178,9 @@ export class Api {
 
   /* ===== PUBLIC API: CONTRADICTION MANAGEMENT ===== */
   getContradictions() {
+    if (!this.nar.contradictionManager.contradictions) {
+      return [];
+    }
     this.nar._log('debug', 'Contradictions map state (before filter):', { map: Array.from(this.nar.contradictionManager.contradictions.keys()) });
     return Array.from(this.nar.contradictionManager.contradictions.entries())
       .filter(([, data]) => !data.resolved)
@@ -219,6 +222,13 @@ export class Api {
     return hyperedge ? hyperedge.beliefs : [];
   }
 
+  queryBelief(pattern) {
+    const parsedPattern = this.nar.expressionEvaluator.parse(pattern);
+    const hyperedgeId = this.nar.expressionEvaluator._getParsedStructureId(parsedPattern);
+    const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+    return hyperedge ? hyperedge.getStrongestBelief() : null;
+  }
+
   /* ===== CORE: ADDING KNOWLEDGE ===== */
   addHyperedge(type, args, options = {}) {
     const { truth, budget, priority, premises = [], derivedBy } = options;
@@ -228,7 +238,11 @@ export class Api {
     if (!hyperedge) {
       hyperedge = new Hyperedge(this.nar, termId, type, args);
       this.nar.state.hypergraph.set(termId, hyperedge);
-      this.nar.state.index.addToIndex(hyperedge);
+      if (this.nar.state.index.structural) {
+        this.nar.state.index.structural.addToIndex(hyperedge);
+      } else {
+        this.nar.state.index.addToIndex(hyperedge);
+      }
     }
 
     const finalTruth = truth || new TruthValue(1.0, 0.9);
@@ -357,7 +371,11 @@ export class Api {
     const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
     if (hyperedge) {
         this.nar.state.hypergraph.delete(hyperedgeId);
-        this.nar.state.index.removeFromIndex(hyperedge);
+        if (this.nar.state.index.structural) {
+          this.nar.state.index.structural.removeFromIndex(hyperedge);
+        } else {
+          this.nar.state.index.removeFromIndex(hyperedge);
+        }
         this.nar.state.activations.delete(hyperedgeId);
         this.nar.emit('knowledge-pruned', { hyperedgeId, type: hyperedge.type });
         return true;

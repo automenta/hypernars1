@@ -165,7 +165,8 @@ export class QuestionHandler {
 
       // Fallback to the parser-based logic for questions with variables/wildcards.
       try {
-        const { type, args } = this.nar.expressionEvaluator.parse(questionPattern);
+        const cleanPattern = questionPattern.endsWith('?') ? questionPattern.slice(0, -1) : questionPattern;
+        const { type, args } = this.nar.expressionEvaluator.parse(cleanPattern);
 
         if (type === hyperedge.type) {
           const matches = args.every((patternObj, i) => {

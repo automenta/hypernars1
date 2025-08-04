@@ -1,7 +1,7 @@
 export default {
   name: '10. Memory Management',
   description: 'Tests the system\'s forgetting and memory-pruning mechanisms.',
-  skipped: true, // SKIPPED: Uncovered potential bug where memory pruning is not occurring as expected.
+  skipped: false, // SKIPPED: Uncovered potential bug where memory pruning is not occurring as expected.
   steps: [
     {
       comment: 'Case 1: Forgetting due to a large number of concepts.',

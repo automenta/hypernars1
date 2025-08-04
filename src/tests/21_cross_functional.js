@@ -2,6 +2,7 @@ export default [
   {
     name: '21.1. Cross-Functional: Learning, Forgetting, and Re-learning',
     description: 'Tests the interaction between the learning engine and memory manager by learning a fact, forgetting it over time, and then re-learning it.',
+    skipped: false,
     steps: [
       {
         comment: 'Step 1: Learn a new, high-confidence fact.',
@@ -69,6 +70,7 @@ export default [
   {
     name: '21.2. Failing Cross-Functional Test: Goal Satisfaction with Unstable Prerequisite',
     description: 'This test is designed to fail. It checks if a goal is pursued even if its prerequisite is backed by a belief with very low, fluctuating confidence.',
+    expectedResult: false,
     steps: [
         {
             comment: 'Establish a very unstable belief that action_X leads to goal_Y.',

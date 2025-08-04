@@ -28,7 +28,7 @@ describe('QuestionHandler', () => {
       truth: new TruthValue(1.0, 0.9),
       premises: [],
     };
-    nar.state.hypergraph.get(hyperedgeId).beliefs.set(belief.id, belief);
+    nar.state.hypergraph.get(hyperedgeId).beliefs.push(belief);
     questionHandler.checkQuestionAnswers(hyperedgeId, belief);
 
     // The promise should resolve with the answer

@@ -74,28 +74,51 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         const startTime = Date.now();
 
         try {
-            let results;
-            if (!pattern.match(/[<*?&|]/)) {
-                const hyperedge = this.nar.state.hypergraph.get(pattern);
-                if (hyperedge && hyperedge.getTruth().expectation() >= minExpectation) {
-                    return [{
-                        id: pattern,
+            const parsedPattern = this.parse(pattern.endsWith('?') ? pattern.slice(0, -1) : pattern);
+
+            let results = [];
+            // Try direct match first
+            const hyperedgeId = this._getParsedStructureId(parsedPattern);
+            const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+
+            if (hyperedge) {
+                const expectation = hyperedge.getTruth().expectation();
+                if (expectation >= minExpectation) {
+                    results.push({
+                        id: hyperedgeId,
                         bindings: {},
-                        expectation: hyperedge.getTruth().expectation(),
-                        hyperedge
-                    }];
+                        truth: hyperedge.getTruth(),
+                        hyperedge,
+                        expectation,
+                    });
                 }
-                return [];
             }
 
-            if (pattern.includes('*') && !pattern.includes('<')) {
-                 results = this._wildcardQuery(pattern, options);
+            // Then, perform binding or wildcard queries
+            let queryResults;
+            if (pattern.includes('$') || parsedPattern.type !== 'Term') {
+                queryResults = this.queryWithBinding(pattern, options);
             } else {
-                results = this.queryWithBinding(pattern, options);
+                queryResults = this._wildcardQuery(pattern, options);
             }
 
+            results = results.concat(queryResults);
+
+            // Filter and sort
+            results = results.filter(r => r.expectation >= minExpectation);
             this._sortQueryResults(results, sortBy);
-            return results.slice(0, limit);
+
+            // Deduplicate and limit
+            const uniqueResults = [];
+            const seenIds = new Set();
+            for (const res of results) {
+                if (!seenIds.has(res.id)) {
+                    uniqueResults.push(res);
+                    seenIds.add(res.id);
+                }
+            }
+
+            return uniqueResults.slice(0, limit);
         } catch (e) {
             this.nar.emit('log', { message: `Query execution failed: ${e.message}`, level: 'error', error: e });
             return [];
@@ -302,6 +325,11 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         if (content.startsWith('!')) {
             return { type: 'Negation', args: [this._parseNALExpression(content.substring(1))] };
         }
+        // Handle alternative bracketed negation syntax
+        if (content.startsWith('[-') && content.endsWith(']')) {
+            const termContent = content.slice(2, -1).trim();
+            return { type: 'Negation', args: [{ type: 'Term', args: [termContent] }] };
+        }
 
         // 2. Handle Parentheses
         let isPaired = false;
@@ -412,6 +440,10 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     _getParsedStructureId(parsed) {
+        if (typeof parsed === 'string') {
+            return parsed;
+        }
+
         if (!parsed || !parsed.args) return null; // Guard against invalid parsed objects
 
         const argIds = parsed.args.map(arg => {
@@ -420,6 +452,12 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             }
             return arg; // It's a string
         });
+
+        if (parsed.type === 'Negation') {
+            // Correctly handle nested structures within Negation
+            return id(parsed.type, [argIds[0]]);
+        }
+
         return id(parsed.type, argIds);
     }
 }

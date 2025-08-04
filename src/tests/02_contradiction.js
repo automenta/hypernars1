@@ -1,6 +1,7 @@
 export default {
   name: '2. Contradiction',
   description: 'Shows how the system handles and resolves a direct contradiction.',
+  skipped: false,
   // SKIPPED: Uncovered potential bug where belief revision does not decrease expectation as expected.
   steps: [
     {
@@ -10,8 +11,7 @@ export default {
         nar.run(10);
       },
       assert: (nar, logs) => {
-        const beliefId = nar.inheritance('tweety', 'flyer');
-        const belief = nar.getBeliefs(beliefId)[0];
+        const belief = nar.api.getBeliefByContent('tweety', 'flyer');
         if (!belief || !belief.truth) return false;
         // Store the initial expectation in the scratchpad for the next step
         nar.scratchpad = { initialExpectation: belief.truth.expectation() };
@@ -26,8 +26,7 @@ export default {
         nar.run(100);
       },
       assert: (nar, logs) => {
-        const beliefId = nar.inheritance('tweety', 'flyer');
-        const belief = nar.getBeliefs(beliefId)[0];
+        const belief = nar.api.getBeliefByContent('tweety', 'flyer');
         if (!belief || !belief.truth) return false;
         const newExpectation = belief.truth.expectation();
         // After contradiction, the expectation should have decreased.

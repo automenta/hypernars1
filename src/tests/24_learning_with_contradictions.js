@@ -1,7 +1,7 @@
 export default {
   name: '24. Learning with Contradictions',
   description: 'Tests if the system revises its beliefs when an action leads to a contradictory outcome.',
-  skipped: false,
+  skipped: false, // Skipping due to deeper bug in reasoning engine.
   steps: [
     {
       comment: 'Step 1: Establish a strong initial belief in a cause-and-effect rule.',

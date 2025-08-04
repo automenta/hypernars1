@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { NARHyper } from '../NARHyper.js';
 import { GoalManager } from './GoalManager.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 // Mock the Date.now() to control time-based tests
 const mockNow = 1700000000000;
@@ -56,7 +57,7 @@ describe('GoalManager', () => {
     const utility = 0.9;
 
     // Mock the query system to simulate the goal condition being met
-    nar.query = jest.fn().mockReturnValue([{ truth: { expectation: 0.8 } }]);
+    nar.query = jest.fn().mockReturnValue([{ truth: new TruthValue(0.9, 0.9) }]);
 
     const goalId = goalManager.addGoal(description, utility);
     goalManager.processGoals();

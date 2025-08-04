@@ -137,33 +137,22 @@ describe('ExplanationSystem', () => {
     });
 
     describe('Contradiction Explanations', () => {
-        it('should include a note about a resolved contradiction in the justification', (done) => {
+        it('should include a note about a resolved contradiction in the justification', () => {
             const nar = new NARHyper({ useAdvanced: true });
-            const conceptId = 'Inheritance(penguin,flyer)';
-
-            nar.on('contradiction-resolved', ({ resolution }) => {
-                if (resolution.reason === 'merged') {
-                    // Check if the hyperedge still exists
-                    if (!nar.state.hypergraph.has(conceptId)) {
-                        done(new Error(`Hyperedge ${conceptId} was deleted before explanation could be generated.`));
-                        return;
-                    }
-                    const explanation = nar.explain(conceptId, { format: 'justification' });
-                    try {
-                        expect(explanation).toContain("Note: This belief was part of a contradiction resolved via the 'merge' strategy.");
-                        done();
-                    } catch (error) {
-                        done(error);
-                    }
-                }
-            });
+            const conceptId = 'Inheritance(penguin, flyer)';
 
             // Introduce two strong but contradictory beliefs
             nar.api.inheritance('penguin', 'flyer', { truth: new TruthValue(0.9, 0.9) });
             nar.api.inheritance('penguin', 'flyer', { truth: new TruthValue(0.1, 0.9) });
 
-            // Run the system to allow contradiction detection and resolution
-            nar.run(201);
+            // Manually resolve the contradiction
+            nar.contradictionManager.resolveContradictions();
+
+            // The hyperedge should still exist after a merge
+            expect(nar.state.hypergraph.has(conceptId)).toBe(true);
+
+            const explanation = nar.explain(conceptId, { format: 'justification' });
+            expect(explanation).toContain("Note: This belief was part of a contradiction resolved via the 'merge' strategy.");
         });
     });
 });

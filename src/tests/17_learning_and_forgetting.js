@@ -2,6 +2,9 @@ export default [
   {
     name: '17.1. Long-term Learning and Forgetting',
     description: 'Tests if the system can forget a belief over time and relearn it.',
+    config: {
+        decay: 0.1,
+    },
     steps: [
         {
             comment: 'Introduce a belief and run the system for a long time.',

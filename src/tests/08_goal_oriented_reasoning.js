@@ -1,7 +1,7 @@
 export default {
   name: '8. Goal-Oriented Reasoning',
   description: '[SKIPPED] Tests the system\'s ability to achieve and abandon goals.',
-  skipped: true, // This test is skipped due to a known bug in the derivation engine.
+  skipped: false, // This test is skipped due to a known bug in the derivation engine.
   steps: [
     {
       comment: "Case 1: Achievable Goal",

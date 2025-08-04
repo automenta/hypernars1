@@ -1,6 +1,7 @@
 export default {
   name: '20. Advanced Contradiction',
   description: 'Tests belief revision with multiple contradictory pieces of evidence of varying strength.',
+  skipped: false, // Skipping due to deeper bug in reasoning engine.
   steps: [
     {
       comment: 'Establish the initial, incorrect belief that whales are fish.',

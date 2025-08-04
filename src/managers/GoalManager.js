@@ -60,15 +60,15 @@ export class GoalManager extends GoalManagerBase {
         const goal = this.goals.get(goalId);
         if (!goal || goal.status !== 'active') return;
 
-        if (this._isGoalAchieved(goal)) {
-            goal.status = 'achieved';
-            this.nar.emit('goal-achieved', { goalId });
-            return;
-        }
-
         if (Date.now() > goal.deadline) {
             goal.status = 'abandoned';
             this.nar.emit('goal-abandoned', { goalId, reason: 'deadline' });
+            return;
+        }
+
+        if (this._isGoalAchieved(goal)) {
+            goal.status = 'achieved';
+            this.nar.emit('goal-achieved', { goalId });
             return;
         }
 

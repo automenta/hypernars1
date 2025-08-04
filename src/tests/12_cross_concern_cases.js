@@ -41,7 +41,7 @@ export default [
   {
     name: '12.2. Cross-Concern: Goal-Oriented Reasoning and Contradiction',
     description: '[SKIPPED] Tests how the system handles a goal that leads to a contradiction.',
-    skipped: true, // This test is skipped due to a known bug in the derivation engine.
+    skipped: false, // This test is skipped due to a known bug in the derivation engine.
     steps: [
       {
         comment: 'Set a goal to achieve "state_B".',
@@ -112,7 +112,7 @@ export default [
   {
     name: '12.4. Cross-Concern: Concept Formation from Contradictions',
     description: 'Tests if the system can form a new concept to resolve a contradiction.',
-    skipped: true,
+    skipped: false,
     steps: [
       {
         comment: 'Establish that penguins are birds.',
@@ -157,7 +157,7 @@ export default [
   {
     name: '12.5. Cross-Concern: Long-term Learning and Forgetting',
     description: 'Tests if the system can forget a belief over time and relearn it.',
-    skipped: true,
+    skipped: false,
     steps: [
         {
             comment: 'Introduce a belief and run the system for a long time.',
@@ -188,7 +188,7 @@ export default [
   {
       name: '12.6. Cross-Concern: Complex Temporal Contradiction (Loop)',
       description: 'Tests if the system can detect a temporal paradox.',
-      skipped: true,
+      skipped: false,
       steps: [
           {
               comment: 'Introduce a temporal loop.',

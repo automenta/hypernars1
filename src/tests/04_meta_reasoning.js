@@ -1,7 +1,7 @@
 export default {
   name: '4. Meta-Reasoning',
   description: 'Shows the system adapting its own parameters based on performance.',
-  skipped: true, // SKIPPED: Uncovered potential bug where meta-reasoning does not adapt the budgetThreshold as expected.
+  skipped: false, // SKIPPED: Uncovered potential bug where meta-reasoning does not adapt the budgetThreshold as expected.
   steps: [
     {
       action: (nar) => {

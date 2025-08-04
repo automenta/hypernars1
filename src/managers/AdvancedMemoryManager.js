@@ -16,6 +16,13 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
     }
 
     maintainMemory() {
+        // Apply budget decay to all beliefs
+        for (const hyperedge of this.nar.state.hypergraph.values()) {
+            hyperedge.beliefs.forEach(belief => {
+                belief.budget = belief.budget.scale(this.nar.config.budgetDecay);
+            });
+        }
+
         this._updateImportanceScores();
         this._adjustMemoryConfiguration();
         this._selectivelyForget();

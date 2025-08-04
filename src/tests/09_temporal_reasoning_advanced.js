@@ -1,7 +1,7 @@
 export default {
   name: '9. Advanced Temporal Reasoning',
   description: 'Tests for temporal inference chains and paradox detection.',
-  skipped: true, // SKIPPED: Uncovered potential bug where a temporal paradox is not being detected.
+  skipped: false, // SKIPPED: Uncovered potential bug where a temporal paradox is not being detected.
   steps: [
     {
       comment: 'Case 1: Temporal Inference Chain',

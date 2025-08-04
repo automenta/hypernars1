@@ -9,7 +9,7 @@ import { AdvancedMemoryManager } from '../managers/AdvancedMemoryManager.js';
 export default {
   name: '14. Configuration Matrix',
   description: 'Tests core logic with different component configurations.',
-  skipped: true, // SKIPPED: Uncovered potential bug where SimpleMemoryManager is not compatible with the Api layer.
+  skipped: false, // SKIPPED: Uncovered potential bug where SimpleMemoryManager is not compatible with the Api layer.
   steps: [
     {
       comment: 'Test basic inference with SimpleMemoryManager.',
