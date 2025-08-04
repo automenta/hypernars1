@@ -150,12 +150,16 @@ export class NARHyper extends EventEmitter {
     clearState() {
         this.state = new State({
             ...this.config,
-            useStructuralIndex: config.useAdvanced,
-            useOptimizedIndex: config.useAdvanced
+            useStructuralIndex: this.config.useAdvanced,
+            useOptimizedIndex: this.config.useAdvanced
         });
         this._initializeModules(this.config);
         this.api = new Api(this);
         this._exposeApi();
+
+        if (this.contradictionManager && this.contradictionManager.contradictions) {
+            this.contradictionManager.contradictions.clear();
+        }
     }
 
     saveState() {

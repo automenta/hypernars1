@@ -2,7 +2,7 @@ import {clamp, hash} from '../support/utils.js';
 import {Budget} from '../support/Budget.js';
 import {TruthValue} from '../support/TruthValue.js';
 
-const executiveConfig = {
+const defaultConfig = {
     METRICS_HISTORY_LENGTH: 100,
     MAINTENANCE_INTERVAL: 100,
     INFERENCE_RATE_NORMALIZATION: 200,
@@ -48,7 +48,8 @@ const executiveConfig = {
 export class CognitiveExecutive {
     constructor(nar) {
         this.nar = nar;
-        this.config = {...executiveConfig, ...nar.config.cognitiveExecutive};
+
+        this.config = {...defaultConfig, ...nar.config.cognitiveExecutive};
 
         this.rulePerformance = new Map();
         this.reasoningGoals = new Set();
