@@ -11,7 +11,7 @@ export default {
         nar.run(10);
       },
       assert: (nar, logs) => {
-        const belief = nar.api.getBeliefByContent('tweety', 'flyer');
+        const belief = nar.api.queryBelief('<tweety --> flyer>.');
         if (!belief || !belief.truth) return false;
         // Store the initial expectation in the scratchpad for the next step
         nar.scratchpad = { initialExpectation: belief.truth.expectation() };
@@ -23,10 +23,11 @@ export default {
       action: (nar) => {
         nar.nal('(penguin --> (bird * !flyer)). #0.95#');
         nar.nal('(tweety --> penguin). %0.99;0.99%');
+        nar.contradictionManager.resolveContradictions();
         nar.run(100);
       },
       assert: (nar, logs) => {
-        const belief = nar.api.getBeliefByContent('tweety', 'flyer');
+        const belief = nar.api.queryBelief('<tweety --> flyer>.');
         if (!belief || !belief.truth) return false;
         const newExpectation = belief.truth.expectation();
         // After contradiction, the expectation should have decreased.

@@ -20,11 +20,6 @@ describe('All Tests', () => {
       const tests = Array.isArray(testModule.default) ? testModule.default : [testModule.default];
 
       for (const test of tests) {
-        if (test.skipped) {
-            console.log(`Skipping test: ${test.name}`);
-            continue;
-        }
-
         const runner = new TestRunner({ useAdvanced: true, ...test.config });
         const result = runner.run(test);
 

@@ -56,11 +56,10 @@ export class NARHyper extends EventEmitter {
     }, config);
     this.config.ruleConfig = this.config.ruleConfig || {};
 
-    this.state = new State(this.config);
+    this.state = new State({ ...this.config, useStructuralIndex: config.useAdvanced });
     this.propagation = new Propagation(this);
     this.questionHandler = new QuestionHandler(this);
     this.system = new System(this);
-    this.api = new Api(this);
 
     this._initializeModules(config);
 
@@ -104,6 +103,8 @@ export class NARHyper extends EventEmitter {
     };
 
     Object.assign(this, modules);
+
+    this.api = new Api(this);
 
     const validationMap = {
         derivationEngine: DerivationEngineBase,
@@ -171,7 +172,7 @@ export class NARHyper extends EventEmitter {
   }
 
   clearState() {
-    this.state = new State(this.config);
+    this.state = new State({ ...this.config, useStructuralIndex: config.useAdvanced, useOptimizedIndex: config.useAdvanced });
     this._initializeModules(this.config);
     this.api = new Api(this);
     this._exposeApi();

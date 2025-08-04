@@ -2,6 +2,7 @@ import { ContradictionManagerBase } from './ContradictionManagerBase.js';
 import { TruthValue } from '../support/TruthValue.js';
 import { Hyperedge } from '../support/Hyperedge.js';
 import { Budget } from '../support/Budget.js';
+import { id } from '../support/utils.js';
 
 export class AdvancedContradictionManager extends ContradictionManagerBase {
     constructor(nar) {
@@ -103,6 +104,45 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         this.nar._log('debug', `No contradiction detected for ${hyperedgeId}`);
         return false;
+    }
+
+    detectAndResolveInterEdgeContradictions(hyperedge) {
+        if (hyperedge.type !== 'Inheritance') {
+            return;
+        }
+
+        const subjectId = hyperedge.args[0];
+        const predicateId = hyperedge.args[1];
+
+        for (const [otherHyperedgeId, otherHyperedge] of this.nar.state.hypergraph.entries()) {
+            if (otherHyperedge.type === 'Inheritance' && otherHyperedge.id !== hyperedge.id && otherHyperedge.args[0] === subjectId) {
+                const otherPredicateId = otherHyperedge.args[1];
+
+                if (predicateId === `Negation(${otherPredicateId})` || otherPredicateId === `Negation(${predicateId})`) {
+                    const belief1 = hyperedge.getStrongestBelief();
+                    const belief2 = otherHyperedge.getStrongestBelief();
+
+                    if (belief1 && belief2) {
+                        const revisedTruth = TruthValue.revise(belief1.truth, belief2.truth.negate());
+                        const revisedBudget = belief1.budget.merge(belief2.budget);
+
+                        const revisedBelief = {
+                            ...belief1,
+                            truth: revisedTruth,
+                            budget: revisedBudget,
+                            timestamp: Date.now(),
+                            premises: [belief1.id, belief2.id],
+                            derivedBy: 'inter_edge_contradiction_resolution'
+                        };
+
+                        hyperedge.beliefs = [revisedBelief];
+                        otherHyperedge.beliefs[0].budget = otherHyperedge.beliefs[0].budget.scale(0.1);
+
+                        this.nar._log('info', `Resolved inter-edge contradiction between ${hyperedge.id} and ${otherHyperedge.id}`);
+                    }
+                }
+            }
+        }
     }
 
     addEvidence(hyperedgeId, beliefId, evidence) {

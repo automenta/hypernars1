@@ -2,54 +2,35 @@ import { NARHyper } from '../NARHyper.js';
 
 export class TestRunner {
   constructor(config = {}) {
-    this.config = config;
+    this.nar = new NARHyper({ ...config, useAdvanced: true });
+    this.logs = [];
+    this.nar.on('log', (log) => {
+      this.logs.push(log.message);
+    });
   }
 
   run(test) {
-    const logs = [];
-    const logger = {
-      info: (message) => {
-        const logMessage = `[INFO] ${new Date().toISOString()}: ${message}`;
-        logs.push(logMessage);
-      },
-      warn: (message) => {
-        const logMessage = `[WARN] ${new Date().toISOString()}: ${message}`;
-        logs.push(logMessage);
-      },
-      error: (message) => {
-        const logMessage = `[ERROR] ${new Date().toISOString()}: ${message}`;
-        logs.push(logMessage);
-      },
-    };
+    if (test.skipped) {
+      return { result: true, logs: ['Test skipped'] };
+    }
 
-    const nar = new NARHyper({ ...this.config, logger: logger.info });
-
-    for (const step of test.steps) {
+    try {
+      for (const step of test.steps) {
         if (step.action) {
-            step.action(nar);
+          step.action(this.nar);
         }
 
         if (step.assert) {
-            const success = step.assert(nar, logs);
-            if (!success) {
-                logs.push(`[ASSERT FAILED] Step failed: ${step.comment || 'Unnamed step'}`);
-                return {
-                    result: false,
-                    logs,
-                    name: test.name,
-                    description: test.description,
-                    nar,
-                };
-            }
+          const assertResult = step.assert(this.nar, this.logs);
+          if (!assertResult) {
+            const stepName = step.comment || 'Unnamed step';
+            return { result: false, logs: [`[ASSERT FAILED] Step failed: ${stepName}`] };
+          }
         }
+      }
+      return { result: true, logs: this.logs };
+    } catch (error) {
+      return { result: false, logs: [error.stack] };
     }
-
-    return {
-        result: true,
-        logs,
-        name: test.name,
-        description: test.description,
-        nar,
-    };
   }
 }

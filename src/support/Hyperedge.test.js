@@ -4,14 +4,19 @@ import { TruthValue } from './TruthValue.js';
 import { Budget } from './Budget.js';
 
 const createMockNar = () => ({
-  // Mock any nar properties or methods needed by Hyperedge
+  contradictionManager: {
+    detectContradiction: jest.fn(),
+    _areContradictory: jest.fn(),
+  },
 });
 
 describe('Hyperedge', () => {
   let nar;
+  let hyperedge;
 
   beforeEach(() => {
     nar = createMockNar();
+    hyperedge = new Hyperedge(nar, 'testId', 'Test', ['a', 'b']);
   });
 
   it('should be constructed with correct properties', () => {

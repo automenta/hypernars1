@@ -7,6 +7,7 @@ export class Api {
   constructor(nar) {
     this.nar = nar;
     this.TruthValue = TruthValue;
+    this.contradictionManager = nar.contradictionManager;
   }
 
   /* ===== ENHANCED MACRO FUNCTIONS (from enhance.b.md) ===== */
@@ -266,6 +267,10 @@ export class Api {
 
     if (revisionResult.needsUpdate) {
         this.nar.contradictionManager.detectContradiction(termId);
+    this.nar._log('debug', `Checking for inter-edge contradictions. Manager has method: ${!!this.nar.contradictionManager.detectAndResolveInterEdgeContradictions}`);
+        if (this.nar.contradictionManager.detectAndResolveInterEdgeContradictions) {
+            this.nar.contradictionManager.detectAndResolveInterEdgeContradictions(hyperedge);
+        }
         this.nar.emit('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });
         this.nar.propagation.propagate({
             target: termId,

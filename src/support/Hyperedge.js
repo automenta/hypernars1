@@ -29,14 +29,17 @@ export class Hyperedge {
         timestamp: Date.now()
     };
 
+    const strongestBelief = this.getStrongestBelief();
+
     this.beliefs.push(newBelief);
 
     this.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
+
     if (this.beliefs.length > beliefCapacity) {
-        this.beliefs = this.beliefs.slice(0, beliefCapacity);
+        this.beliefs.length = beliefCapacity;
     }
 
-    return { newBelief, needsUpdate: true };
+    return { newBelief: this.getStrongestBelief(), needsUpdate: true };
   }
 
   getStrongestBelief() {
