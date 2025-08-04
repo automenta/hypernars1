@@ -52,6 +52,13 @@ export class NARHyper extends EventEmitter {
             questionTimeout: 3000,
             memoryMaintenanceInterval: 100,
             logLevel: 'debug',
+            cleanupProbability: 0.1,
+            maxPathCacheSize: 1000,
+            pathCacheTruncationSize: 500,
+            maxQuestionCacheSize: 10,
+            questionCacheTruncationSize: 5,
+            cleanupInterval: 100,
+            questionResolutionInterval: 10,
         }, config);
         this.config.ruleConfig = this.config.ruleConfig || {};
 
@@ -67,75 +74,47 @@ export class NARHyper extends EventEmitter {
 
     _initializeModules(config) {
         const useAdvanced = config.useAdvanced || false;
+        const customModules = config.modules || {};
 
-        const moduleSelection = {
-            ExpressionEvaluator: useAdvanced ? AdvancedExpressionEvaluator : ExpressionEvaluator,
-            DerivationEngine: useAdvanced ? AdvancedDerivationEngine : SimpleDerivationEngine,
-            MemoryManager: useAdvanced ? AdvancedMemoryManager : SimpleMemoryManager,
-            ContradictionManager: useAdvanced ? AdvancedContradictionManager : SimpleContradictionManager,
-            LearningEngine: useAdvanced ? AdvancedLearningEngine : SimpleLearningEngine,
-            TemporalManager: useAdvanced ? TemporalReasoner : SimpleTemporalManager,
-        };
+        const moduleDefinitions = [
+            { name: 'ExpressionEvaluator', simple: ExpressionEvaluator, advanced: AdvancedExpressionEvaluator },
+            { name: 'DerivationEngine', simple: SimpleDerivationEngine, advanced: AdvancedDerivationEngine, base: DerivationEngineBase },
+            { name: 'MemoryManager', simple: SimpleMemoryManager, advanced: AdvancedMemoryManager, base: MemoryManagerBase },
+            { name: 'ContradictionManager', simple: SimpleContradictionManager, advanced: AdvancedContradictionManager, base: ContradictionManagerBase },
+            { name: 'LearningEngine', simple: SimpleLearningEngine, advanced: AdvancedLearningEngine, base: LearningEngineBase },
+            { name: 'TemporalManager', simple: SimpleTemporalManager, advanced: TemporalReasoner, base: TemporalManagerBase },
+            { name: 'CognitiveExecutive', simple: CognitiveExecutive, advanced: CognitiveExecutive },
+            { name: 'ExplanationSystem', simple: ExplanationSystem, advanced: ExplanationSystem },
+            { name: 'GoalManager', simple: GoalManager, advanced: GoalManager, base: GoalManagerBase },
+            { name: 'ConceptFormation', simple: ConceptFormation, advanced: ConceptFormation },
+        ];
 
-        const singletonModules = {
-            CognitiveExecutive,
-            ExplanationSystem,
-            GoalManager,
-            ConceptFormation,
-        };
+        for (const moduleDef of moduleDefinitions) {
+            const instanceName = moduleDef.name.charAt(0).toLowerCase() + moduleDef.name.slice(1);
+            const ModuleClass = customModules[moduleDef.name] || (useAdvanced ? moduleDef.advanced : moduleDef.simple);
 
-        const moduleClasses = {...moduleSelection, ...singletonModules, ...(config.modules || {})};
+            if (ModuleClass) {
+                this[instanceName] = new ModuleClass(this);
 
-        const modules = {
-            expressionEvaluator: new moduleClasses.ExpressionEvaluator(this),
-            derivationEngine: new moduleClasses.DerivationEngine(this),
-            memoryManager: new moduleClasses.MemoryManager(this),
-            contradictionManager: new moduleClasses.ContradictionManager(this),
-            learningEngine: new moduleClasses.LearningEngine(this),
-            temporalManager: new moduleClasses.TemporalManager(this),
-            cognitiveExecutive: new moduleClasses.CognitiveExecutive(this),
-            explanationSystem: new moduleClasses.ExplanationSystem(this),
-            goalManager: new moduleClasses.GoalManager(this),
-            conceptFormation: new moduleClasses.ConceptFormation(this),
-        };
-
-        Object.assign(this, modules);
-
-        this.api = new Api(this);
-
-        const validationMap = {
-            derivationEngine: DerivationEngineBase,
-            memoryManager: MemoryManagerBase,
-            contradictionManager: ContradictionManagerBase,
-            learningEngine: LearningEngineBase,
-            temporalManager: TemporalManagerBase,
-            goalManager: GoalManagerBase,
-        };
-
-        for (const [name, baseClass] of Object.entries(validationMap)) {
-            if (!(this[name] instanceof baseClass)) {
-                throw new Error(`Module ${name} does not extend its base class correctly.`);
+                if (moduleDef.base && !(this[instanceName] instanceof moduleDef.base)) {
+                    throw new Error(`Module ${instanceName} does not extend its base class correctly.`);
+                }
             }
         }
+
+        this.api = new Api(this);
     }
 
     _exposeApi() {
-        const apiMethods = [
-            'nal', 'nalq', 'seq', 'contextualRule', 'temporalSequence',
-            'probabilisticRule', 'citedBelief', 'robustRule', 'temporalInterval',
-            'temporalConstraint', 'inferTemporalRelationship', 'projectTemporal',
-            'getContradictions', 'analyzeContradiction', 'resolveContradiction',
-            'getTrace', 'configureStrategy', 'getActiveStrategy',
-            'getMetrics', 'getFocus', 'term', 'inheritance', 'similarity',
-            'implication', 'equivalence', 'getBeliefs', 'addHyperedge', 'outcome',
-            'revise', 'removeHyperedge'
-        ];
-        apiMethods.forEach(method => {
-            if (this.api[method]) {
-                this[method] = this.api[method].bind(this.api);
+        // Bind methods from the Api class
+        for (const methodName of Object.getOwnPropertyNames(Object.getPrototypeOf(this.api))) {
+            const method = this.api[methodName];
+            if (typeof method === 'function' && methodName !== 'constructor' && !methodName.startsWith('_')) {
+                this[methodName] = method.bind(this.api);
             }
-        });
+        }
 
+        // Bind methods from other core components
         this.run = this.system.run.bind(this.system);
         this.step = this.system.step.bind(this.system);
         this.ask = this.questionHandler.ask.bind(this.questionHandler);

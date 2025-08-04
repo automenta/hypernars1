@@ -1,8 +1,3 @@
-/**
- * An enhanced explanation system that combines the multi-format capabilities
- * of the existing system with the structured templating and confidence
- * reporting from the enhancement proposals (`enhance.b.md`, `enhance.f.md`).
- */
 export class ExplanationSystem {
     constructor(nar) {
         this.nar = nar;
@@ -16,14 +11,6 @@ export class ExplanationSystem {
         };
     }
 
-    /**
-     * Main entry point for generating explanations.
-     * @param {string} hyperedgeId - The ID of the concept to explain.
-     * @param {Object} [options] - Configuration for the explanation.
-     * @param {number} [options.depth=3] - How deep to trace the derivation.
-     * @param {string} [options.format='detailed'] - The desired format ('detailed', 'concise', 'json', 'story', 'technical').
-     * @returns {string|Object} The formatted explanation.
-     */
     explain(hyperedgeId, options = {}) {
         const {depth = 3, format = 'detailed', perspective = 'evidential'} = options;
 
@@ -42,15 +29,17 @@ export class ExplanationSystem {
             return `No derivation path found for ${hyperedgeId}. It might be a base premise.`;
         }
 
-        // Handle perspective-based formatting first
         if (perspective === 'causal') {
             return this._formatCausalExplanation(path);
         }
-        // 'evidential' is the default and will be handled by the format switch
 
+        return this._formatByTarget(format, hyperedgeId, path, options);
+    }
+
+    _formatByTarget(format, hyperedgeId, path, options) {
         switch (format) {
             case 'json':
-                return JSON.stringify(path[0], null, 2); // Return the whole tree
+                return JSON.stringify(path[0], null, 2);
             case 'visual':
                 return this._formatVisualExplanation(path[0]);
             case 'story':
@@ -68,13 +57,10 @@ export class ExplanationSystem {
     }
 
     _formatCausalExplanation(path) {
-        let explanation = "The belief that ";
         const conclusion = path[path.length - 1];
-        explanation += `${this._formatHyperedge(conclusion)} is held with confidence ${this._formatConfidence(conclusion.truth)}. This is caused by the following chain of reasoning:\n`;
-        path.slice().reverse().forEach((step, i) => {
-            explanation += `${'  '.repeat(i)}-> Because of the belief that ${this._formatHyperedge(step)}.\n`;
-        });
-        return explanation;
+        const initialStatement = `The belief that ${this._formatHyperedge(conclusion)} is held with confidence ${this._formatConfidence(conclusion.truth)}. This is caused by the following chain of reasoning:`;
+        const reasoningChain = path.slice().reverse().map((step, i) => `${'  '.repeat(i)}-> Because of the belief that ${this._formatHyperedge(step)}.`);
+        return [initialStatement, ...reasoningChain].join('\n');
     }
 
     _formatCounterfactualExplanation(hyperedgeId, options) {
@@ -83,125 +69,131 @@ export class ExplanationSystem {
             return "Counterfactual explanation requires an 'alternative' premise to be provided in options.";
         }
 
-        const path = [];
-        this._traceDerivation(hyperedgeId, path, options.depth || 3, new Set());
-
         const originalHyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!originalHyperedge) {
             return "Cannot generate counterfactual: original belief not found.";
         }
 
-        // Find a base premise to replace. If no derivation path, use the belief itself.
-        const premiseToReplace = (path.length > 0 && path[0].premises.length > 0)
-            ? this.nar.state.hypergraph.get(path[0].premises[0].id)
-            : originalHyperedge;
-
+        const premiseToReplace = this._findPremiseToReplace(hyperedgeId, options.depth);
         if (!premiseToReplace) {
             return `Could not determine a premise to replace for counterfactual analysis of ${hyperedgeId}.`;
         }
 
-        const sandbox = this.nar.createSandbox({
-            // Copy knowledge, but maybe less strictly to allow for more novel derivations
-            minConfidence: 0.3
-        });
+        const sandbox = this._runCounterfactualSandbox(premiseToReplace, alternative);
+        return this._analyzeCounterfactualResults(originalHyperedge, sandbox, alternative, premiseToReplace);
+    }
 
-        // Remove the original premise and insert the alternative
+    _findPremiseToReplace(hyperedgeId, depth = 3) {
+        const path = [];
+        this._traceDerivation(hyperedgeId, path, depth, new Set());
+        return (path.length > 0 && path[0].premises.length > 0)
+            ? this.nar.state.hypergraph.get(path[0].premises[0].id)
+            : this.nar.state.hypergraph.get(hyperedgeId);
+    }
+
+    _runCounterfactualSandbox(premiseToReplace, alternative) {
+        const sandbox = this.nar.createSandbox({minConfidence: 0.3});
         sandbox.api.removeHyperedge(premiseToReplace.id);
         const truthValue = premiseToReplace.getStrongestBelief()?.truth || {frequency: 1.0, confidence: 0.9};
         sandbox.api.nal(alternative, {truth: truthValue});
+        sandbox.run(100);
+        return sandbox;
+    }
 
-        // Run the sandbox to see what happens
-        sandbox.run(100); // Run for more steps to allow for more complex derivations
-
-        const conclusionInSandbox = sandbox.api.getBeliefs(hyperedgeId);
-
-        let explanation = `Counterfactual analysis for: ${this._formatHyperedge(originalHyperedge)}\n`;
-        explanation += `If we were to assume "${alternative}" instead of "${this._formatHyperedgeSimple(premiseToReplace)}", the consequences would be:\n\n`;
+    _analyzeCounterfactualResults(originalHyperedge, sandbox, alternative, premiseToReplace) {
+        const conclusionInSandbox = sandbox.api.getBeliefs(originalHyperedge.id);
+        const explanation = [
+            `Counterfactual analysis for: ${this._formatHyperedge(originalHyperedge)}`,
+            `If we were to assume "${alternative}" instead of "${this._formatHyperedgeSimple(premiseToReplace)}", the consequences would be:\n`
+        ];
 
         if (conclusionInSandbox.length > 0) {
             const newTruth = conclusionInSandbox[0].truth;
-            explanation += `1.  The original conclusion **still holds**, but its confidence would change to ${this._formatConfidence(newTruth)}.\n`;
+            explanation.push(`1.  The original conclusion **still holds**, but its confidence would change to ${this._formatConfidence(newTruth)}.`);
         } else {
-            explanation += `1.  The original conclusion **no longer holds**.\n`;
+            explanation.push(`1.  The original conclusion **no longer holds**.`);
         }
 
-        // Find the most prominent new conclusions in the sandbox
-        const originalBeliefIds = new Set(this.nar.state.hypergraph.keys());
-        const newConclusions = Array.from(sandbox.state.hypergraph.values())
-            .filter(h =>
-                !originalBeliefIds.has(h.id) && // It must be a new belief
-                h.getTruthExpectation() > 0.6 && // It must be reasonably strong
-                h.type !== 'Term' && // Exclude simple term assertions
-                h.id !== premiseToReplace.id && // Exclude the premise we removed
-                !h.id.includes(alternative) // Exclude the alternative we added
-            )
-            .sort((a, b) => b.getTruthExpectation() - a.getTruthExpectation())
-            .slice(0, 3); // Limit to the top 3 new conclusions
-
+        const newConclusions = this._findNewConclusions(sandbox, new Set([...this.nar.state.hypergraph.keys()]), premiseToReplace.id, alternative);
         if (newConclusions.length > 0) {
-            explanation += `2.  The following **new conclusions** would become prominent:\n`;
+            explanation.push(`2.  The following **new conclusions** would become prominent:`);
             newConclusions.forEach(c => {
-                explanation += `    - ${this._formatHyperedge(c)} (Confidence: ${this._formatConfidence(c.getTruth())})\n`;
+                explanation.push(`    - ${this._formatHyperedge(c)} (Confidence: ${this._formatConfidence(c.getTruth())})`);
             });
         } else {
-            explanation += "2.  No other significant new conclusions would be reached in the simulation.\n";
+            explanation.push("2.  No other significant new conclusions would be reached in the simulation.");
         }
 
-        return explanation;
+        return explanation.join('\n');
     }
 
-    /**
-     * Generates a justification for a belief, highlighting key supporting and conflicting evidence.
-     * Based on the proposal in `enhance.b.md`.
-     * @param {string} hyperedgeId - The ID of the concept to justify.
-     * @returns {string} The formatted justification.
-     */
+    _findNewConclusions(sandbox, originalBeliefIds, replacedPremiseId, alternative) {
+        return Array.from(sandbox.state.hypergraph.values())
+            .filter(h =>
+                !originalBeliefIds.has(h.id) &&
+                h.getTruthExpectation() > 0.6 &&
+                h.type !== 'Term' &&
+                h.id !== replacedPremiseId &&
+                !h.id.includes(alternative)
+            )
+            .sort((a, b) => b.getTruthExpectation() - a.getTruthExpectation())
+            .slice(0, 3);
+    }
+
     _formatJustification(hyperedgeId) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) {
-            this.nar._log('debug', `_formatJustification: Hyperedge not found for ID: ${hyperedgeId}`);
             return `No information available for ${hyperedgeId}`;
         }
 
         const strongestBelief = hyperedge.getStrongestBelief();
         if (!strongestBelief) {
-            this.nar._log('debug', `_formatJustification: No strongest belief found for ID: ${hyperedgeId}`);
             return `No belief found for ${hyperedgeId}`;
         }
 
-        let explanation = `Justification for: ${this._formatHyperedge(hyperedge)}\n`;
-        explanation += `Overall Confidence: ${this._formatConfidence(strongestBelief.truth)} (f: ${strongestBelief.truth.frequency.toFixed(2)})\n\n`;
+        const explanation = [
+            `Justification for: ${this._formatHyperedge(hyperedge)}`,
+            `Overall Confidence: ${this._formatConfidence(strongestBelief.truth)} (f: ${strongestBelief.truth.frequency.toFixed(2)})\n`
+        ];
 
-        // 1. Find supporting evidence from its derivation path
+        explanation.push(this._getSupportingEvidence(hyperedgeId));
+        explanation.push(this._getConflictingEvidence(hyperedge, strongestBelief));
+        explanation.push(this._getContradictionInfo(hyperedgeId));
+
+        return explanation.filter(Boolean).join('\n');
+    }
+
+    _getSupportingEvidence(hyperedgeId) {
         const derivationPath = [];
         this._traceDerivation(hyperedgeId, derivationPath, 3, new Set());
         const supportingPremises = derivationPath.slice(0, -1);
 
-        if (supportingPremises.length > 0) {
-            explanation += "Supporting Evidence (from derivation):\n";
-            supportingPremises.forEach(premise => {
-                explanation += `  - Because of: ${this._formatHyperedge(premise)} (Confidence: ${this._formatConfidence(premise.truth)})\n`;
-            });
-        } else {
-            explanation += "Supporting Evidence: This appears to be a base assertion.\n";
+        if (supportingPremises.length === 0) {
+            return "Supporting Evidence: This appears to be a base assertion.";
         }
 
-        // 2. Find conflicting evidence (other beliefs on the same hyperedge)
+        const evidenceLines = supportingPremises.map(premise =>
+            `  - Because of: ${this._formatHyperedge(premise)} (Confidence: ${this._formatConfidence(premise.truth)})`
+        );
+        return ["Supporting Evidence (from derivation):", ...evidenceLines].join('\n');
+    }
+
+    _getConflictingEvidence(hyperedge, strongestBelief) {
         const conflictingBeliefs = hyperedge.beliefs.filter(b => b !== strongestBelief);
-        if (conflictingBeliefs.length > 0) {
-            explanation += "\nConflicting Evidence (overridden or merged):\n";
-            conflictingBeliefs.forEach(belief => {
-                explanation += `  - An alternative belief exists with confidence ${this._formatConfidence(belief.truth.confidence)} (f: ${belief.truth.frequency.toFixed(2)})\n`;
-            });
-        }
+        if (conflictingBeliefs.length === 0) return null;
 
-        // 3. Mention if it was part of a resolved contradiction
+        const evidenceLines = conflictingBeliefs.map(belief =>
+            `  - An alternative belief exists with confidence ${this._formatConfidence(belief.truth.confidence)} (f: ${belief.truth.frequency.toFixed(2)})`
+        );
+        return ["\nConflicting Evidence (overridden or merged):", ...evidenceLines].join('\n');
+    }
+
+    _getContradictionInfo(hyperedgeId) {
         const contradiction = this.nar.contradictionManager.contradictions.get(hyperedgeId);
         if (contradiction && contradiction.resolved) {
-            explanation += `\nNote: This belief was part of a contradiction resolved via the '${contradiction.resolutionStrategy}' strategy.`;
+            return `\nNote: This belief was part of a contradiction resolved via the '${contradiction.resolutionStrategy}' strategy.`;
         }
-
-        return explanation;
+        return null;
     }
 
     _flattenTree(node, flatPath) {
@@ -239,8 +231,6 @@ export class ExplanationSystem {
         return {nodes, edges};
     }
 
-    // --- Private Helper Methods ---
-
     _traceDerivation(hyperedgeId, path, depth, visited) {
         if (depth <= 0 || visited.has(hyperedgeId)) return;
         visited.add(hyperedgeId);
@@ -260,7 +250,7 @@ export class ExplanationSystem {
                 const premisePath = [];
                 this._traceDerivation(premiseId, premisePath, depth - 1, visited);
                 if (premisePath.length > 0) {
-                    premiseNodes.push(premisePath[0]); // Get the root of the sub-tree
+                    premiseNodes.push(premisePath[0]);
                 }
             }
         }
@@ -271,7 +261,7 @@ export class ExplanationSystem {
             args: hyperedge.args,
             truth: strongestBelief.truth,
             derivationRule,
-            premises: premiseNodes // Store the fully formed premise nodes
+            premises: premiseNodes
         });
     }
 
@@ -280,54 +270,51 @@ export class ExplanationSystem {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return "Hyperedge not found";
 
-        const conclusion = path[0]; // Path is now conclusion-first
-        let explanation = `CONCLUSION: ${this._formatHyperedge(conclusion)}\n`;
-
-        if (includeConfidence) {
-            explanation += `Confidence: ${this._formatConfidence(conclusion.truth)}\n\n`;
-        }
-
-        explanation += "REASONING PATH:\n";
-        explanation += this._formatExplanationTree(conclusion, 0);
-
-
-        // Add alternative perspectives / contradictions
-        if (hyperedge.beliefs.length > 1) {
-            const alternatives = hyperedge.beliefs
-                .slice(1, maxAlternatives + 1)
-                .map(belief => ({
-                    truth: belief.truth,
-                    path: this._findAlternativePath(hyperedgeId, belief) // Placeholder
-                }));
-
-            if (alternatives.length > 0) {
-                explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1} total):\n`;
-                alternatives.forEach((alt, i) => {
-                    explanation += `${i + 1}. A belief with confidence ${this._formatConfidence(alt.truth)} also exists.\n`;
-                    if (alt.path && alt.path.length > 0) {
-                        explanation += `   Reasoning: ${alt.path.map(s => this._formatHyperedge(s)).join(' → ')}\n`;
-                    }
-                });
-            }
-        }
-
-        const contradiction = this.nar.contradictionManager.contradictions.get(hyperedgeId);
-        if (contradiction && contradiction.resolved) {
-            explanation += `\nNOTE: This belief was part of a contradiction that was resolved using the '${contradiction.resolutionStrategy}' strategy.\n`;
-        }
-
-        // Add temporal context if relevant, as per enhance.a.md
-        const temporalContext = this.nar.temporalManager.getContext();
-        if (temporalContext && temporalContext.currentPeriod) {
-            explanation += `\nTEMPORAL CONTEXT: The reasoning occurred during the ${temporalContext.currentPeriod} in the ${temporalContext.season}.\n`;
-        }
+        const conclusion = path[0];
+        const explanation = [
+            `CONCLUSION: ${this._formatHyperedge(conclusion)}`,
+            includeConfidence ? `Confidence: ${this._formatConfidence(conclusion.truth)}\n` : null,
+            "REASONING PATH:",
+            this._formatExplanationTree(conclusion, 0),
+            this._getAlternativePerspectives(hyperedge, hyperedgeId, maxAlternatives),
+            this._getContradictionInfo(hyperedgeId),
+            this._getTemporalContext()
+        ].filter(Boolean).join('\n');
 
         return explanation;
     }
 
+    _getAlternativePerspectives(hyperedge, hyperedgeId, maxAlternatives) {
+        if (hyperedge.beliefs.length <= 1) return null;
+
+        const alternatives = hyperedge.beliefs
+            .slice(1, maxAlternatives + 1)
+            .map(belief => ({
+                truth: belief.truth,
+                path: this._findAlternativePath(hyperedgeId, belief)
+            }));
+
+        if (alternatives.length === 0) return null;
+
+        const alternativeLines = alternatives.map((alt, i) => {
+            const reasoning = (alt.path && alt.path.length > 0)
+                ? `   Reasoning: ${alt.path.map(s => this._formatHyperedge(s)).join(' → ')}`
+                : '';
+            return `${i + 1}. A belief with confidence ${this._formatConfidence(alt.truth)} also exists.\n${reasoning}`;
+        }).join('\n');
+
+        return `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1} total):\n${alternativeLines}`;
+    }
+
+    _getTemporalContext() {
+        const temporalContext = this.nar.temporalManager.getContext();
+        if (temporalContext && temporalContext.currentPeriod) {
+            return `\nTEMPORAL CONTEXT: The reasoning occurred during the ${temporalContext.currentPeriod} in the ${temporalContext.season}.`;
+        }
+        return null;
+    }
+
     _findAlternativePath(hyperedgeId, belief) {
-        // Placeholder implementation for finding an alternative derivation path.
-        // A real implementation would require a more sophisticated tracing mechanism.
         if (belief.premises && belief.premises.length > 0) {
             const path = [];
             this._traceDerivation(belief.premises[0], path, 2, new Set());
@@ -344,20 +331,16 @@ export class ExplanationSystem {
         const premise1 = node.premises?.[0] ? this._formatHyperedge(node.premises[0]) : 'a previous belief';
         const premise2 = node.premises?.[1] ? this._formatHyperedge(node.premises[1]) : 'another belief';
 
-        let formattedStep = template
+        const formattedStep = template
             .replace('{conclusion}', this._formatHyperedge(node))
             .replace('{premise1}', premise1)
             .replace('{premise2}', premise2);
 
-        let output = `${indent}- ${formattedStep} (Confidence: ${this._formatConfidence(node.truth)})\n`;
+        const childExplanations = (node.premises || [])
+            .map(premiseNode => this._formatExplanationTree(premiseNode, level + 1))
+            .join('');
 
-        if (node.premises && node.premises.length > 0) {
-            node.premises.forEach(premiseNode => {
-                output += this._formatExplanationTree(premiseNode, level + 1);
-            });
-        }
-
-        return output;
+        return `${indent}- ${formattedStep} (Confidence: ${this._formatConfidence(node.truth)})\n${childExplanations}`;
     }
 
     _formatTechnicalExplanation(rootNode) {
@@ -374,13 +357,12 @@ export class ExplanationSystem {
         if (!rootNode) return "I don't have a story for that.";
         const conclusion = rootNode;
 
-        let story = `Let me tell you how I came to believe that ${this._formatTermForStory(conclusion)}. `;
-        if (conclusion.premises && conclusion.premises.length > 0) {
-            const premises = conclusion.premises.map(p => this._formatTermForStory(p));
-            story += `It's based on a few things I know. For instance, I know that ${premises.join(' and that ')}. `;
-        }
-        story += `From this, it is reasonable to conclude that ${this._formatTermForStory(conclusion)}.`;
-        return story;
+        const premiseStories = (conclusion.premises || []).map(p => this._formatTermForStory(p));
+        const premiseText = premiseStories.length > 0
+            ? `It's based on a few things I know. For instance, I know that ${premiseStories.join(' and that ')}. `
+            : '';
+
+        return `Let me tell you how I came to believe that ${this._formatTermForStory(conclusion)}. ${premiseText}From this, it is reasonable to conclude that ${this._formatTermForStory(conclusion)}.`;
     }
 
     _formatHyperedge(hyperedge) {
@@ -389,13 +371,8 @@ export class ExplanationSystem {
         return `${hyperedge.type}(${args})`;
     }
 
-    /**
-     * A simpler formatter for hyperedges that avoids verbose Term() wrappers.
-     * Used for creating cleaner output in certain explanation formats.
-     */
     _formatHyperedgeSimple(hyperedge) {
         if (!hyperedge) return "an unknown concept";
-        // This regex removes the "Term(...)" wrapper for cleaner output.
         const args = hyperedge.args ? hyperedge.args.map(arg => arg.replace(/Term\((.*?)\)/g, '$1')).join(', ') : '';
         return `${hyperedge.type}(${args})`;
     }

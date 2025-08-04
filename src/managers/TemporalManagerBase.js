@@ -1,7 +1,3 @@
-/**
- * Abstract base class for Temporal Managers.
- * Defines the interface that all temporal managers must implement.
- */
 export class TemporalManagerBase {
     constructor(nar) {
         if (this.constructor === TemporalManagerBase) {
@@ -55,7 +51,6 @@ export class TemporalManagerBase {
     }
 
     adjustTemporalHorizon() {
-        // Optional: No-op is acceptable
     }
 
     getContext() {

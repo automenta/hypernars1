@@ -38,7 +38,7 @@ const createMockNar = () => ({
     contradictionManager: {
         resolveContradictions: jest.fn(),
     },
-    metaReasoner: {
+    cognitiveExecutive: {
         selfMonitor: jest.fn(),
     },
     learningEngine: {
@@ -99,7 +99,7 @@ describe('System', () => {
 
             expect(nar.memoryManager.maintainMemory).toHaveBeenCalled();
             expect(nar.contradictionManager.resolveContradictions).toHaveBeenCalled();
-            expect(nar.metaReasoner.selfMonitor).toHaveBeenCalled();
+            expect(nar.cognitiveExecutive.selfMonitor).toHaveBeenCalled();
             expect(nar.learningEngine.applyLearning).toHaveBeenCalled();
             expect(nar.temporalManager.adjustTemporalHorizon).toHaveBeenCalled();
             expect(nar.goalManager.processGoals).toHaveBeenCalled();

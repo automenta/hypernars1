@@ -3,20 +3,59 @@ import {OptimizedIndex} from './OptimizedIndex.js';
 import {Budget} from '../support/Budget.js';
 import {extractTerms} from '../support/termExtraction.js';
 
+const defaultConfig = {
+    forgettingThreshold: 0.1,
+    forgettingCheckSampleSize: 200,
+    minConceptsForForgetting: 1000,
+    retentionScoreImportanceWeight: 0.6,
+    retentionScoreActivationWeight: 0.3,
+    retentionScorePopularityWeight: 0.1,
+    popularityNormalizationFactor: 100,
+    importanceDecayFactor: 0.995,
+    importanceActivationWeight: 0.2,
+    importanceQuestionWeight: 0.2,
+    importanceSuccessWeight: 0.1,
+    importanceContextWeight: 0.3,
+    importanceGoalWeight: 0.4,
+    beliefCapacityAdjustmentThresholdHigh: 10000,
+    beliefCapacityAdjustmentThresholdLow: 5000,
+    beliefCapacityAdjustmentFactor: 0.95,
+    maxBeliefCapacity: 12,
+    minBeliefCapacity: 4,
+    basePriority: {
+        question: 0.9,
+        'critical-event': 0.95,
+        derivation: 0.6,
+        revision: 0.7,
+        default: 0.5
+    },
+    urgencyPriorityFactor: 0.3,
+    importancePriorityFactor: 0.2,
+    resourceAvailabilityUsageFactor: 0.7,
+    resourceAvailabilityMin: 0.1,
+    durability: {
+        high: 0.9,
+        low: 0.6
+    },
+    qualityAvailabilityFactor: 0.8,
+    eventQueueUsageNormalization: 1000,
+    lowValuePathPruningThreshold: 0.2,
+};
+
 export class AdvancedMemoryManager extends MemoryManagerBase {
     constructor(nar) {
         super(nar);
+        this.config = {...defaultConfig, ...nar.config.advancedMemoryManager};
 
         this.index = new OptimizedIndex(nar);
         nar.state.index = this.index;
 
         this.importanceScores = new Map();
         this.contextStack = [];
-        this.forgettingThreshold = 0.1;
+        this.forgettingThreshold = this.config.forgettingThreshold;
     }
 
     maintainMemory() {
-        // Apply budget decay to all beliefs
         for (const hyperedge of this.nar.state.hypergraph.values()) {
             hyperedge.beliefs.forEach(belief => {
                 belief.budget = belief.budget.scale(this.nar.config.budgetDecay);
@@ -37,11 +76,11 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
 
     _selectivelyForget() {
         const totalConcepts = this.nar.state.hypergraph.size;
-        if (totalConcepts < 1000) return;
+        if (totalConcepts < this.config.minConceptsForForgetting) return;
 
         let prunedCount = 0;
         const conceptsToCheck = new Set();
-        const sampleSize = Math.min(totalConcepts, 200);
+        const sampleSize = Math.min(totalConcepts, this.config.forgettingCheckSampleSize);
         const hypergraphKeys = Array.from(this.nar.state.hypergraph.keys());
 
         for (let i = 0; i < sampleSize; i++) {
@@ -58,9 +97,12 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
             const activation = this.nar.state.activations.get(id) || 0;
             const popularity = this.index.conceptPopularity.get(id) || 0;
 
-            const normalizedPopularity = Math.min(1, popularity / 100);
+            const normalizedPopularity = Math.min(1, popularity / this.config.popularityNormalizationFactor);
 
-            const retentionScore = importance * 0.6 + activation * 0.3 + normalizedPopularity * 0.1;
+            const retentionScore =
+                importance * this.config.retentionScoreImportanceWeight +
+                activation * this.config.retentionScoreActivationWeight +
+                normalizedPopularity * this.config.retentionScorePopularityWeight;
 
             const forgettingProbability = Math.pow(1 - retentionScore, 2);
 
@@ -129,12 +171,12 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
 
     _updateImportanceScores() {
         this.importanceScores.forEach((score, termId) => {
-            this.importanceScores.set(termId, score * 0.995);
+            this.importanceScores.set(termId, score * this.config.importanceDecayFactor);
         });
 
         this.nar.state.activations.forEach((activation, termId) => {
             const currentScore = this.importanceScores.get(termId) || 0;
-            const newScore = (currentScore * 0.8) + (activation * 0.2);
+            const newScore = (currentScore * (1 - this.config.importanceActivationWeight)) + (activation * this.config.importanceActivationWeight);
             this.importanceScores.set(termId, Math.min(1.0, newScore));
         });
 
@@ -153,31 +195,29 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
 
         importantTerms.forEach(termId => {
             const currentScore = this.importanceScores.get(termId) || 0;
-            this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.2));
+            this.importanceScores.set(termId, Math.min(1.0, currentScore + this.config.importanceQuestionWeight));
         });
 
         this.nar.learningEngine.recentSuccesses?.forEach(termId => {
             const currentScore = this.importanceScores.get(termId) || 0;
-            this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.1));
+            this.importanceScores.set(termId, Math.min(1.0, currentScore + this.config.importanceSuccessWeight));
         });
 
         if (this.contextStack.length > 0) {
             const currentContext = this.contextStack[this.contextStack.length - 1];
             currentContext.forEach(termId => {
                 const currentScore = this.importanceScores.get(termId) || 0;
-                this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.3));
+                this.importanceScores.set(termId, Math.min(1.0, currentScore + this.config.importanceContextWeight));
             });
         }
 
-        // Placeholder for goal-based importance boosting
         if (this.nar.goalManager && this.nar.goalManager.getActiveGoals) {
             const activeGoals = this.nar.goalManager.getActiveGoals();
             activeGoals.forEach(goal => {
-                // Boost importance of concepts related to the goal
                 const relatedTerms = this.nar.goalManager.getRelatedTerms(goal.id);
                 relatedTerms.forEach(termId => {
                     const currentScore = this.importanceScores.get(termId) || 0;
-                    this.importanceScores.set(termId, Math.min(1.0, currentScore + 0.4 * goal.priority));
+                    this.importanceScores.set(termId, Math.min(1.0, currentScore + this.config.importanceGoalWeight * goal.priority));
                 });
             });
         }
@@ -195,67 +235,45 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
 
     _adjustMemoryConfiguration() {
         const activeConcepts = this.nar.state.hypergraph.size;
-        if (activeConcepts > 10000) {
-            this.nar.config.beliefCapacity = Math.max(4, Math.floor(this.nar.config.beliefCapacity * 0.95));
-        } else if (activeConcepts < 5000) {
-            this.nar.config.beliefCapacity = Math.min(12, Math.ceil(this.nar.config.beliefCapacity * 1.05));
+        if (activeConcepts > this.config.beliefCapacityAdjustmentThresholdHigh) {
+            this.nar.config.beliefCapacity = Math.max(this.config.minBeliefCapacity, Math.floor(this.nar.config.beliefCapacity * this.config.beliefCapacityAdjustmentFactor));
+        } else if (activeConcepts < this.config.beliefCapacityAdjustmentThresholdLow) {
+            this.nar.config.beliefCapacity = Math.min(this.config.maxBeliefCapacity, Math.ceil(this.nar.config.beliefCapacity * (1 + (1 - this.config.beliefCapacityAdjustmentFactor))));
         }
     }
 
-    /**
-     * Allocate resources based on task importance and context.
-     * This implementation is taken directly from `enhance.a.md`.
-     */
     allocateResources(task, context = {}) {
-        // Base priority on task type
-        let basePriority = 0.5;
-        switch (task.type) {
-            case 'question':
-                basePriority = 0.9;
-                break;
-            case 'critical-event':
-                basePriority = 0.95;
-                break;
-            case 'derivation':
-                basePriority = 0.6;
-                break;
-            case 'revision':
-                basePriority = 0.7;
-                break;
-        }
+        let basePriority = this.config.basePriority[task.type] || this.config.basePriority.default;
 
-        // Adjust based on context
         if (context.urgency) {
-            basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
+            basePriority = Math.min(1.0, basePriority + context.urgency * this.config.urgencyPriorityFactor);
         }
         if (context.importance) {
-            basePriority = Math.min(1.0, basePriority + context.importance * 0.2);
+            basePriority = Math.min(1.0, basePriority + context.importance * this.config.importancePriorityFactor);
         }
 
-        // Apply current resource availability
         const availability = this._getResourceAvailability();
         const priority = basePriority * availability;
 
-        // Determine durability based on task nature
         let durability;
         if (task.type === 'question' || task.type === 'critical-event') {
-            durability = 0.9; // Need sustained attention
+            durability = this.config.durability.high;
         } else {
-            durability = 0.6; // Shorter attention span for derivations
+            durability = this.config.durability.low;
         }
 
-        // Quality depends on resource availability
-        const quality = Math.sqrt(availability) * 0.8;
+        const quality = Math.sqrt(availability) * this.config.qualityAvailabilityFactor;
 
         return new Budget(priority, durability, quality);
     }
 
     _getResourceAvailability() {
-        const recentUsage = Math.min(this.nar.state.eventQueue.heap.length / 1000, 1.0);
-        return Math.max(0.1, 1.0 - recentUsage * 0.7);
+        const recentUsage = Math.min(this.nar.state.eventQueue.heap.length / this.config.eventQueueUsageNormalization, 1.0);
+        return Math.max(this.config.resourceAvailabilityMin, 1.0 - recentUsage * this.config.resourceAvailabilityUsageFactor);
     }
 
-    pruneLowValuePaths(threshold = 0.2) {
+    pruneLowValuePaths() {
+        const threshold = this.config.lowValuePathPruningThreshold;
         const eventQueue = this.nar.state.eventQueue;
         if (!eventQueue || eventQueue.heap.length === 0) {
             return 0;

@@ -72,7 +72,7 @@ describe('AdvancedLearningEngine', () => {
         const conclusionId = nar.api.term('C', {premises: [premise1Id, premise2Id]});
 
         // Simulate the path being successful multiple times via experiences
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 60; i++) {
             learningEngine.experienceBuffer.push({
                 premises: [premise1Id, premise2Id],
                 conclusion: conclusionId,

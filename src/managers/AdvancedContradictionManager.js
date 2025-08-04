@@ -4,9 +4,44 @@ import {Hyperedge} from '../support/Hyperedge.js';
 import {Budget} from '../support/Budget.js';
 import {id} from '../support/utils.js';
 
+const defaultConfig = {
+    circuitBreakerThreshold: 5,
+    circuitBreakerDuration: 30000,
+    dominantEvidenceFactor: 1.5,
+    sourceReliabilityDifferenceThreshold: 0.3,
+    evidenceWeightingThreshold: 2,
+    weakenConfidenceFactor: 0.5,
+    weakenPriorityFactor: 0.8,
+    weakenDoubtFactor: 0.5,
+    mergeConfidencePenalty: 0.8,
+    mergeDoubtPenalty: 0.7,
+    mergeBudgetPenalty: 0.8,
+    specializationConfidenceBoost: 1.1,
+    specializationDoubtReduction: 0.5,
+    specializationBudgetBoost: 1.1,
+    similarityConfidence: 0.9,
+    similarityBudgetScale: 0.5,
+    strongContradictionThreshold: 0.7,
+    strongContradictionConfidence: 0.6,
+    moderateContradictionFreqDiff: 0.3,
+    moderateContradictionConfDiff: 0.4,
+    moderateContradictionAvgConfidence: 0.5,
+    interEdgeBudgetScale: 0.1,
+    defaultSourceReliability: 0.5,
+    sourceReliabilityBudgetScale: 0.85,
+    evidenceWeightingDurability: 0.5,
+    intrinsicStrengthWeight: 0.3,
+    evidenceStrengthWeight: 0.5,
+    sourceReliabilityWeight: 0.2,
+    recencyWeight: 0.1,
+    evidenceDecayHours: 3600,
+    recencyDecayHours: 7200,
+};
+
 export class AdvancedContradictionManager extends ContradictionManagerBase {
     constructor(nar) {
         super(nar);
+        this.config = {...defaultConfig, ...nar.config.advancedContradictionManager};
         this.contradictions = new Map();
         this.resolutionStrategies = {
             'dominant_evidence': this._resolveByDominantEvidence.bind(this),
@@ -22,8 +57,8 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             failures: 0,
             lastFailure: 0,
             openUntil: 0,
-            threshold: 5,
-            duration: 30000
+            threshold: this.config.circuitBreakerThreshold,
+            duration: this.config.circuitBreakerDuration,
         };
     }
 
@@ -89,7 +124,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         }
 
         if (contradictoryPairs.length > 0) {
-            this.nar._log('info', `Contradiction detected for ${hyperedgeId}`, {pairs: contradictoryPairs.length});
             this.contradictions.set(hyperedgeId, {
                 timestamp: Date.now(),
                 pairs: contradictoryPairs,
@@ -105,7 +139,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             return true;
         }
 
-        this.nar._log('debug', `No contradiction detected for ${hyperedgeId}`);
         return false;
     }
 
@@ -139,9 +172,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                         };
 
                         hyperedge.beliefs = [revisedBelief];
-                        otherHyperedge.beliefs[0].budget = otherHyperedge.beliefs[0].budget.scale(0.1);
-
-                        this.nar._log('info', `Resolved inter-edge contradiction between ${hyperedge.id} and ${otherHyperedge.id}`);
+                        otherHyperedge.beliefs[0].budget = otherHyperedge.beliefs[0].budget.scale(this.config.interEdgeBudgetScale);
                     }
                 }
             }
@@ -210,7 +241,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         let outcome = 'failure';
         if (resolution && hyperedge) {
-            this.nar._log('info', `Contradiction resolved for ${hyperedgeId} using strategy: ${strategyName}`, {resolution});
             contradiction.resolved = true;
             contradiction.resolutionStrategy = strategyName;
             contradiction.resolvedValue = resolution;
@@ -222,7 +252,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             } else if (resolution.newBelief) {
                 hyperedge.beliefs = [resolution.newBelief];
             }
-            // If the resolution was to specialize, it handles its own belief modifications.
 
             this.nar.emit('contradiction-resolved', {
                 hyperedgeId,
@@ -232,7 +261,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             outcome = 'success';
         }
 
-        // Report outcome to Learning Engine
         if (this.nar.learningEngine) {
             this.nar.learningEngine.recordExperience({
                 operation: 'contradiction_resolution',
@@ -244,8 +272,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         return resolution || null;
     }
 
-    // ===== RESOLUTION STRATEGIES =====
-
     _resolveByDominantEvidence(hyperedgeId, contradiction) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         const beliefsWithEvidence = hyperedge.beliefs.map(belief => ({
@@ -256,14 +282,13 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const strongest = beliefsWithEvidence[0];
         const otherBeliefs = beliefsWithEvidence.slice(1);
 
-        // Weaken the other beliefs instead of discarding them
         const modifiedBeliefs = otherBeliefs.map(item => {
             const modifiedBelief = {...item.belief};
             modifiedBelief.truth = new TruthValue(
                 modifiedBelief.truth.frequency,
-                modifiedBelief.truth.confidence * 0.5,
-                modifiedBelief.truth.priority * 0.8,
-                Math.min(1.0, (modifiedBelief.truth.doubt || 0) + 0.5)
+                modifiedBelief.truth.confidence * this.config.weakenConfidenceFactor,
+                modifiedBelief.truth.priority * this.config.weakenPriorityFactor,
+                Math.min(1.0, (modifiedBelief.truth.doubt || 0) + this.config.weakenDoubtFactor)
             );
             return modifiedBelief;
         });
@@ -286,16 +311,14 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         if (!belief1 || !belief2) return null;
 
         const mergedTruth = TruthValue.revise(belief1.belief.truth, belief2.belief.truth);
-        // Penalize confidence and increase doubt due to conflict
-        mergedTruth.confidence *= 0.8;
-        mergedTruth.doubt = Math.min(1.0, (mergedTruth.doubt + 0.5) * 0.7);
+        mergedTruth.confidence *= this.config.mergeConfidencePenalty;
+        mergedTruth.doubt = Math.min(1.0, (mergedTruth.doubt + this.config.mergeDoubtPenalty) * 0.7);
 
 
-        const mergedBudget = belief1.belief.budget.merge(belief2.belief.budget).scale(0.8);
+        const mergedBudget = belief1.belief.budget.merge(belief2.belief.budget).scale(this.config.mergeBudgetPenalty);
 
         const newBelief = {...belief1.belief, truth: mergedTruth, budget: mergedBudget, timestamp: Date.now()};
 
-        // Directly modify the hyperedge's beliefs
         if (hyperedge) {
             hyperedge.beliefs = [newBelief];
         }
@@ -310,7 +333,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             evidenceStrength: this._calculateEvidenceStrength(hyperedgeId, belief)
         })).sort((a, b) => b.evidenceStrength - a.evidenceStrength);
 
-        const conflictingBeliefData = beliefsWithEvidence[1]; // Specialize the weaker belief
+        const conflictingBeliefData = beliefsWithEvidence[1];
         if (!conflictingBeliefData) return null;
 
         const conflictingBelief = conflictingBeliefData.belief;
@@ -342,7 +365,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             );
             const newBudget = new Budget({
                 priority: Math.min(1.0, totalWeight / hyperedge.beliefs.length),
-                durability: 0.5,
+                durability: this.config.evidenceWeightingDurability,
                 quality: weightedConfidence / totalWeight
             });
             hyperedge.beliefs = [{truth: newTruth, budget: newBudget, timestamp: Date.now()}];
@@ -354,7 +377,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     _recencyBiasedResolution(hyperedgeId, contradiction) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         const mostRecent = [...hyperedge.beliefs].sort((a, b) => b.timestamp - a.timestamp)[0];
-        hyperedge.beliefs = [mostRecent]; // Keep only the most recent
+        hyperedge.beliefs = [mostRecent];
         return {reason: 'recency-biased', primaryBelief: mostRecent};
     }
 
@@ -366,8 +389,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         hyperedge.beliefs.forEach(belief => {
             const source = this._getSource(belief);
-            // Use provided weights or fallback to system-tracked reliability
-            const sourceReliability = sourceWeights[source] || this.nar.state.sourceReliability?.get(source) || 0.5;
+            const sourceReliability = sourceWeights[source] || this.nar.state.sourceReliability?.get(source) || this.config.defaultSourceReliability;
             const weight = sourceReliability * belief.budget.priority;
 
             weightedFrequency += belief.truth.frequency * weight;
@@ -377,7 +399,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         if (totalWeight > 0) {
             const newTruth = new TruthValue(weightedFrequency / totalWeight, weightedConfidence / totalWeight);
-            hyperedge.beliefs = [{truth: newTruth, budget: Budget.full().scale(0.85), timestamp: Date.now()}];
+            hyperedge.beliefs = [{truth: newTruth, budget: Budget.full().scale(this.config.sourceReliabilityBudgetScale), timestamp: Date.now()}];
             return {reason: 'source-reliability', newTruth};
         }
         return null;
@@ -386,8 +408,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     _defaultResolution(hyperedgeId) {
         return this._resolveByDominantEvidence(hyperedgeId);
     }
-
-    // ===== HELPER & ANALYSIS METHODS =====
 
     _selectResolutionStrategy(hyperedgeId, contradiction) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
@@ -416,7 +436,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             return 'evidence-weighted';
         }
 
-        // Default Strategy: Merge the two strongest conflicting beliefs.
         return 'merge';
     }
 
@@ -432,31 +451,28 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             return false;
         }
 
-        const reliability1 = this.nar.state.sourceReliability?.get(source1) || 0.5;
-        const reliability2 = this.nar.state.sourceReliability?.get(source2) || 0.5;
+        const reliability1 = this.nar.state.sourceReliability?.get(source1) || this.config.defaultSourceReliability;
+        const reliability2 = this.nar.state.sourceReliability?.get(source2) || this.config.defaultSourceReliability;
 
-        return Math.abs(reliability1 - reliability2) > 0.3;
+        return Math.abs(reliability1 - reliability2) > this.config.sourceReliabilityDifferenceThreshold;
     }
 
     _shouldUseEvidenceWeighting(hyperedge) {
-        return hyperedge.evidence && hyperedge.evidence.length > 2;
+        return hyperedge.evidence && hyperedge.evidence.length > this.config.evidenceWeightingThreshold;
     }
 
     _hasDominantEvidence(strongest, nextStrongest) {
-        // Resolve if the strongest evidence is significantly stronger.
-        return strongest.evidenceStrength > (nextStrongest.evidenceStrength * 1.5);
+        return strongest.evidenceStrength > (nextStrongest.evidenceStrength * this.config.dominantEvidenceFactor);
     }
 
     _hasDistinctContexts(hyperedge, strongest, nextStrongest) {
         const context1 = this._getBeliefContext(hyperedge, strongest.belief);
         const context2 = this._getBeliefContext(hyperedge, nextStrongest.belief);
-        // Specialize if contexts are different and the weaker one is not just default.
         return context1 !== context2 && context2 !== 'default';
     }
 
     _isRecencyBiased(strongest, nextStrongest) {
         if (!this.nar.config.useRecencyBias) return false;
-        // Favor the most recent belief if it's not significantly older.
         return (strongest.belief.timestamp > nextStrongest.belief.timestamp);
     }
 
@@ -464,32 +480,28 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return 0;
 
-        const intrinsicWeight = this.nar.config.intrinsicStrengthWeight || 0.3;
-        const evidenceWeight = this.nar.config.evidenceStrengthWeight || 0.5;
-        const sourceReliabilityWeight = this.nar.config.sourceReliabilityWeight || 0.2;
-        const recencyWeight = this.nar.config.recencyWeight || 0.1;
+        const intrinsicWeight = this.nar.config.intrinsicStrengthWeight || this.config.intrinsicStrengthWeight;
+        const evidenceWeight = this.nar.config.evidenceStrengthWeight || this.config.evidenceStrengthWeight;
+        const sourceReliabilityWeight = this.nar.config.sourceReliabilityWeight || this.config.sourceReliabilityWeight;
+        const recencyWeight = this.nar.config.recencyWeight || this.config.recencyWeight;
 
         const now = Date.now();
         const evidenceList = hyperedge.evidence?.filter(e => e.beliefId === belief.id) || [];
 
-        // Factor in temporal decay of evidence strength
         const totalEvidenceStrength = evidenceList.reduce((sum, e) => {
             const ageInSeconds = (now - e.timestamp) / 1000;
-            const decay = Math.exp(-ageInSeconds / (this.nar.config.temporalHorizon * 3600)); // Decay over hours
+            const decay = Math.exp(-ageInSeconds / (this.nar.config.temporalHorizon * this.config.evidenceDecayHours));
             return sum + (e.strength || 0) * decay;
         }, 0);
 
-        // Factor in source reliability
         const sourceReliability = evidenceList.reduce((sum, e) => {
-            const reliability = this.nar.state.sourceReliability?.get(e.source) || 0.5;
+            const reliability = this.nar.state.sourceReliability?.get(e.source) || this.config.defaultSourceReliability;
             return sum + (e.strength * reliability);
         }, 0) / (evidenceList.length || 1);
 
-        // Factor in recency of the belief itself
         const beliefAgeInSeconds = (now - belief.timestamp) / 1000;
-        const recencyFactor = Math.exp(-beliefAgeInSeconds / (this.nar.config.temporalHorizon * 7200));
+        const recencyFactor = Math.exp(-beliefAgeInSeconds / (this.nar.config.temporalHorizon * this.config.recencyDecayHours));
 
-        // Intrinsic strength of the belief
         const intrinsicStrength = belief.truth.confidence * belief.budget.priority;
 
         const finalStrength = (intrinsicStrength * intrinsicWeight) +
@@ -503,15 +515,14 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     _createContextualSpecialization(originalHyperedge, conflictingBelief, context) {
         const newId = `${originalHyperedge.id}|context:${context}`;
 
-        // When specializing, the doubt is reduced because the context explains the conflict.
         const specializedTruth = new TruthValue(
             conflictingBelief.truth.frequency,
-            conflictingBelief.truth.confidence * 1.1, // Boost confidence slightly in new context
+            conflictingBelief.truth.confidence * this.config.specializationConfidenceBoost,
             conflictingBelief.truth.priority,
-            (conflictingBelief.truth.doubt || 0) * 0.5 // Reduce doubt
+            (conflictingBelief.truth.doubt || 0) * this.config.specializationDoubtReduction
         );
 
-        const specializedBudget = conflictingBelief.budget.scale(1.1); // Slightly boost budget
+        const specializedBudget = conflictingBelief.budget.scale(this.config.specializationBudgetBoost);
 
         if (this.nar.state.hypergraph.has(newId)) {
             const existingSpecialization = this.nar.state.hypergraph.get(newId);
@@ -530,14 +541,11 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         });
         this.nar.state.hypergraph.set(newId, specialization);
 
-        // Add a similarity link between the original and the new specialized concept.
-        // The similarity is inversely related to the confidence of the conflicting belief.
-        // A high-confidence conflict suggests the contexts are very different (low similarity).
         const similarityFreq = Math.max(0.1, 1.0 - conflictingBelief.truth.confidence);
-        const similarityConf = 0.9; // High confidence in the similarity assessment itself.
+        const similarityConf = this.config.similarityConfidence;
         this.nar.api.similarity(newId, originalHyperedge.id, {
             truth: new TruthValue(similarityFreq, similarityConf),
-            budget: Budget.full().scale(0.5)
+            budget: Budget.full().scale(this.config.similarityBudgetScale)
         });
 
         this.nar.emit('concept-split', {
@@ -552,15 +560,12 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         const evidenceList = hyperedge.evidence?.filter(e => e.beliefId === belief.id) || [];
         if (evidenceList.length === 0) return 'default';
 
-        // Prioritize explicit context tags
         for (const evidence of evidenceList) {
             if (evidence.context) {
-                // Could be more complex, e.g., finding the most common context
                 return evidence.context;
             }
         }
 
-        // Fallback to the most prominent source
         const sourceCounts = new Map();
         evidenceList.forEach(e => {
             if (e.source) {
@@ -576,16 +581,13 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     }
 
     _areContradictory(truth1, truth2) {
-        // More nuanced contradiction detection based on `enhance.b.md`
         const freqDiff = Math.abs(truth1.frequency - truth2.frequency);
         const confDiff = Math.abs(truth1.confidence - truth2.confidence);
         const avgConfidence = (truth1.confidence + truth2.confidence) / 2;
 
-        // A strong contradiction occurs if frequencies are very different and confidence is high.
-        const isStrongContradiction = freqDiff > (this.nar.config.contradictionThreshold || 0.7) && avgConfidence > 0.6;
+        const isStrongContradiction = freqDiff > (this.nar.config.contradictionThreshold || this.config.strongContradictionThreshold) && avgConfidence > this.config.strongContradictionConfidence;
 
-        // A moderate contradiction can occur with smaller frequency differences if confidence is also divergent.
-        const isModerateContradiction = freqDiff > 0.3 && confDiff > 0.4 && avgConfidence > 0.5;
+        const isModerateContradiction = freqDiff > this.config.moderateContradictionFreqDiff && confDiff > this.config.moderateContradictionConfDiff && avgConfidence > this.config.moderateContradictionAvgConfidence;
 
         return isStrongContradiction || isModerateContradiction;
     }
@@ -595,7 +597,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     }
 
     _getSource(belief) {
-        // In a real implementation, this would track the source of information
         return belief.source || 'unknown';
     }
 

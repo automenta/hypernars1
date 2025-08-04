@@ -21,11 +21,11 @@ export class System {
             queueSize: this.nar.state.eventQueue.heap.length
         });
 
-        this.nar.state.questionPromises.forEach((_, questionId) => {
-            if (this.nar.state.currentStep % 10 === 0) {
+        if (this.nar.state.currentStep % this.nar.config.questionResolutionInterval === 0) {
+            for (const questionId of this.nar.state.questionPromises.keys()) {
                 this.nar.questionHandler._resolveQuestion(questionId);
             }
-        });
+        }
 
         this.nar.state.stepsSinceMaintenance++;
         if (this.nar.state.stepsSinceMaintenance >= this.nar.config.memoryMaintenanceInterval) {
@@ -41,22 +41,22 @@ export class System {
         let steps = 0;
         while (steps < maxSteps && this.step()) {
             callback(this.nar, steps++);
-            if (steps % 100 === 0) this._cleanup();
+            if (steps % this.nar.config.cleanupInterval === 0) this._cleanup();
         }
         return steps;
     }
 
     _cleanup() {
-        if (Math.random() < 0.1) {
+        if (Math.random() < this.nar.config.cleanupProbability) {
             for (const [id, cache] of this.nar.state.pathCache) {
-                if (cache.size > 1000) {
-                    this.nar.state.pathCache.set(id, new Set([...cache].slice(-500)));
+                if (cache.size > this.nar.config.maxPathCacheSize) {
+                    this.nar.state.pathCache.set(id, new Set([...cache].slice(-this.nar.config.pathCacheTruncationSize)));
                 }
             }
 
             for (const [questionId, answers] of this.nar.state.index.questionCache) {
-                if (answers.length > 10) {
-                    this.nar.state.index.questionCache.set(questionId, answers.slice(-5));
+                if (answers.length > this.nar.config.maxQuestionCacheSize) {
+                    this.nar.state.index.questionCache.set(questionId, answers.slice(-this.nar.config.questionCacheTruncationSize));
                 }
             }
         }

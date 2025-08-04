@@ -3,20 +3,31 @@ import {TimeInterval} from '../support/TimeInterval.js';
 import {id} from '../support/utils.js';
 import {TruthValue} from '../support/TruthValue.js';
 
-/**
- * An advanced temporal reasoner that implements Allen's Interval Algebra,
- * constraint propagation, and uncertainty handling for sophisticated
- * reasoning about time, based on the `enhance.b.md` proposal.
- */
+const defaultConfig = {
+    maxPropagationIterations: 10,
+    defaultTemporalHorizon: 5,
+    maxTemporalHorizon: 30,
+    predictionConfidenceThreshold: 0.2,
+    predictionBaseConfidence: {
+        meets: 0.9,
+        starts: 0.8,
+        overlaps: 0.7,
+        before: 0.4,
+        default: 0.5
+    },
+    defaultIntervalConfidence: 0.9,
+    recurringIntervalDurationHours: 1,
+};
+
 export class TemporalReasoner extends TemporalManagerBase {
     constructor(nar) {
         super(nar);
-        this._isAdvanced = true; // For tests
+        this.config = {...defaultConfig, ...nar.config.temporalReasoner};
+        this._isAdvanced = true;
         this.temporalConstraints = new Map();
-        this.timepoints = new Map(); // For events with uncertain timing
+        this.timepoints = new Map();
         this.intervals = new Map();
 
-        // Allen's Interval Algebra Composition Table (Full)
         this.compositionTable = {
             'before': {
                 'before': 'before',
@@ -216,69 +227,39 @@ export class TemporalReasoner extends TemporalManagerBase {
         };
     }
 
-    /**
-     * Creates and stores a temporal interval for a given term.
-     * This is a helper method used by tests and for simple interval creation.
-     * @param {string} term - The term to associate with the interval.
-     * @param {number} start - The start timestamp (ms).
-     * @param {number} end - The end timestamp (ms).
-     * @param {object} options - Truth and budget options for the hyperedge.
-     * @returns {string} The ID of the created interval hyperedge.
-     */
     interval(term, start, end, options = {}) {
         const intervalId = id('TimeInterval', [term, start, end]);
         const interval = new TimeInterval(intervalId, term, start, end, options);
         this.intervals.set(intervalId, interval);
 
-        // Also represent the interval symbolically in the hypergraph for general reasoning
         this.nar.api.addHyperedge('TimeInterval', [term, start, end], options);
         return intervalId;
     }
 
-    /**
-     * Adds a temporal constraint between two events.
-     * @param {string} event1
-     * @param {string} event2
-     * @param {string} relation - e.g., 'before', 'after', 'overlaps'
-     * @param {object} [options] - Truth, budget, etc.
-     * @returns {string} The ID of the inferred hyperedge.
-     */
     addConstraint(event1, event2, relation, options = {}) {
         const constraintId = id('TemporalConstraint', [event1, event2, relation]);
 
         if (this._wouldCreateContradiction(event1, event2, relation)) {
-            // In a real system, this would trigger contradiction handling.
-            // For now, we just warn and don't add the constraint.
-            this.nar._log('warn', `Temporal constraint would create contradiction: ${event1} ${relation} ${event2}`);
             return null;
         }
 
         const constraint = {id: constraintId, event1, event2, relation, ...options};
         this.temporalConstraints.set(constraintId, constraint);
 
-        // Add to hypergraph and propagate
         const hyperedgeId = this.nar.api.addHyperedge('TemporalRelation', [event1, event2, relation], options);
-        // Pass the hyperedgeId to the propagation logic
         constraint.id = hyperedgeId;
         this._propagateConstraint(constraint);
 
         return hyperedgeId;
     }
 
-    /**
-     * Creates a symbolic relationship between two existing temporal intervals.
-     * This is a helper method for compatibility with tests.
-     */
     relate(term1, term2, relation, options = {}) {
-        // This is a more user-friendly version of relate, which was in AdvancedTemporalManager
         const interval1 = Array.from(this.intervals.values()).find(i => i.term === term1);
         const interval2 = Array.from(this.intervals.values()).find(i => i.term === term2);
 
         if (interval1 && interval2) {
             return this.addConstraint(interval1.id, interval2.id, relation, options);
         }
-        // If intervals don't exist, we can't relate them.
-        // A more advanced implementation might create them on the fly.
         return null;
     }
 
@@ -287,7 +268,6 @@ export class TemporalReasoner extends TemporalManagerBase {
         const interval2 = this.intervals.get(intervalId2);
 
         if (!interval1 || !interval2) {
-            this.nar._log('warn', 'Cannot create temporal relation: one or both intervals not found.');
             return null;
         }
 
@@ -299,18 +279,9 @@ export class TemporalReasoner extends TemporalManagerBase {
         return this.addConstraint(intervalId1, intervalId2, relationType, options);
     }
 
-    /**
-     * Defines that an event happens during a specific interval or according to a recurring pattern.
-     * This enhancement from `enhance.a.md` allows for more flexible temporal definitions.
-     * @param {string} eventTerm - The event that occurs.
-     * @param {string|number} start - The start time or a time-of-day for a recurring event (e.g., '9:00').
-     * @param {string|number} end - The end time or a recurrence pattern (e.g., 'daily', 'weekly').
-     * @param {object} options - Truth and budget options.
-     */
     during(eventTerm, start, end, options = {}, now) {
         const patterns = ['daily', 'weekly', 'monthly'];
         if (typeof end === 'string' && patterns.includes(end.toLowerCase())) {
-            // Pass `now` to the helper function for testability
             return this._createRecurringInterval(eventTerm, start, end.toLowerCase(), options, now);
         }
 
@@ -319,23 +290,14 @@ export class TemporalReasoner extends TemporalManagerBase {
         return this.addConstraint(eventTerm, intervalId, 'during', options);
     }
 
-    /**
-     * Creates a recurring temporal interval based on a pattern.
-     * This is a helper method to support the enhanced `during` functionality.
-     * @private
-     */
     _createRecurringInterval(eventTerm, timeString, pattern, options, now = new Date()) {
-        // This is a simplified implementation. A real-world one would be more robust.
-        // It creates a single next interval for the recurring event.
         const [hour, minute] = timeString.split(':').map(Number);
-        let nextEvent = new Date(now.getTime()); // Clone current date
+        let nextEvent = new Date(now.getTime());
 
-        // Set time in UTC to avoid timezone issues
         nextEvent.setUTCHours(hour, minute, 0, 0);
 
         switch (pattern) {
             case 'daily':
-                // If the calculated time is in the past, move to the next day
                 if (nextEvent.getTime() <= now.getTime()) {
                     nextEvent.setUTCDate(nextEvent.getUTCDate() + 1);
                 }
@@ -352,20 +314,14 @@ export class TemporalReasoner extends TemporalManagerBase {
                 break;
         }
 
-        // Assume a 1-hour duration for simplicity
         const start = nextEvent.getTime();
-        const end = start + 60 * 60 * 1000;
-
-        this.nar._log('info', `Created recurring interval for '${eventTerm}' at ${new Date(start).toISOString()}`);
+        const end = start + this.config.recurringIntervalDurationHours * 60 * 60 * 1000;
 
         const intervalTerm = `${eventTerm}_${pattern}_${start}`;
         const intervalId = this.interval(intervalTerm, start, end, options);
         return this.addConstraint(eventTerm, intervalId, 'during', options);
     }
 
-    /**
-     * Finds intervals related to a subject with optional temporal constraints.
-     */
     query(subject, constraints = {}) {
         const results = [];
         this.intervals.forEach(interval => {
@@ -388,14 +344,7 @@ export class TemporalReasoner extends TemporalManagerBase {
         return results;
     }
 
-    /**
-     * Infers the relationship between two events by traversing the constraint graph.
-     * @param {string} event1
-     * @param {string} event2
-     * @returns {object|null} The inferred relationship or null.
-     */
     inferRelationship(event1, event2) {
-        // Direct relationship check
         for (const c of this.temporalConstraints.values()) {
             if (c.event1 === event1 && c.event2 === event2) return c;
             if (c.event1 === event2 && c.event2 === event1) {
@@ -403,14 +352,13 @@ export class TemporalReasoner extends TemporalManagerBase {
             }
         }
 
-        // Transitive relationship check (BFS)
         const queue = [{event: event1, path: []}];
         const visited = new Set([event1]);
 
         while (queue.length > 0) {
             const {event: currentEvent, path} = queue.shift();
             if (currentEvent === event2) {
-                return this._composePath(path); // Found a path, compose the relations
+                return this._composePath(path);
             }
 
             for (const c of this.temporalConstraints.values()) {
@@ -420,27 +368,15 @@ export class TemporalReasoner extends TemporalManagerBase {
                 }
             }
         }
-        return null; // No path found
+        return null;
     }
 
-    /**
-     * Processes a temporal event with uncertainty.
-     * @param {string} eventId
-     * @param {number} timeEstimate - The estimated timestamp (ms).
-     * @param {number} uncertainty - A value (e.g., in ms) representing the uncertainty.
-     */
     processEventWithUncertainty(eventId, timeEstimate, uncertainty) {
         const timepoint = {id: `timepoint:${eventId}`, estimate: timeEstimate, uncertainty, timestamp: Date.now()};
         this.timepoints.set(timepoint.id, timepoint);
         this.nar.emit('temporal-update', {eventId, timepoint});
     }
 
-    /**
-     * Generates a natural language description of a temporal relationship.
-     * @param {string} event1
-     * @param {string} event2
-     * @returns {string}
-     */
     describeTemporalRelationship(event1, event2) {
         const relationship = this.inferRelationship(event1, event2);
         if (!relationship) return `No known temporal relationship between ${event1} and ${event2}`;
@@ -449,13 +385,9 @@ export class TemporalReasoner extends TemporalManagerBase {
         return `The event "${event1}" happens ${rel} the event "${event2}".`;
     }
 
-    /**
-     * Propagates a new constraint through the network to infer new relationships.
-     * This is now an iterative process to ensure full propagation.
-     */
     _propagateConstraint(initialConstraint) {
         const propagationQueue = [initialConstraint];
-        const maxIterations = this.temporalConstraints.size + 10; // Safety break
+        const maxIterations = this.temporalConstraints.size + this.config.maxPropagationIterations;
         let iterations = 0;
 
         while (propagationQueue.length > 0 && iterations < maxIterations) {
@@ -464,10 +396,8 @@ export class TemporalReasoner extends TemporalManagerBase {
 
             const inferredRelations = [];
 
-            // Infer new relations: if (A rel1 B) and (B rel2 C), then infer (A rel3 C)
             this.temporalConstraints.forEach(existingConstraint => {
                 if (newConstraint.event2 === existingConstraint.event1) {
-                    // Case 1: newConstraint is (A, B), existingConstraint is (B, C) -> infer (A, C)
                     const composedRelation = this._composeRelationships(newConstraint.relation, existingConstraint.relation);
                     if (composedRelation) {
                         const composedTruth = this._composeTruthValues(newConstraint, existingConstraint);
@@ -480,7 +410,6 @@ export class TemporalReasoner extends TemporalManagerBase {
                         });
                     }
                 } else if (newConstraint.event1 === existingConstraint.event2) {
-                    // Case 2: newConstraint is (B, C), existingConstraint is (A, B) -> infer (A, C)
                     const composedRelation = this._composeRelationships(existingConstraint.relation, newConstraint.relation);
                     if (composedRelation) {
                         const composedTruth = this._composeTruthValues(existingConstraint, newConstraint);
@@ -498,7 +427,7 @@ export class TemporalReasoner extends TemporalManagerBase {
             inferredRelations.forEach(inferred => {
                 const existing = this.inferRelationship(inferred.event1, inferred.event2);
                 if (existing && JSON.stringify(existing.relation) === JSON.stringify(inferred.relation)) {
-                    return; // Avoid adding duplicate constraints
+                    return;
                 }
 
                 const newId = this.nar.api.addHyperedge('TemporalRelation', [inferred.event1, inferred.event2, inferred.relation], {
@@ -530,7 +459,7 @@ export class TemporalReasoner extends TemporalManagerBase {
     _composeTruthValues(constraint1, constraint2) {
         const t1 = constraint1.truth || this.nar.state.hypergraph.get(constraint1.id)?.getTruth() || TruthValue.certain();
         const t2 = constraint2.truth || this.nar.state.hypergraph.get(constraint2.id)?.getTruth() || TruthValue.certain();
-        return TruthValue.transitive(t1, t2); // Use the same logic as transitive derivation
+        return TruthValue.transitive(t1, t2);
     }
 
     _composeRelationships(rel1, rel2) {
@@ -552,9 +481,9 @@ export class TemporalReasoner extends TemporalManagerBase {
         }
 
         const resultArray = Array.from(resultSet);
-        if (resultArray.length === 0) return null; // No possible relation
-        if (resultArray.length === 1) return resultArray[0]; // Single relation
-        return resultArray; // Disjunction of relations
+        if (resultArray.length === 0) return null;
+        if (resultArray.length === 1) return resultArray[0];
+        return resultArray;
     }
 
     _composePath(path) {
@@ -563,7 +492,6 @@ export class TemporalReasoner extends TemporalManagerBase {
         for (let i = 1; i < path.length; i++) {
             composedRelation = this._composeRelationships(composedRelation, path[i].relation);
             if (!composedRelation) {
-                // If at any point the composition is impossible, the path is invalid.
                 return null;
             }
         }
@@ -628,13 +556,12 @@ export class TemporalReasoner extends TemporalManagerBase {
     _wouldCreateContradiction(event1, event2, newRelation) {
         const existing = this.inferRelationship(event1, event2);
         if (!existing || !existing.relation || existing.relation === 'ambiguous') {
-            return false; // No existing concrete relationship, so no contradiction possible yet.
+            return false;
         }
 
         const existingRelations = Array.isArray(existing.relation) ? existing.relation : [existing.relation];
         const newRelations = Array.isArray(newRelation) ? newRelation : [newRelation];
 
-        // Check for direct opposition (e.g., 'before' vs 'after')
         for (const er of existingRelations) {
             for (const nr of newRelations) {
                 if (this._getInverseTemporalRelation(er) === nr) {
@@ -643,47 +570,28 @@ export class TemporalReasoner extends TemporalManagerBase {
             }
         }
 
-        // Check if the intersection of possible relations is empty
         const composed = this._composeRelationships(existing.relation, this._getInverseTemporalRelation(newRelation));
         return composed === null;
     }
 
-    /**
-     * Adjusts the system's temporal horizon based on the number of active
-     * temporal constraints, making the system more focused when temporal
-     * reasoning is more active.
-     */
     adjustTemporalHorizon() {
         const numConstraints = this.temporalConstraints.size;
-        const baseHorizon = 5; // Default base horizon from config
-        const maxHorizon = 30; // A reasonable maximum to prevent excessive lookahead
+        const baseHorizon = this.config.defaultTemporalHorizon;
+        const maxHorizon = this.config.maxTemporalHorizon;
 
-        // Increase horizon based on the number of constraints, with diminishing returns
         const newHorizon = Math.min(maxHorizon, baseHorizon + Math.floor(Math.sqrt(numConstraints)));
 
         if (this.nar.config.temporalHorizon !== newHorizon) {
-            this.nar.emit('log', {
-                message: `Adjusting temporal horizon from ${this.nar.config.temporalHorizon} to ${newHorizon} based on ${numConstraints} constraints.`
-            });
             this.nar.config.temporalHorizon = newHorizon;
         }
     }
 
-    /**
-     * Predicts what might be true at a future time based on current temporal knowledge.
-     * Aligns with the `predict` method from `enhance.a.md`.
-     * @param {string} term - The starting term for the prediction.
-     * @param {string} pattern - A pattern to guide prediction (e.g., 'during(commute)'). Currently used for logging.
-     * @param {number} horizonInMinutes - How far into the future to project (in minutes).
-     * @returns {Array<object>} A list of predicted future events with confidence.
-     */
     predict(term, pattern, horizonInMinutes) {
-        const horizon = horizonInMinutes * 60 * 1000; // Convert minutes to ms, as per enhance.a.md
+        const horizon = horizonInMinutes * 60 * 1000;
         const now = Date.now();
         const futureTime = now + horizon;
-        const predictions = new Map(); // Use map to avoid duplicate predictions
+        const predictions = new Map();
 
-        // Find all constraints involving the given term
         for (const constraint of this.temporalConstraints.values()) {
             let sourceEvent, relation, predictedEvent;
 
@@ -699,14 +607,13 @@ export class TemporalReasoner extends TemporalManagerBase {
                 continue;
             }
 
-            // Only consider relations that imply future occurrence
             if (['before', 'meets', 'overlaps', 'starts', 'during'].includes(relation)) {
                 const sourceInterval = Array.from(this.intervals.values()).find(i => i.term === sourceEvent && i.end >= now);
 
                 if (sourceInterval) {
                     const confidence = this._calculatePredictionConfidence(relation, sourceInterval, futureTime, horizon);
 
-                    if (confidence > 0.2) { // Confidence threshold
+                    if (confidence > this.config.predictionConfidenceThreshold) {
                         const predictedHyperedge = this.nar.state.hypergraph.get(id('Term', [predictedEvent]));
                         if (!predictions.has(predictedEvent) || predictions.get(predictedEvent).confidence < confidence) {
                             predictions.set(predictedEvent, {
@@ -721,10 +628,9 @@ export class TemporalReasoner extends TemporalManagerBase {
             }
         }
 
-        // Also consider ongoing intervals
         for (const interval of this.intervals.values()) {
             if (interval.start <= now && interval.end > futureTime) {
-                const confidence = 0.95; // High confidence if it will still be active
+                const confidence = 0.95;
                 if (!predictions.has(interval.term) || predictions.get(interval.term).confidence < confidence) {
                     predictions.set(interval.term, {
                         term: interval.term,
@@ -741,17 +647,11 @@ export class TemporalReasoner extends TemporalManagerBase {
 
     _calculatePredictionConfidence(relation, sourceInterval, futureTime, horizon) {
         const timeToFuture = Math.max(0, futureTime - sourceInterval.end);
-        // Decay should be relative to the prediction horizon, not the config's temporalHorizon
         const decay = Math.exp(-timeToFuture / horizon);
 
-        let baseConfidence = 0.5;
-        if (relation === 'meets') baseConfidence = 0.9;
-        if (relation === 'starts') baseConfidence = 0.8;
-        if (relation === 'overlaps') baseConfidence = 0.7;
-        if (relation === 'before') baseConfidence = 0.4;
+        let baseConfidence = this.config.predictionBaseConfidence[relation] || this.config.predictionBaseConfidence.default;
 
-        // Assume default confidence of 0.9 if not specified on the interval's truth value
-        const sourceConfidence = sourceInterval.truth?.confidence ?? 0.9;
+        const sourceConfidence = sourceInterval.truth?.confidence ?? this.config.defaultIntervalConfidence;
 
         return baseConfidence * decay * sourceConfidence;
     }
