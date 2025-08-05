@@ -259,65 +259,68 @@ Critical for a complete NARS system but missing in the current implementation:
  * Enables the system to reason about its own reasoning processes
  * @example metaReason('Why is <tweety --> flyer> believed?')
  */
-metaReason(query, options = {}) {
-  switch(query.toLowerCase()) {
-    case 'why is':
-      return this._explainBelief(options.term);
-    case 'how did':
-      return this._traceInferencePath(options.term);
-    case 'what if':
-      return this._counterfactualReasoning(options.scenario);
-    case 'is consistent':
-      return this._checkConsistency(options.context);
-    case 'resource usage':
-      return this._getResourceUsageReport();
-    default:
-      return this._processMetaQuery(query, options);
-  }
+metaReason(query, options = {})
+{
+    switch (query.toLowerCase()) {
+        case 'why is':
+            return this._explainBelief(options.term);
+        case 'how did':
+            return this._traceInferencePath(options.term);
+        case 'what if':
+            return this._counterfactualReasoning(options.scenario);
+        case 'is consistent':
+            return this._checkConsistency(options.context);
+        case 'resource usage':
+            return this._getResourceUsageReport();
+        default:
+            return this._processMetaQuery(query, options);
+    }
 }
 
 /**
  * Counterfactual reasoning: "What would happen if X were true?"
  */
-counterfactual(scenario, options = {}) {
-  // Create a temporary sandboxed environment
-  const sandbox = this.createSandbox();
-  
-  // Apply the hypothetical scenario
-  const scenarioId = sandbox.nal(scenario, { 
-    truth: options.truth || TruthValue.certain(),
-    hypothetical: true
-  });
-  
-  // Run inference in the sandbox
-  sandbox.run(options.maxSteps || 100);
-  
-  // Collect results
-  const results = this._collectSandboxResults(sandbox, options);
-  
-  // Clean up sandbox
-  sandbox.destroy();
-  
-  return {
-    scenario,
-    results,
-    confidence: this._calculateCounterfactualConfidence(scenario, results),
-    explanation: this._generateCounterfactualExplanation(scenario, results)
-  };
+counterfactual(scenario, options = {})
+{
+    // Create a temporary sandboxed environment
+    const sandbox = this.createSandbox();
+
+    // Apply the hypothetical scenario
+    const scenarioId = sandbox.nal(scenario, {
+        truth: options.truth || TruthValue.certain(),
+        hypothetical: true
+    });
+
+    // Run inference in the sandbox
+    sandbox.run(options.maxSteps || 100);
+
+    // Collect results
+    const results = this._collectSandboxResults(sandbox, options);
+
+    // Clean up sandbox
+    sandbox.destroy();
+
+    return {
+        scenario,
+        results,
+        confidence: this._calculateCounterfactualConfidence(scenario, results),
+        explanation: this._generateCounterfactualExplanation(scenario, results)
+    };
 }
 
 /**
  * Self-diagnostic capability to identify reasoning weaknesses
  */
-selfDiagnostic() {
-  return {
-    performance: this._assessPerformance(),
-    consistency: this._checkGlobalConsistency(),
-    resourceAllocation: this._analyzeResourceDistribution(),
-    knowledgeGaps: this._identifyKnowledgeGaps(),
-    reasoningPatterns: this._analyzeCommonReasoningPaths(),
-    improvementSuggestions: this._generateImprovementSuggestions()
-  };
+selfDiagnostic()
+{
+    return {
+        performance: this._assessPerformance(),
+        consistency: this._checkGlobalConsistency(),
+        resourceAllocation: this._analyzeResourceDistribution(),
+        knowledgeGaps: this._identifyKnowledgeGaps(),
+        reasoningPatterns: this._analyzeCommonReasoningPaths(),
+        improvementSuggestions: this._generateImprovementSuggestions()
+    };
 }
 ```
 
