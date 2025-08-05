@@ -1,5 +1,5 @@
 import {describe, expect, it} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {Budget} from '../support/Budget.js';
 import {id} from '../support/utils.js';
@@ -16,7 +16,7 @@ const config = {
 describe('AdvancedContradictionManager', () => {
 
     it('should resolve a contradiction in favor of the belief with stronger evidence', () => {
-        const nar = new NARHyper(config);
+        const nar = new NAR(config);
         const termId = id('Term', ['a']);
 
         // Add two contradictory beliefs
@@ -45,7 +45,7 @@ describe('AdvancedContradictionManager', () => {
     });
 
     it('should specialize a concept (split) when evidence strength is similar', () => {
-        const nar = new NARHyper(config);
+        const nar = new NAR(config);
         const termId = id('Term', ['b']);
 
         // Add two contradictory beliefs, making them clearly contradictory under the new rules
@@ -83,7 +83,7 @@ describe('AdvancedContradictionManager', () => {
     });
 
     it('should provide a detailed analysis of a contradiction without side-effects', () => {
-        const nar = new NARHyper(config);
+        const nar = new NAR(config);
         const termId = id('Term', ['c']);
 
         nar.api.addHyperedge('Term', ['c'], {truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9)});
@@ -120,7 +120,7 @@ describe('AdvancedContradictionManager', () => {
     });
 
     it.skip('should find and resolve all detected contradictions via resolveContradictions()', () => {
-        const nar = new NARHyper(config);
+        const nar = new NAR(config);
 
         // Concept 1: Mild contradiction
         const termId1 = id('Term', ['d']);

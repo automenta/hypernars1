@@ -1,9 +1,9 @@
 import {describe, expect, it} from '@jest/globals';
-import {NARHyper} from './NARHyper.js';
+import {NAR} from './NAR.js';
 
 describe('NARHyper Core', () => {
     it('should handle wildcard queries', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         nar.nal('term1.');
         nar.nal('term2.');
         nar.inheritance('bird', 'animal');

@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {Budget} from '../support/Budget.js';
 
 describe('Propagation', () => {
@@ -7,7 +7,7 @@ describe('Propagation', () => {
     let propagation;
 
     beforeEach(() => {
-        nar = new NARHyper({budgetThreshold: 0.1}); // Use a higher threshold for testing
+        nar = new NAR({budgetThreshold: 0.1}); // Use a higher threshold for testing
         propagation = nar.propagation;
         // Ensure the event queue is clean before each test
         nar.state.eventQueue = new nar.state.eventQueue.constructor((a, b) => b.budget.priority - a.budget.priority);

@@ -1,12 +1,12 @@
 import {beforeEach, describe, expect, it} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {TruthValue} from '../support/TruthValue.js';
 
 describe('AdvancedContradictionManager', () => {
     let nar;
 
     beforeEach(() => {
-        nar = new NARHyper({useAdvanced: true});
+        nar = new NAR({useAdvanced: true});
     });
 
     it('should merge contradictory beliefs upon introduction', () => {
@@ -46,7 +46,11 @@ describe('AdvancedContradictionManager', () => {
         const belief1 = nar.getBeliefs(hyperedgeId)[0];
 
         expect(() => {
-            nar.contradictionManager.addEvidence(hyperedgeId, belief1.id, {source: 'test', strength: 0.9, context: 'test_context'});
+            nar.contradictionManager.addEvidence(hyperedgeId, belief1.id, {
+                source: 'test',
+                strength: 0.9,
+                context: 'test_context'
+            });
         }).not.toThrow();
     });
 });

@@ -1,8 +1,8 @@
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 
 export class TestRunner {
     constructor(config = {}) {
-        this.nar = new NARHyper({...config, useAdvanced: true});
+        this.nar = new NAR({...config, useAdvanced: true});
         this.logs = [];
         this.nar.on('log', (log) => {
             this.logs.push(log.message);

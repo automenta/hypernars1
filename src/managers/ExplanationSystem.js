@@ -271,7 +271,7 @@ export class ExplanationSystem {
         if (!hyperedge) return "Hyperedge not found";
 
         const conclusion = path[0];
-        const explanation = [
+        return [
             `CONCLUSION: ${this._formatHyperedge(conclusion)}`,
             includeConfidence ? `Confidence: ${this._formatConfidence(conclusion.truth)}\n` : null,
             "REASONING PATH:",
@@ -280,8 +280,6 @@ export class ExplanationSystem {
             this._getContradictionInfo(hyperedgeId),
             this._getTemporalContext()
         ].filter(Boolean).join('\n');
-
-        return explanation;
     }
 
     _getAlternativePerspectives(hyperedge, hyperedgeId, maxAlternatives) {

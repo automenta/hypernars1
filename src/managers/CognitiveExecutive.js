@@ -1,6 +1,4 @@
 import {clamp, hash} from '../support/utils.js';
-import {Budget} from '../support/Budget.js';
-import {TruthValue} from '../support/TruthValue.js';
 
 const defaultConfig = {
     METRICS_HISTORY_LENGTH: 100,

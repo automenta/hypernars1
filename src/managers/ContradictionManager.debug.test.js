@@ -1,5 +1,5 @@
 import {describe, expect, it} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {Budget} from '../support/Budget.js';
 import {id} from '../support/utils.js';
@@ -13,7 +13,7 @@ const config = {
 
 describe('ContradictionManager Debug', () => {
     it.skip('should correctly select and execute the merge strategy', () => {
-        const nar = new NARHyper(config);
+        const nar = new NAR(config);
         const term = id('Inheritance', ['bat', 'mammal']);
 
         nar.api.inheritance('bat', 'mammal', {truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9)});

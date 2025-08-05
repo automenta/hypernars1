@@ -234,8 +234,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
                         reason: 'Consistently produced incorrect or useless results.'
                     });
                 }
-            }
-            else if (effectiveness > this.config.ruleEnableEffectivenessThreshold && rule.enabled === false) {
+            } else if (effectiveness > this.config.ruleEnableEffectivenessThreshold && rule.enabled === false) {
                 rule.enabled = true;
                 this.nar.emit('rule-enabled', {
                     rule: ruleName,

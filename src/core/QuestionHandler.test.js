@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {TruthValue} from '../support/TruthValue.js';
 
 // Mock setTimeout and clearTimeout
@@ -10,7 +10,7 @@ describe('QuestionHandler', () => {
     let questionHandler;
 
     beforeEach(() => {
-        nar = new NARHyper();
+        nar = new NAR();
         questionHandler = nar.questionHandler;
     });
 

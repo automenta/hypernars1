@@ -1,8 +1,8 @@
 import React from 'react';
 import {render} from 'ink';
-import {NARHyper} from './NARHyper.js';
+import {NAR} from './NAR.js';
 import Tui from './tui/App.js';
 
-const nar = new NARHyper();
+const nar = new NAR();
 
 render(React.createElement(Tui, {nar}));

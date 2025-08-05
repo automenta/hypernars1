@@ -1,15 +1,15 @@
-import {describe, it, expect, beforeEach} from '@jest/globals';
+import {beforeEach, describe, expect, it} from '@jest/globals';
 import {Hyperedge} from './Hyperedge.js';
 import {TruthValue} from './TruthValue.js';
 import {Budget} from './Budget.js';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 
 describe('Hyperedge', () => {
     let nar;
     let hyperedge;
 
     beforeEach(() => {
-        nar = new NARHyper({useAdvanced: true});
+        nar = new NAR({useAdvanced: true});
         hyperedge = new Hyperedge(nar, 'test_id', 'Test', ['arg1', 'arg2']);
     });
 

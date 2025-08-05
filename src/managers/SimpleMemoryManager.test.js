@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {SimpleMemoryManager} from './SimpleMemoryManager.js';
 import {Budget} from '../support/Budget.js';
 
@@ -9,7 +9,7 @@ describe('SimpleMemoryManager', () => {
 
     beforeEach(() => {
         // We can use the default NARHyper, which uses SimpleMemoryManager
-        nar = new NARHyper();
+        nar = new NAR();
         memoryManager = nar.memoryManager;
     });
 

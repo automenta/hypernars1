@@ -1,12 +1,12 @@
 import {beforeEach, describe, expect, it} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 
 describe('TemporalReasoner', () => {
     let nar;
     let temporalReasoner;
 
     beforeEach(() => {
-        nar = new NARHyper({useAdvanced: true});
+        nar = new NAR({useAdvanced: true});
         temporalReasoner = nar.temporalManager;
     });
 

@@ -1,9 +1,9 @@
 import {describe, expect, it} from '@jest/globals';
-import {NARHyper} from './NARHyper.js';
+import {NAR} from '../NAR.js';
 
 describe('API Enhancements', () => {
     it('should handle queries with variable binding', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         nar.inheritance('bird', 'animal');
         nar.inheritance('robin', 'bird');
         nar.inheritance('sparrow', 'bird');
@@ -20,7 +20,7 @@ describe('API Enhancements', () => {
     });
 
     it('should provide counterfactual explanations', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         // A -> B, B -> C, therefore A -> C
         nar.nal('<A --> B>.');
         nar.nal('<B --> C>.');
@@ -50,14 +50,14 @@ describe('API Enhancements', () => {
     });
 
     it('should find a directly added complex term', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         nar.nal('<tweety --> flyer>.');
         const results = nar.query('<tweety --> flyer>');
         expect(results.length).toBe(1);
     });
 
     it('should get and resolve contradictions', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         nar.nal('<water --> wet>. %1.0;0.9%');
         nar.nal('<water --> wet>. %0.0;0.9%');
 
@@ -79,7 +79,7 @@ describe('API Enhancements', () => {
     });
 
     it('should resolve contradiction by specialization based on context', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         const hyperedgeId = nar.nal('<A --> B>. %1.0;0.9%');
         const belief1 = nar.getBeliefs(hyperedgeId)[0];
         nar.contradictionManager.addEvidence(hyperedgeId, belief1.id, {
@@ -119,7 +119,7 @@ describe('API Enhancements', () => {
     });
 
     it('should configure and get meta-reasoning strategy', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         nar.configureStrategy({context: 'test_context', strategy: 'test_strategy', priority: 100});
 
         // This is a bit tricky to test directly without more hooks,
@@ -130,7 +130,7 @@ describe('API Enhancements', () => {
     });
 
     it('should handle goal decomposition and achievement', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         let goalDecomposed = false;
         let actionExecuted = false;
 
@@ -162,7 +162,7 @@ describe('API Enhancements', () => {
     });
 
     it('should form a new concept from recurring patterns', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         let conceptFormed = null;
 
         nar.on('concept-formed', (data) => {

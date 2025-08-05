@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, test} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {id} from '../support/utils.js';
 import {TruthValue} from '../support/TruthValue.js';
 
@@ -8,7 +8,7 @@ describe('AdvancedLearningEngine', () => {
     let learningEngine;
 
     beforeEach(() => {
-        nar = new NARHyper({useAdvanced: true});
+        nar = new NAR({useAdvanced: true});
         learningEngine = nar.learningEngine;
     });
 

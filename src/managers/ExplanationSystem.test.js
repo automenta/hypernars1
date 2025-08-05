@@ -1,10 +1,10 @@
 import {beforeEach, describe, expect, it} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {TruthValue} from '../support/TruthValue.js';
 
 describe('ExplanationSystem', () => {
     it('should identify a direct assertion', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         const termId = nar.nal('term.');
         const explanation = nar.explain(termId, {depth: 1, format: 'json'});
         const rootNode = JSON.parse(explanation);
@@ -12,7 +12,7 @@ describe('ExplanationSystem', () => {
     });
 
     it('should identify transitive inheritance', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         const p1 = nar.inheritance('A', 'B');
         const p2 = nar.inheritance('B', 'C');
 
@@ -29,7 +29,7 @@ describe('ExplanationSystem', () => {
     });
 
     it('should identify analogy', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         const p1 = nar.similarity('A', 'B');
         const p2 = nar.inheritance('A', 'C');
 
@@ -45,7 +45,7 @@ describe('ExplanationSystem', () => {
     });
 
     it('should fallback to "assertion" for beliefs with no known derivation rule', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         const p1 = nar.nal('premise1.');
         // The `derivedBy` is not specified, so it should be identified as a base assertion.
         const conclusion = nar.implication('premise1', 'conclusion', {premises: [p1]});
@@ -60,7 +60,7 @@ describe('ExplanationSystem', () => {
     });
 
     it('should explain a derived temporal relation using templates', () => {
-        const nar = new NARHyper({useAdvanced: true});
+        const nar = new NAR({useAdvanced: true});
         // Use the new API methods
         const t1 = nar.api.temporalInterval('event_A', 1000, 2000);
         const t2 = nar.api.temporalInterval('event_B', 3000, 4000);
@@ -81,7 +81,7 @@ describe('ExplanationSystem', () => {
         let conclusionId;
 
         beforeEach(() => {
-            nar = new NARHyper({useAdvanced: true});
+            nar = new NAR({useAdvanced: true});
             const p1 = nar.inheritance('A', 'B', {derivedBy: 'assertion'});
             const p2 = nar.inheritance('B', 'C', {derivedBy: 'assertion'});
             conclusionId = nar.inheritance('A', 'C', {premises: [p1, p2], derivedBy: 'transitivity'});
@@ -118,7 +118,7 @@ describe('ExplanationSystem', () => {
     describe('Advanced Explanation Formats', () => {
         let nar;
         beforeEach(() => {
-            nar = new NARHyper({useAdvanced: true});
+            nar = new NAR({useAdvanced: true});
         });
 
         it('should generate a justification with supporting and conflicting evidence', () => {
@@ -138,7 +138,7 @@ describe('ExplanationSystem', () => {
 
     describe('Contradiction Explanations', () => {
         it('should include a note about a resolved contradiction in the justification', () => {
-            const nar = new NARHyper({useAdvanced: true});
+            const nar = new NAR({useAdvanced: true});
             const conceptId = 'Inheritance(penguin, flyer)';
 
             // Introduce two strong but contradictory beliefs

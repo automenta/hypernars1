@@ -1,5 +1,5 @@
 import {beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 import {GoalManager} from './GoalManager.js';
 import {TruthValue} from '../support/TruthValue.js';
 
@@ -13,7 +13,7 @@ describe('GoalManager', () => {
 
     beforeEach(() => {
         // Use the advanced configuration to ensure all features are available
-        nar = new NARHyper({useAdvanced: true});
+        nar = new NAR({useAdvanced: true});
         goalManager = nar.goalManager;
         // Mock the emit function to spy on events
         nar.emit = jest.fn();

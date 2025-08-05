@@ -1,10 +1,10 @@
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 
 describe('AdvancedExpressionEvaluator', () => {
     let nar;
 
     beforeEach(() => {
-        nar = new NARHyper();
+        nar = new NAR();
     });
 
     it('should parse a simple negated term', () => {

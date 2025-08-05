@@ -1,11 +1,11 @@
 import {beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {NARHyper} from '../NARHyper.js';
+import {NAR} from '../NAR.js';
 
 describe('ConceptFormation', () => {
     let nar;
 
     beforeEach(() => {
-        nar = new NARHyper({useAdvanced: true});
+        nar = new NAR({useAdvanced: true});
     });
 
     it('should be instantiated in NARHyper', () => {

@@ -938,44 +938,45 @@ createKnowledgeDiff(otherSystem) {
 /**
  * Creates a sandboxed environment for safe experimentation
  */
-createSandbox(options = {}) {
-  const sandbox = new NARHyper({
-    ...this.config,
-    beliefCapacity: options.beliefCapacity || this.config.beliefCapacity,
-    maxPathLength: options.maxPathLength || this.config.maxPathLength,
-    temporalHorizon: options.temporalHorizon || this.config.temporalHorizon
-  });
-  
-  // Copy relevant knowledge
-  if (options.terms) {
-    options.terms.forEach(term => {
-      const id = typeof term === 'string' ? term : this._id('Term', [term]);
-      const hyperedge = this.hypergraph.get(id);
-      if (hyperedge) {
-        sandbox.hypergraph.set(id, hyperedge.clone());
-      }
+createSandbox(options = {})
+{
+    const sandbox = new NAR({
+        ...this.config,
+        beliefCapacity: options.beliefCapacity || this.config.beliefCapacity,
+        maxPathLength: options.maxPathLength || this.config.maxPathLength,
+        temporalHorizon: options.temporalHorizon || this.config.temporalHorizon
     });
-  } else {
-    // Default: copy all knowledge with sufficient confidence
-    this.hypergraph.forEach((hyperedge, id) => {
-      if (hyperedge.getTruthExpectation() > (options.minConfidence || 0.3)) {
-        sandbox.hypergraph.set(id, hyperedge.clone());
-      }
-    });
-  }
-  
-  // Copy indexes
-  sandbox._rebuildIndexes();
-  
-  // Set sandbox metadata
-  sandbox.metadata = {
-    parent: this,
-    creationTime: Date.now(),
-    options,
-    appliedChanges: []
-  };
-  
-  return sandbox;
+
+    // Copy relevant knowledge
+    if (options.terms) {
+        options.terms.forEach(term => {
+            const id = typeof term === 'string' ? term : this._id('Term', [term]);
+            const hyperedge = this.hypergraph.get(id);
+            if (hyperedge) {
+                sandbox.hypergraph.set(id, hyperedge.clone());
+            }
+        });
+    } else {
+        // Default: copy all knowledge with sufficient confidence
+        this.hypergraph.forEach((hyperedge, id) => {
+            if (hyperedge.getTruthExpectation() > (options.minConfidence || 0.3)) {
+                sandbox.hypergraph.set(id, hyperedge.clone());
+            }
+        });
+    }
+
+    // Copy indexes
+    sandbox._rebuildIndexes();
+
+    // Set sandbox metadata
+    sandbox.metadata = {
+        parent: this,
+        creationTime: Date.now(),
+        options,
+        appliedChanges: []
+    };
+
+    return sandbox;
 }
 ```
 

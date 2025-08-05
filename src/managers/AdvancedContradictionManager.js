@@ -399,7 +399,11 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
         if (totalWeight > 0) {
             const newTruth = new TruthValue(weightedFrequency / totalWeight, weightedConfidence / totalWeight);
-            hyperedge.beliefs = [{truth: newTruth, budget: Budget.full().scale(this.config.sourceReliabilityBudgetScale), timestamp: Date.now()}];
+            hyperedge.beliefs = [{
+                truth: newTruth,
+                budget: Budget.full().scale(this.config.sourceReliabilityBudgetScale),
+                timestamp: Date.now()
+            }];
             return {reason: 'source-reliability', newTruth};
         }
         return null;
@@ -635,7 +639,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     }
 
     _getResolutionSuggestionDetails(hyperedgeId, strategy) {
-        switch(strategy) {
+        switch (strategy) {
             case 'dominant_evidence':
                 return "One belief has significantly stronger evidence and would be prioritized.";
             case 'specialize':

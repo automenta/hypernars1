@@ -34,7 +34,7 @@ import {GoalManager} from './managers/GoalManager.js';
 import {ConceptFormation} from './managers/ConceptFormation.js';
 
 
-export class NARHyper extends EventEmitter {
+export class NAR extends EventEmitter {
     constructor(config = {}) {
         super();
         this.config = Object.assign({
@@ -77,16 +77,41 @@ export class NARHyper extends EventEmitter {
         const customModules = config.modules || {};
 
         const moduleDefinitions = [
-            { name: 'ExpressionEvaluator', simple: ExpressionEvaluator, advanced: AdvancedExpressionEvaluator },
-            { name: 'DerivationEngine', simple: SimpleDerivationEngine, advanced: AdvancedDerivationEngine, base: DerivationEngineBase },
-            { name: 'MemoryManager', simple: SimpleMemoryManager, advanced: AdvancedMemoryManager, base: MemoryManagerBase },
-            { name: 'ContradictionManager', simple: SimpleContradictionManager, advanced: AdvancedContradictionManager, base: ContradictionManagerBase },
-            { name: 'LearningEngine', simple: SimpleLearningEngine, advanced: AdvancedLearningEngine, base: LearningEngineBase },
-            { name: 'TemporalManager', simple: SimpleTemporalManager, advanced: TemporalReasoner, base: TemporalManagerBase },
-            { name: 'CognitiveExecutive', simple: CognitiveExecutive, advanced: CognitiveExecutive },
-            { name: 'ExplanationSystem', simple: ExplanationSystem, advanced: ExplanationSystem },
-            { name: 'GoalManager', simple: GoalManager, advanced: GoalManager, base: GoalManagerBase },
-            { name: 'ConceptFormation', simple: ConceptFormation, advanced: ConceptFormation },
+            {name: 'ExpressionEvaluator', simple: ExpressionEvaluator, advanced: AdvancedExpressionEvaluator},
+            {
+                name: 'DerivationEngine',
+                simple: SimpleDerivationEngine,
+                advanced: AdvancedDerivationEngine,
+                base: DerivationEngineBase
+            },
+            {
+                name: 'MemoryManager',
+                simple: SimpleMemoryManager,
+                advanced: AdvancedMemoryManager,
+                base: MemoryManagerBase
+            },
+            {
+                name: 'ContradictionManager',
+                simple: SimpleContradictionManager,
+                advanced: AdvancedContradictionManager,
+                base: ContradictionManagerBase
+            },
+            {
+                name: 'LearningEngine',
+                simple: SimpleLearningEngine,
+                advanced: AdvancedLearningEngine,
+                base: LearningEngineBase
+            },
+            {
+                name: 'TemporalManager',
+                simple: SimpleTemporalManager,
+                advanced: TemporalReasoner,
+                base: TemporalManagerBase
+            },
+            {name: 'CognitiveExecutive', simple: CognitiveExecutive, advanced: CognitiveExecutive},
+            {name: 'ExplanationSystem', simple: ExplanationSystem, advanced: ExplanationSystem},
+            {name: 'GoalManager', simple: GoalManager, advanced: GoalManager, base: GoalManagerBase},
+            {name: 'ConceptFormation', simple: ConceptFormation, advanced: ConceptFormation},
         ];
 
         for (const moduleDef of moduleDefinitions) {
@@ -124,7 +149,7 @@ export class NARHyper extends EventEmitter {
     }
 
     createSandbox(options = {}) {
-        const sandbox = new NARHyper({
+        const sandbox = new NAR({
             ...this.config,
             ...(options.config || {}),
         });
@@ -207,11 +232,11 @@ export class NARHyper extends EventEmitter {
         const messageLevel = levels[level.toLowerCase()] || 1;
 
         if (messageLevel >= currentLevel) {
-            const logMethod = this.config.logger[level.toLowerCase()] || this.config.logger.log || console.log;
             let logOutput = `${message}`;
             if (Object.keys(details).length > 0) {
                 logOutput += ` ${JSON.stringify(details)}`;
             }
+            const logMethod = this.config.logger[level.toLowerCase()] || this.config.logger.log || console.log;
             logMethod(logOutput);
         }
     }
