@@ -23,7 +23,7 @@ describe('Hyperedge', () => {
             expect(hyperedge.beliefs[0].budget).toBe(budget);
         });
 
-        it('should revise the existing belief with the new one', () => {
+        it('should add a new belief to an existing hyperedge', () => {
             const truth1 = new TruthValue(0.5, 0.9);
             const budget1 = new Budget(0.5, 0.9, 0.9);
             hyperedge.revise({truth: truth1, budget: budget1});
@@ -32,14 +32,7 @@ describe('Hyperedge', () => {
             const budget2 = new Budget(0.8, 0.9, 0.9);
             hyperedge.revise({truth: truth2, budget: budget2});
 
-            expect(hyperedge.beliefs.length).toBe(1);
-            const revisedBelief = hyperedge.getStrongestBelief();
-            const expectedTruth = TruthValue.revise(truth1, truth2);
-            const expectedBudget = budget1.merge(budget2);
-
-            expect(revisedBelief.truth.frequency).toBeCloseTo(expectedTruth.frequency);
-            expect(revisedBelief.truth.confidence).toBeCloseTo(expectedTruth.confidence);
-            expect(revisedBelief.budget.priority).toBeCloseTo(expectedBudget.priority);
+            expect(hyperedge.beliefs.length).toBe(2);
         });
     });
 
@@ -51,10 +44,9 @@ describe('Hyperedge', () => {
 
             const truth2 = new TruthValue(0.8, 0.9);
             const budget2 = new Budget(0.8, 0.9, 0.9);
-            hyperedge.revise({truth: new TruthValue(0.8, 0.9), budget: budget2});
+            hyperedge.revise({truth: truth2, budget: budget2});
 
-            const revisedBudget = budget1.merge(budget2);
-            expect(hyperedge.getStrongestBelief().budget.priority).toBeCloseTo(revisedBudget.priority);
+            expect(hyperedge.getStrongestBelief().budget.priority).toBe(0.8);
         });
 
         it('getTruth should return the truth of the strongest belief', () => {
@@ -63,11 +55,11 @@ describe('Hyperedge', () => {
             hyperedge.revise({truth: truth1, budget: budget1});
 
             const truth2 = new TruthValue(0.8, 0.9);
-            hyperedge.revise({truth: truth2, budget: new Budget(0.8, 0.9, 0.9)});
+            const budget2 = new Budget(0.8, 0.9, 0.9);
+            hyperedge.revise({truth: truth2, budget: budget2});
 
-            const expectedTruth = TruthValue.revise(truth1, truth2);
-            expect(hyperedge.getTruth().frequency).toBeCloseTo(expectedTruth.frequency);
-            expect(hyperedge.getTruth().confidence).toBeCloseTo(expectedTruth.confidence);
+            expect(hyperedge.getTruth().frequency).toBe(0.8);
+            expect(hyperedge.getTruth().confidence).toBe(0.9);
         });
 
         it('getTruth should return unknown truth if no beliefs', () => {

@@ -20,9 +20,14 @@ describe('AdvancedContradictionManager', () => {
         const parsedTerm = nar.expressionEvaluator.parse(term);
         const termId = nar.expressionEvaluator._getParsedStructureId(parsedTerm);
         const hyperedge = nar.state.hypergraph.get(termId);
-        expect(hyperedge.beliefs.length).toBe(1); // Should be revised down to one belief
+        expect(hyperedge.beliefs.length).toBe(2);
 
-        const revisedTruth = hyperedge.getTruth();
+        nar.contradictionManager.resolveContradictions();
+
+        const updatedHyperedge = nar.state.hypergraph.get(termId);
+        expect(updatedHyperedge.beliefs.length).toBe(1);
+
+        const revisedTruth = updatedHyperedge.getTruth();
         const expectedTruth = TruthValue.revise(truth1, truth2);
 
         expect(revisedTruth.frequency).toBeCloseTo(expectedTruth.frequency);

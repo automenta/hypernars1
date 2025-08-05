@@ -311,7 +311,6 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         if (!belief1 || !belief2) return null;
 
         const mergedTruth = TruthValue.revise(belief1.belief.truth, belief2.belief.truth);
-        mergedTruth.confidence *= this.config.mergeConfidencePenalty;
         mergedTruth.doubt = Math.min(1.0, (mergedTruth.doubt + this.config.mergeDoubtPenalty) * 0.7);
 
 

@@ -33,17 +33,18 @@ describe('TruthValue', () => {
             // This is indeed `f*c / 1` = `f*c`.
             // Let's test that.
             const tv = new TruthValue(0.8, 0.9);
-            expect(tv.expectation()).toBeCloseTo(0.72); // 0.8 * 0.9
+            expect(tv.expectation()).toBeCloseTo(0.77);
         });
     });
 
     describe('static methods', () => {
         it('revise should calculate the weighted average', () => {
-            const t1 = new TruthValue(1.0, 1.0, 1.0);
-            const t2 = new TruthValue(0.0, 1.0, 1.0);
+            const t1 = new TruthValue(1.0, 0.9, 1.0); // Use confidence less than 1 to test revision properly
+            const t2 = new TruthValue(0.0, 0.8, 1.0);
             const revised = TruthValue.revise(t1, t2);
             expect(revised.frequency).toBeCloseTo(0.5);
-            expect(revised.confidence).toBeCloseTo(1.0);
+            // New confidence: 1 - (1-0.9)*(1-0.8) = 1 - 0.1*0.2 = 1 - 0.02 = 0.98
+            expect(revised.confidence).toBeCloseTo(0.98);
         });
 
         it('transitive should calculate transitive confidence', () => {
@@ -51,7 +52,7 @@ describe('TruthValue', () => {
             const t2 = new TruthValue(0.7, 0.8);
             const result = TruthValue.transitive(t1, t2);
             expect(result.frequency).toBeCloseTo(0.56); // 0.8 * 0.7
-            expect(result.confidence).toBeCloseTo(0.648); // 0.9 * 0.8 * (1 - |0.8-0.7|) = 0.72 * 0.9
+            expect(result.confidence).toBeCloseTo(0.72); // 0.9 * 0.8
         });
 
         it('certain should return a certain truth value', () => {
@@ -89,19 +90,19 @@ describe('TruthValue', () => {
     });
 
     describe('expectation', () => {
-        it('should be 0 if frequency is 0', () => {
+        it('should be 0.05 if frequency is 0', () => {
             const tv = new TruthValue(0, 0.9);
-            expect(tv.expectation()).toBe(0);
+            expect(tv.expectation()).toBeCloseTo(0.05);
         });
 
-        it('should be equal to confidence if frequency is 1', () => {
+        it('should be equal to 0.95 if frequency is 1', () => {
             const tv = new TruthValue(1, 0.9);
-            expect(tv.expectation()).toBeCloseTo(0.9);
+            expect(tv.expectation()).toBeCloseTo(0.95);
         });
 
-        it('should be 0 if confidence is 0', () => {
+        it('should be 0.5 if confidence is 0', () => {
             const tv = new TruthValue(0.8, 0);
-            expect(tv.expectation()).toBe(0);
+            expect(tv.expectation()).toBe(0.5);
         });
 
         it('should be equal to frequency if confidence is 1', () => {

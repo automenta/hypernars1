@@ -51,7 +51,7 @@ export class NAR extends EventEmitter {
             derivationCacheSize: 1000,
             questionTimeout: 3000,
             memoryMaintenanceInterval: 100,
-            logLevel: 'debug',
+            logLevel: 'info',
             cleanupProbability: 0.1,
             maxPathCacheSize: 1000,
             pathCacheTruncationSize: 500,

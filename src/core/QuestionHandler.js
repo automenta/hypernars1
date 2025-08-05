@@ -98,7 +98,6 @@ export class QuestionHandler {
     }
 
     _answerQuestion(questionId, answer) {
-        console.log(`[DEBUG] _answerQuestion called for questionId: ${questionId}`);
         const promise = this.nar.state.questionPromises.get(questionId);
         if (!promise) return;
 
@@ -155,52 +154,22 @@ export class QuestionHandler {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return;
 
-        this.nar.state.questionPromises.forEach((_, questionId) => {
+        this.nar.state.questionPromises.forEach((promise, questionId) => {
             const questionPattern = questionId.replace(/^Question\(|\)\|.*$/g, '');
+            const cleanPattern = questionPattern.endsWith('?') ? questionPattern.slice(0, -1) : questionPattern;
 
-            // First, try a direct string match for simple, non-variable questions.
-            // This is more robust than relying on the parser for complex nested structures.
-            if (!questionPattern.includes('$') && !questionPattern.includes('*') && questionPattern === hyperedgeId) {
-                this._answerQuestion(questionId, {
-                    type: hyperedge.type,
-                    args: hyperedge.args,
-                    truth: belief.truth,
-                    derivationPath: belief.premises,
-                });
-                this.nar.learningEngine.recordSuccess?.(hyperedgeId);
-                return; // Move to the next question
-            }
-
-            // Fallback to the parser-based logic for questions with variables/wildcards.
             try {
-                const cleanPattern = questionPattern.endsWith('?') ? questionPattern.slice(0, -1) : questionPattern;
-                const {type, args} = this.nar.expressionEvaluator.parse(cleanPattern);
+                const parsedQuestion = this.nar.expressionEvaluator.parse(cleanPattern);
+                const questionHyperedgeId = id(parsedQuestion.type, parsedQuestion.args.map(a => a.args[0]));
 
-                if (type === hyperedge.type) {
-                    const matches = args.every((patternObj, i) => {
-                        const hyperedgeArg = hyperedge.args[i];
-                        if (typeof patternObj !== 'object' || !patternObj.type) {
-                            return patternObj === hyperedgeArg; // Fallback for simple strings
-                        }
-                        if (patternObj.type === 'Variable') {
-                            return hyperedgeArg !== undefined; // Matches any existing arg
-                        }
-                        if (patternObj.type === 'Term') {
-                            return patternObj.args[0] === hyperedgeArg;
-                        }
-                        // Add more complex logic for nested statements if needed in the future
-                        return false;
+                if (questionHyperedgeId === hyperedgeId) {
+                    this._answerQuestion(questionId, {
+                        type: hyperedge.type,
+                        args: hyperedge.args,
+                        truth: belief.truth,
+                        derivationPath: belief.premises,
                     });
-
-                    if (matches) {
-                        this._answerQuestion(questionId, {
-                            type: hyperedge.type,
-                            args: hyperedge.args,
-                            truth: belief.truth,
-                            derivationPath: belief.premises,
-                        });
-                        this.nar.learningEngine.recordSuccess?.(hyperedgeId);
-                    }
+                    this.nar.learningEngine.recordSuccess?.(hyperedgeId);
                 }
             } catch (e) {
                 // Ignore parsing errors for patterns that don't match

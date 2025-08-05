@@ -19,41 +19,17 @@ export class Hyperedge {
             derivedBy = null
         } = options;
 
-        const strongestBelief = this.getStrongestBelief();
+        const newBelief = {
+            id: `Belief_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            truth,
+            budget,
+            premises: premises || [],
+            context,
+            derivedBy,
+            timestamp: Date.now()
+        };
 
-        if (!strongestBelief) {
-            const newBelief = {
-                id: `Belief_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                truth,
-                budget,
-                premises: premises || [],
-                context,
-                derivedBy,
-                timestamp: Date.now()
-            };
-            this.beliefs.push(newBelief);
-        } else {
-            const revisedTruth = TruthValue.revise(strongestBelief.truth, truth);
-            const revisedBudget = strongestBelief.budget.merge(budget);
-
-            const revisedBelief = {
-                ...strongestBelief,
-                truth: revisedTruth,
-                budget: revisedBudget,
-                premises: premises || [],
-                context,
-                derivedBy,
-                timestamp: Date.now()
-            };
-
-            const index = this.beliefs.findIndex(b => b.id === strongestBelief.id);
-            if (index !== -1) {
-                this.beliefs[index] = revisedBelief;
-            } else {
-                this.beliefs.push(revisedBelief);
-            }
-        }
-
+        this.beliefs.push(newBelief);
         this.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
 
         if (this.beliefs.length > beliefCapacity) {

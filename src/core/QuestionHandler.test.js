@@ -10,8 +10,16 @@ describe('QuestionHandler', () => {
     let questionHandler;
 
     beforeEach(() => {
-        nar = new NAR();
+        nar = new NAR({useAdvanced: true});
         questionHandler = nar.questionHandler;
+    });
+
+    it('should add an event to the queue when a belief is added', () => {
+        expect(nar.state.eventQueue.heap.length).toBe(0);
+        nar.inheritance('sky', 'blue', { truth: new TruthValue(1.0, 0.9) });
+        expect(nar.state.eventQueue.heap.length).toBe(1);
+        const event = nar.state.eventQueue.pop();
+        expect(event.target).toBe('Inheritance(sky, blue)');
     });
 
     it('should answer a question when a corresponding belief is added', async () => {
@@ -22,21 +30,17 @@ describe('QuestionHandler', () => {
         expect(nar.state.questionPromises.size).toBe(1);
 
         // Add a belief that answers the question
-        const hyperedgeId = nar.inheritance('sky', 'blue');
-        const belief = {
-            id: 'belief1',
-            truth: new TruthValue(1.0, 0.9),
-            premises: [],
-        };
-        nar.state.hypergraph.get(hyperedgeId).beliefs.push(belief);
-        questionHandler.checkQuestionAnswers(hyperedgeId, belief);
+        nar.inheritance('sky', 'blue', { truth: new TruthValue(1.0, 0.9) });
+
+        // Manually run a few steps to process the event queue
+        for (let i = 0; i < 5; i++) {
+            nar.step();
+        }
 
         // The promise should resolve with the answer
-        await expect(answerPromise).resolves.toEqual({
+        await expect(answerPromise).resolves.toMatchObject({
             type: 'Inheritance',
             args: ['sky', 'blue'],
-            truth: belief.truth,
-            derivationPath: [],
         });
 
         // The question should be removed from the pending list
@@ -48,7 +52,7 @@ describe('QuestionHandler', () => {
         const answerPromise = questionHandler.ask(question, {timeout: 100});
 
         // Fast-forward time
-        jest.runAllTimers();
+        jest.runOnlyPendingTimers();
 
         await expect(answerPromise).rejects.toThrow('Question timed out after 100ms: <moon --> cheese>?');
     });

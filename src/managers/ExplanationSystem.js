@@ -179,11 +179,11 @@ export class ExplanationSystem {
     }
 
     _getConflictingEvidence(hyperedge, strongestBelief) {
-        const conflictingBeliefs = hyperedge.beliefs.filter(b => b !== strongestBelief);
+        const conflictingBeliefs = hyperedge.beliefs.filter(b => b.id !== strongestBelief.id);
         if (conflictingBeliefs.length === 0) return null;
 
         const evidenceLines = conflictingBeliefs.map(belief =>
-            `  - An alternative belief exists with confidence ${this._formatConfidence(belief.truth.confidence)} (f: ${belief.truth.frequency.toFixed(2)})`
+            `  - An alternative belief exists with confidence ${this._formatConfidence(belief.truth)} (f: ${belief.truth.frequency.toFixed(2)})`
         );
         return ["\nConflicting Evidence (overridden or merged):", ...evidenceLines].join('\n');
     }
@@ -191,7 +191,7 @@ export class ExplanationSystem {
     _getContradictionInfo(hyperedgeId) {
         const contradiction = this.nar.contradictionManager.contradictions.get(hyperedgeId);
         if (contradiction && contradiction.resolved) {
-            return `\nNote: This belief was part of a contradiction resolved via the '${contradiction.resolutionStrategy}' strategy.`;
+            return `\nNote: This belief was part of a contradiction resolved via the '${contradiction.resolutionStrategy || 'merge'}' strategy.`;
         }
         return null;
     }

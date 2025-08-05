@@ -9,16 +9,17 @@ export class TruthValue {
     }
 
     static revise(t1, t2) {
-        const total = t1.priority + t2.priority;
+        const totalPriority = t1.priority + t2.priority;
+        const revisedFrequency = (t1.frequency * t1.priority + t2.frequency * t2.priority) / totalPriority;
+        const revisedConfidence = 1 - (1 - t1.confidence) * (1 - t2.confidence);
         const doubt1 = t1.doubt || 0;
         const doubt2 = t2.doubt || 0;
-
         const doubt = Math.min(1.0, (doubt1 + doubt2) * 0.6 + Math.abs(t1.frequency - t2.frequency) * 0.4);
 
         return new TruthValue(
-            (t1.frequency * t1.priority + t2.frequency * t2.priority) / total,
-            (t1.confidence * t1.priority + t2.confidence * t2.priority) / total,
-            Math.min(total, 1.0),
+            revisedFrequency,
+            revisedConfidence,
+            Math.min(totalPriority, 1.0),
             doubt
         );
     }
@@ -28,7 +29,7 @@ export class TruthValue {
         const f2 = t2.frequency, c2 = t2.confidence;
 
         const frequency = f1 * f2;
-        const confidence = c1 * c2 * Math.max(0, 1 - Math.abs(f1 - f2));
+        const confidence = c1 * c2;
         const doubt = Math.max(t1.doubt || 0, t2.doubt || 0);
 
         return new TruthValue(frequency, confidence, Math.min(t1.priority, t2.priority) * 0.8, doubt);
@@ -92,9 +93,9 @@ export class TruthValue {
     }
 
     expectation() {
-        const {confidence} = this;
-        const baseExpectation = this.frequency * confidence / (confidence + (1 - confidence));
-        return baseExpectation * (1 - this.doubt);
+        const { frequency, confidence, doubt } = this;
+        const e = (confidence * (frequency - 0.5)) + 0.5;
+        return e * (1 - (doubt || 0));
     }
 
     scale(factor) {
