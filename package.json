@@ -31,9 +31,12 @@
   },
   "jest": {
     "testMatch": [
-      "**/__tests__/**/*.js?(x)",
-      "**/?(*.)+(spec|test).js?(x)",
-      "**/src/tests/adapter.test.js"
+      "**/src/**/*.test.js",
+      "**/src/test.js"
+    ],
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/src/tests/"
     ]
   }
 }

@@ -1,38 +1,94 @@
-import {describe, expect, it} from '@jest/globals';
-import {TestRunner} from './testing/TestRunner.js';
-import * as fs from 'fs';
-import * as path from 'path';
-import {pathToFileURL} from 'url';
+import {describe, expect, it, beforeEach} from '@jest/globals';
+import {NAR} from './NAR.js';
+import fs from 'fs';
+import path from 'path';
+import { pathToFileURL } from 'url';
 
 const testsDir = path.resolve(process.cwd(), 'src', 'tests');
+const files = fs.readdirSync(testsDir).filter(file => file.endsWith('.js') && !file.endsWith('.test.js'));
 
-describe('All Tests', () => {
-    const files = fs.readdirSync(testsDir).filter(file => file.endsWith('.js'));
-
-    files.forEach(file => {
+async function loadTestModules() {
+    const testModules = [];
+    for (const file of files) {
         if (file === '29_new_test.js') {
-            return;
+            continue;
         }
-
-        it(`should run tests from ${file} successfully`, async () => {
-            const modulePath = path.join(testsDir, file);
+        const modulePath = path.join(testsDir, file);
+        try {
             const testModule = await import(pathToFileURL(modulePath));
+            testModules.push({ file, testModule });
+        } catch (error) {
+            // Create a placeholder to report the error during test execution
+            testModules.push({ file, error });
+        }
+    }
+    return testModules;
+}
+
+async function runTests() {
+    const testModules = await loadTestModules();
+
+    describe('All Tests', () => {
+        testModules.forEach(({ file, testModule, error }) => {
+            if (error) {
+                it(`should import test file ${file} successfully`, () => {
+                    throw new Error(`Failed to import test file: ${file}\n${error.stack}`);
+                });
+                return;
+            }
+
+            if (!testModule || !testModule.default) {
+                return;
+            }
+
             const tests = Array.isArray(testModule.default) ? testModule.default : [testModule.default];
 
-            for (const test of tests) {
-                const runner = new TestRunner({useAdvanced: true, ...test.config});
-                const result = runner.run(test);
+            describe(`Tests from ${file}`, () => {
+                tests.forEach(test => {
+                    if (!test || !test.steps) {
+                        return;
+                    }
 
-                if (!result.result) {
-                    // Log details if the test fails
-                    console.log(`Test Failed: ${test.name || 'Unnamed test'}`);
-                    console.log(`Description: ${test.description || 'No description'}`);
-                    console.log('Logs:', result.logs.join('\n'));
-                }
+                    const testName = test.name || file;
+                    const describeBlock = test.skipped ? describe.skip : describe;
 
-                const expected = test.expectedResult === undefined ? true : test.expectedResult;
-                expect(result.result).toBe(expected);
-            }
+                    describeBlock(testName, () => {
+                        let nar;
+                        let logs;
+
+                        beforeEach(() => {
+                            nar = new NAR({...test.config, useAdvanced: true});
+                            logs = [];
+                            nar.on('log', (log) => {
+                                logs.push(log.message);
+                            });
+                        });
+
+                        test.steps.forEach((step, index) => {
+                            const stepName = step.comment || `Step ${index + 1}`;
+                            const itBlock = step.skipped ? it.skip : it;
+
+                            itBlock(stepName, () => {
+                                if (step.action) {
+                                    step.action(nar);
+                                }
+
+                                if (step.assert) {
+                                    const assertResult = step.assert(nar, logs);
+                                    if (assertResult !== true) {
+                                      const errorMessage = `Assertion failed in step: "${stepName}"\nLogs:\n${logs.join('\n')}`;
+                                      expect(assertResult).toBe(true, errorMessage);
+                                    } else {
+                                      expect(assertResult).toBe(true);
+                                    }
+                                }
+                            });
+                        });
+                    });
+                });
+            });
         });
     });
-});
+}
+
+runTests();
