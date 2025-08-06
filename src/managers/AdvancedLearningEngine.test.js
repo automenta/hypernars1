@@ -1,9 +1,9 @@
-import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
-import { AdvancedLearningEngine } from './AdvancedLearningEngine.js';
-import { TruthValue } from '../support/TruthValue.js';
-import { Budget } from '../support/Budget.js';
-import { Hyperedge } from '../support/Hyperedge.js';
-import { id } from '../support/utils.js';
+import {beforeEach, describe, expect, it, jest} from '@jest/globals';
+import {AdvancedLearningEngine} from './AdvancedLearningEngine.js';
+import {TruthValue} from '../support/TruthValue.js';
+import {Budget} from '../support/Budget.js';
+import {Hyperedge} from '../support/Hyperedge.js';
+import {id} from '../support/utils.js';
 
 // Mock NAR system
 const mockNar = {
@@ -43,10 +43,10 @@ const mockNar = {
 
 // Helper to create a mock hyperedge
 const createMockHyperedge = (edgeId, type, args, truth = new TruthValue(0.9, 0.9), budget = new Budget({}), premises = [], derivedBy = null) => {
-    const edge = new Hyperedge(type, args, { truth, budget, premises, derivedBy });
+    const edge = new Hyperedge(type, args, {truth, budget, premises, derivedBy});
     edge.id = edgeId;
     // Mock getStrongestBelief to return the main belief
-    edge.getStrongestBelief = jest.fn().mockReturnValue({ truth, budget, premises, derivedBy });
+    edge.getStrongestBelief = jest.fn().mockReturnValue({truth, budget, premises, derivedBy});
     mockNar.state.hypergraph.set(edgeId, edge);
     return edge;
 };
@@ -56,7 +56,7 @@ describe('AdvancedLearningEngine', () => {
 
     beforeEach(() => {
         engine = new AdvancedLearningEngine(mockNar);
-        
+
         jest.clearAllMocks();
         mockNar.state.hypergraph.clear();
         mockNar.derivationEngine.rules.clear();
@@ -67,7 +67,7 @@ describe('AdvancedLearningEngine', () => {
 
     describe('Experience Handling', () => {
         it('should record an experience and add it to the buffer', () => {
-            engine.recordExperience({ context: 'test' }, { success: true });
+            engine.recordExperience({context: 'test'}, {success: true});
             expect(engine.experienceBuffer.length).toBe(1);
             expect(engine.experienceBuffer[0].context).toBe('test');
         });
@@ -75,7 +75,7 @@ describe('AdvancedLearningEngine', () => {
         it('should prune the experience buffer when it exceeds max size', () => {
             mockNar.config.advancedLearningEngine.experienceBufferMaxSize = 5;
             for (let i = 0; i < 10; i++) {
-                engine.recordExperience({ context: `test${i}` }, { success: true });
+                engine.recordExperience({context: `test${i}`}, {success: true});
             }
             expect(engine.experienceBuffer.length).toBe(5);
             expect(engine.experienceBuffer[0].context).toBe('test5');
@@ -86,13 +86,13 @@ describe('AdvancedLearningEngine', () => {
             const spyReinforce = jest.spyOn(engine, '_reinforcePattern');
 
             // Failure
-            engine.recordExperience({}, { accuracy: 0.1 });
+            engine.recordExperience({}, {accuracy: 0.1});
             expect(spyAnalyze).toHaveBeenCalled();
 
             // Reinforcement
-            engine.recordExperience({}, { accuracy: 0.9 });
+            engine.recordExperience({}, {accuracy: 0.9});
             expect(spyReinforce).toHaveBeenCalled();
-            
+
             spyAnalyze.mockRestore();
             spyReinforce.mockRestore();
         });
@@ -102,10 +102,10 @@ describe('AdvancedLearningEngine', () => {
         it('should analyze failure and penalize the responsible rule and premise', () => {
             const premiseEdge = createMockHyperedge('premise1', 'Term', ['A'], new TruthValue(0.8, 0.8), new Budget({}), [], 'Initial');
             const derivationPath = [
-                { id: 'conclusion', derivedBy: 'TestRule' },
-                { id: 'premise1', derivedBy: 'Initial' }
+                {id: 'conclusion', derivedBy: 'TestRule'},
+                {id: 'premise1', derivedBy: 'Initial'}
             ];
-            const experience = { derivationPath, outcome: { accuracy: 0.1 } };
+            const experience = {derivationPath, outcome: {accuracy: 0.1}};
 
             engine._analyzeFailure(experience);
 
@@ -116,8 +116,8 @@ describe('AdvancedLearningEngine', () => {
 
         it('should reinforce patterns and boost confidence for success', () => {
             const premiseEdge = createMockHyperedge('premise1', 'Term', ['A'], new TruthValue(0.8, 0.8));
-            const derivationPath = [{ id: 'premise1' }];
-            const experience = { derivationPath, outcome: { accuracy: 0.9 } };
+            const derivationPath = [{id: 'premise1'}];
+            const experience = {derivationPath, outcome: {accuracy: 0.9}};
 
             engine._reinforcePattern(experience);
             expect(premiseEdge.getStrongestBelief().truth.confidence).toBeGreaterThan(0.8);
@@ -136,9 +136,9 @@ describe('AdvancedLearningEngine', () => {
 
     describe('Rule Adaptation', () => {
         it('should disable a rule if its effectiveness is below the threshold', () => {
-            mockNar.derivationEngine.rules.set('BadRule', { enabled: true });
-            engine.ruleProductivity.set('BadRule', { successes: 0, attempts: 10 });
-            
+            mockNar.derivationEngine.rules.set('BadRule', {enabled: true});
+            engine.ruleProductivity.set('BadRule', {successes: 0, attempts: 10});
+
             engine._adaptDerivationRules();
 
             expect(mockNar.derivationEngine.rules.get('BadRule').enabled).toBe(false);
@@ -146,8 +146,8 @@ describe('AdvancedLearningEngine', () => {
         });
 
         it('should re-enable a rule if its effectiveness improves', () => {
-            mockNar.derivationEngine.rules.set('GoodRule', { enabled: false });
-            engine.ruleProductivity.set('GoodRule', { successes: 8, attempts: 10 });
+            mockNar.derivationEngine.rules.set('GoodRule', {enabled: false});
+            engine.ruleProductivity.set('GoodRule', {successes: 8, attempts: 10});
 
             engine._adaptDerivationRules();
 
@@ -164,11 +164,11 @@ describe('AdvancedLearningEngine', () => {
         });
 
         it('should discover patterns from successful experiences', () => {
-            const experience = { success: true, premises: ['p1', 'p2'], conclusion: 'c1' };
-            engine.recordExperience(experience, { success: true });
-            
+            const experience = {success: true, premises: ['p1', 'p2'], conclusion: 'c1'};
+            engine.recordExperience(experience, {success: true});
+
             engine._discoverPatterns();
-            
+
             const signature = 'Inheritance,Inheritance=>Inheritance';
             expect(engine.patternMemory.has(signature)).toBe(true);
             expect(engine.patternMemory.get(signature).totalCount).toBe(1);
@@ -177,7 +177,7 @@ describe('AdvancedLearningEngine', () => {
         it('should create a shortcut rule from a successful pattern', () => {
             const signature = 'Inheritance,Inheritance=>Inheritance';
             engine.patternMemory.set(signature, {
-                instances: [{ premises: ['p1', 'p2'], conclusion: 'c1' }],
+                instances: [{premises: ['p1', 'p2'], conclusion: 'c1'}],
                 successCount: 4,
                 totalCount: 4
             });
@@ -198,7 +198,7 @@ describe('AdvancedLearningEngine', () => {
             jest.spyOn(engine, '_getTermsFromSignature').mockReturnValue(['TypeA', 'TypeB']);
 
             engine._formNewConcepts();
-            
+
             const conceptId = id('Concept', ['TypeA', 'TypeB']);
             expect(mockNar.api.addHyperedge).toHaveBeenCalledWith('Concept', ['TypeA', 'TypeB'], expect.any(Object));
             expect(mockNar.api.inheritance).toHaveBeenCalledWith(conceptId, 'TypeA', expect.any(Object));

@@ -62,8 +62,8 @@ export default {
                 nar.nal('(cat --> friendly). %0.2;0.9%');
                 // Add some weaker, inconclusive evidence.
                 const catIsFriendlyId = nar.inheritance('cat', 'friendly');
-                nar.contradictions.addEvidence(catIsFriendlyId, { source: 'observation1', strength: 0.6 });
-                nar.contradictions.addEvidence(catIsFriendlyId, { source: 'observation2', strength: 0.5 });
+                nar.contradictions.addEvidence(catIsFriendlyId, {source: 'observation1', strength: 0.6});
+                nar.contradictions.addEvidence(catIsFriendlyId, {source: 'observation2', strength: 0.5});
                 nar.run(10);
             },
             assert: (nar) => {
@@ -72,10 +72,10 @@ export default {
                 const analysis = nar.contradictions.analyze(catIsFriendlyId);
                 // The analysis should contain the list of contradictions and a suggestion.
                 return analysis &&
-                       analysis.contradictions &&
-                       analysis.contradictions.length === 2 &&
-                       analysis.resolutionSuggestion &&
-                       analysis.resolutionSuggestion.resolved === false; // Because evidence is not strong enough to resolve.
+                    analysis.contradictions &&
+                    analysis.contradictions.length === 2 &&
+                    analysis.resolutionSuggestion &&
+                    analysis.resolutionSuggestion.resolved === false; // Because evidence is not strong enough to resolve.
             }
         }
     ]

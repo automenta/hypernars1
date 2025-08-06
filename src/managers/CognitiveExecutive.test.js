@@ -1,13 +1,11 @@
-import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
-import { CognitiveExecutive } from './CognitiveExecutive.js';
-import { Hyperedge } from '../support/Hyperedge.js';
-import { TruthValue } from '../support/TruthValue.js';
+import {beforeEach, describe, expect, it, jest} from '@jest/globals';
+import {CognitiveExecutive} from './CognitiveExecutive.js';
 
 // Mock NAR system and its components
 const mockNar = {
     state: {
         hypergraph: new Map(),
-        eventQueue: { heap: [] },
+        eventQueue: {heap: []},
         questionPromises: new Map(),
         activations: new Map(),
         currentStep: 0,
@@ -64,7 +62,7 @@ describe('CognitiveExecutive', () => {
         mockNar.config.budgetThreshold = 0.1;
         mockNar.config.maxPathLength = 10;
         mockNar.derivationEngine.rules.clear();
-        
+
         executive = new CognitiveExecutive(mockNar);
         executive.lastMetricTimestamp = Date.now() - 1000; // Set to 1s ago
     });
@@ -76,8 +74,8 @@ describe('CognitiveExecutive', () => {
         });
 
         it('should allow overriding default configuration', () => {
-            const customConfig = { cognitiveExecutive: { MAINTENANCE_INTERVAL: 200 } };
-            const customNar = { ...mockNar, config: { ...mockNar.config, ...customConfig } };
+            const customConfig = {cognitiveExecutive: {MAINTENANCE_INTERVAL: 200}};
+            const customNar = {...mockNar, config: {...mockNar.config, ...customConfig}};
             const customExecutive = new CognitiveExecutive(customNar);
             expect(customExecutive.config.MAINTENANCE_INTERVAL).toBe(200);
         });
@@ -88,7 +86,7 @@ describe('CognitiveExecutive', () => {
             mockNar.derivationEngine.getAndResetInferenceCount.mockReturnValue(50);
             executive.contradictionCount = 2;
             mockNar.state.eventQueue.heap = new Array(500);
-            
+
             const metrics = executive._calculateMetrics();
 
             expect(metrics.inferenceRate).toBeCloseTo(50 / 200); // 50 inferences / normalization
@@ -98,13 +96,13 @@ describe('CognitiveExecutive', () => {
         });
 
         it('should detect high-contradictions issue', () => {
-            const metrics = { contradictionRate: 0.5 };
+            const metrics = {contradictionRate: 0.5};
             const issues = executive._detectIssues(metrics);
             expect(issues).toContain('high-contradictions');
         });
 
         it('should detect low-inference-rate issue', () => {
-            const metrics = { inferenceRate: 0.05, queueSize: 200 };
+            const metrics = {inferenceRate: 0.05, queueSize: 200};
             const issues = executive._detectIssues(metrics);
             expect(issues).toContain('low-inference-rate');
         });
@@ -125,13 +123,13 @@ describe('CognitiveExecutive', () => {
     describe('Resource and Focus Management', () => {
         it('should adjust resource allocation based on metrics', () => {
             const initialAllocation = executive.resourceAllocation.derivation;
-            const metrics = { inferenceRate: 0.1, contradictionRate: 0.1 }; // Low inference
+            const metrics = {inferenceRate: 0.1, contradictionRate: 0.1}; // Low inference
             executive._adjustResourceAllocation(metrics);
             expect(executive.resourceAllocation.derivation).toBeGreaterThan(initialAllocation);
         });
 
         it('should normalize resource allocation to sum to 1', () => {
-            const metrics = { inferenceRate: 0.1, contradictionRate: 0.6 }; // low inference, high contradiction
+            const metrics = {inferenceRate: 0.1, contradictionRate: 0.6}; // low inference, high contradiction
             executive._adjustResourceAllocation(metrics);
             const total = Object.values(executive.resourceAllocation).reduce((a, b) => a + b, 0);
             expect(total).toBeCloseTo(1.0);
@@ -144,7 +142,7 @@ describe('CognitiveExecutive', () => {
         });
 
         it('should adjust focus to contradiction-resolution', () => {
-            const metrics = { contradictionRate: 0.5 };
+            const metrics = {contradictionRate: 0.5};
             executive._adjustReasoningFocus(metrics);
             expect(executive.currentFocus).toBe('contradiction-resolution');
         });
@@ -154,7 +152,7 @@ describe('CognitiveExecutive', () => {
         it('should monitor derivation performance', () => {
             executive.monitorDerivation('TestRule', true, 10, 0.9);
             executive.monitorDerivation('TestRule', false, 15, 0.1);
-            
+
             const stats = executive.rulePerformance.get('TestRule');
             expect(stats.successes).toBe(1);
             expect(stats.attempts).toBe(2);
@@ -163,10 +161,15 @@ describe('CognitiveExecutive', () => {
         });
 
         it('should adapt rule priorities based on efficiency', () => {
-            mockNar.derivationEngine.rules.set('EfficientRule', { priority: 0.5 });
-            mockNar.derivationEngine.rules.set('InefficientRule', { priority: 0.5 });
-            executive.rulePerformance.set('EfficientRule', { successes: 9, attempts: 10, totalCost: 100, totalValue: 9 });
-            executive.rulePerformance.set('InefficientRule', { successes: 1, attempts: 10, totalCost: 100, totalValue: 1 });
+            mockNar.derivationEngine.rules.set('EfficientRule', {priority: 0.5});
+            mockNar.derivationEngine.rules.set('InefficientRule', {priority: 0.5});
+            executive.rulePerformance.set('EfficientRule', {successes: 9, attempts: 10, totalCost: 100, totalValue: 9});
+            executive.rulePerformance.set('InefficientRule', {
+                successes: 1,
+                attempts: 10,
+                totalCost: 100,
+                totalValue: 1
+            });
 
             executive.adaptRulePriorities();
 
@@ -177,9 +180,9 @@ describe('CognitiveExecutive', () => {
         });
 
         it('should return the active strategy based on context', () => {
-            executive.configureStrategy({ context: 'high-uncertainty', strategy: 'cautious', priority: 10 });
-            executive.configureStrategy({ context: 'default', strategy: 'balanced', priority: 0 });
-            
+            executive.configureStrategy({context: 'high-uncertainty', strategy: 'cautious', priority: 10});
+            executive.configureStrategy({context: 'default', strategy: 'balanced', priority: 0});
+
             jest.spyOn(executive, '_assessReasoningContext').mockReturnValue(['high-uncertainty']);
             expect(executive.getActiveStrategy()).toBe('cautious');
         });

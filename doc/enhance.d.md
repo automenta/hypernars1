@@ -411,230 +411,239 @@ Added mechanisms for the system to learn from its own reasoning history:
 
 ```javascript
 /* ===== EXPERIENCE-BASED LEARNING ===== */
-constructor(config = {}) {
-  // Existing initialization...
-  this.learning = {
-    derivationPatterns: new Map(),  // Tracks successful derivation patterns
-    ruleProductivity: new Map(),    // Tracks productivity of inference rules
-    contextPatterns: new Map(),     // Tracks context-specific patterns
-    recentSuccesses: [],            // Recent successful derivations
-    patternCache: new LRUMap(500)   // Cache for frequent patterns
-  };
-  this.learningStats = {
-    totalDerivations: 0,
-    successfulDerivations: 0,
-    patternHits: 0,
-    patternMisses: 0
-  };
+constructor(config = {})
+{
+    // Existing initialization...
+    this.learning = {
+        derivationPatterns: new Map(),  // Tracks successful derivation patterns
+        ruleProductivity: new Map(),    // Tracks productivity of inference rules
+        contextPatterns: new Map(),     // Tracks context-specific patterns
+        recentSuccesses: [],            // Recent successful derivations
+        patternCache: new LRUMap(500)   // Cache for frequent patterns
+    };
+    this.learningStats = {
+        totalDerivations: 0,
+        successfulDerivations: 0,
+        patternHits: 0,
+        patternMisses: 0
+    };
 }
 
 /* ===== PATTERN LEARNING ===== */
-recordDerivationSuccess(hyperedgeId, derivationPath, sourceIds) {
-  this.learningStats.totalDerivations++;
-  
-  if (!derivationPath || derivationPath.length === 0) return;
-  
-  // Record the successful derivation pattern
-  const patternKey = this._createDerivationPatternKey(derivationPath, sourceIds);
-  const pattern = this.learning.derivationPatterns.get(patternKey) || {
-    count: 0,
-    lastUsed: Date.now(),
-    sources: new Set(sourceIds),
-    path: derivationPath
-  };
-  
-  pattern.count++;
-  pattern.lastUsed = Date.now();
-  this.learning.derivationPatterns.set(patternKey, pattern);
-  
-  // Track rule productivity
-  derivationPath.forEach(step => {
-    const ruleStats = this.learning.ruleProductivity.get(step) || { 
-      successes: 0, 
-      attempts: 0,
-      lastSuccess: Date.now()
+recordDerivationSuccess(hyperedgeId, derivationPath, sourceIds)
+{
+    this.learningStats.totalDerivations++;
+
+    if (!derivationPath || derivationPath.length === 0) return;
+
+    // Record the successful derivation pattern
+    const patternKey = this._createDerivationPatternKey(derivationPath, sourceIds);
+    const pattern = this.learning.derivationPatterns.get(patternKey) || {
+        count: 0,
+        lastUsed: Date.now(),
+        sources: new Set(sourceIds),
+        path: derivationPath
     };
-    ruleStats.successes++;
-    ruleStats.lastSuccess = Date.now();
-    this.learning.ruleProductivity.set(step, ruleStats);
-  });
-  
-  // Store in recent successes for short-term learning
-  this.learning.recentSuccesses.push({
-    hyperedgeId,
-    patternKey,
-    timestamp: Date.now(),
-    derivationPath
-  });
-  
-  // Trim recent successes to last 100
-  if (this.learning.recentSuccesses.length > 100) {
-    this.learning.recentSuccesses.shift();
-  }
-  
-  this.learningStats.successfulDerivations++;
+
+    pattern.count++;
+    pattern.lastUsed = Date.now();
+    this.learning.derivationPatterns.set(patternKey, pattern);
+
+    // Track rule productivity
+    derivationPath.forEach(step => {
+        const ruleStats = this.learning.ruleProductivity.get(step) || {
+            successes: 0,
+            attempts: 0,
+            lastSuccess: Date.now()
+        };
+        ruleStats.successes++;
+        ruleStats.lastSuccess = Date.now();
+        this.learning.ruleProductivity.set(step, ruleStats);
+    });
+
+    // Store in recent successes for short-term learning
+    this.learning.recentSuccesses.push({
+        hyperedgeId,
+        patternKey,
+        timestamp: Date.now(),
+        derivationPath
+    });
+
+    // Trim recent successes to last 100
+    if (this.learning.recentSuccesses.length > 100) {
+        this.learning.recentSuccesses.shift();
+    }
+
+    this.learningStats.successfulDerivations++;
 }
 
-_createDerivationPatternKey(derivationPath, sourceIds) {
-  // Create a hashable key for the derivation pattern
-  const pathHash = derivationPath.join('|');
-  const sourceHash = [...sourceIds].sort().join(',');
-  return `${pathHash}|${sourceHash}`;
+_createDerivationPatternKey(derivationPath, sourceIds)
+{
+    // Create a hashable key for the derivation pattern
+    const pathHash = derivationPath.join('|');
+    const sourceHash = [...sourceIds].sort().join(',');
+    return `${pathHash}|${sourceHash}`;
 }
 
 /* ===== PATTERN-BASED DERIVATION ===== */
-_applyLearnedPatterns(hyperedgeId, activation, budget, pathHash, pathLength, derivationPath) {
-  const hyperedge = this.hypergraph.get(hyperedgeId);
-  if (!hyperedge) return false;
-  
-  let patternsApplied = 0;
-  
-  // Check for direct pattern matches
-  const directPatterns = this._findMatchingPatterns(hyperedgeId);
-  for (const pattern of directPatterns) {
-    this._applyDerivationPattern(pattern, hyperedgeId, activation, budget, pathHash, pathLength, derivationPath);
-    patternsApplied++;
-  }
-  
-  // Check for contextual pattern matches
-  const context = this._buildReasoningContext(hyperedgeId);
-  const contextPatterns = this._findContextualPatterns(context);
-  for (const pattern of contextPatterns) {
-    this._applyDerivationPattern(pattern, hyperedgeId, activation, budget, pathHash, pathLength, derivationPath);
-    patternsApplied++;
-  }
-  
-  // Check recent successes for similar situations
-  const recentPatterns = this._findRecentSimilarPatterns(hyperedgeId);
-  for (const pattern of recentPatterns) {
-    this._applyDerivationPattern(pattern, hyperedgeId, activation, budget, pathHash, pathLength, derivationPath);
-    patternsApplied++;
-  }
-  
-  return patternsApplied > 0;
-}
+_applyLearnedPatterns(hyperedgeId, activation, budget, pathHash, pathLength, derivationPath)
+{
+    const hyperedge = this.hypergraph.get(hyperedgeId);
+    if (!hyperedge) return false;
 
-_findMatchingPatterns(hyperedgeId) {
-  const matches = [];
-  const hyperedge = this.hypergraph.get(hyperedgeId);
-  if (!hyperedge) return matches;
-  
-  this.learning.derivationPatterns.forEach((pattern, key) => {
-    // Check if this pattern applies to the current hyperedge
-    if (pattern.sources.has(hyperedgeId)) {
-      matches.push(pattern);
+    let patternsApplied = 0;
+
+    // Check for direct pattern matches
+    const directPatterns = this._findMatchingPatterns(hyperedgeId);
+    for (const pattern of directPatterns) {
+        this._applyDerivationPattern(pattern, hyperedgeId, activation, budget, pathHash, pathLength, derivationPath);
+        patternsApplied++;
     }
-  });
-  
-  return matches;
-}
 
-_buildReasoningContext(hyperedgeId) {
-  const context = {
-    activeTerms: new Set(),
-    recentEvents: [],
-    currentQuestions: new Set(),
-    temporalContext: null
-  };
-  
-  // Active terms in the reasoning context
-  this.activations.forEach((activation, termId) => {
-    if (activation > 0.3) {
-      context.activeTerms.add(termId);
+    // Check for contextual pattern matches
+    const context = this._buildReasoningContext(hyperedgeId);
+    const contextPatterns = this._findContextualPatterns(context);
+    for (const pattern of contextPatterns) {
+        this._applyDerivationPattern(pattern, hyperedgeId, activation, budget, pathHash, pathLength, derivationPath);
+        patternsApplied++;
     }
-  });
-  
-  // Current questions being processed
-  this.questionPromises.forEach((_, questionId) => {
-    const question = questionId.replace(/^Question\(|\|.*$/g, '');
-    context.currentQuestions.add(question);
-  });
-  
-  // Temporal context
-  const now = Date.now();
-  context.temporalContext = {
-    recentEvents: [...this.temporalIntervals.values()]
-      .filter(interval => now - interval.endTime < 5000)
-      .map(interval => interval.id)
-  };
-  
-  return context;
+
+    // Check recent successes for similar situations
+    const recentPatterns = this._findRecentSimilarPatterns(hyperedgeId);
+    for (const pattern of recentPatterns) {
+        this._applyDerivationPattern(pattern, hyperedgeId, activation, budget, pathHash, pathLength, derivationPath);
+        patternsApplied++;
+    }
+
+    return patternsApplied > 0;
 }
 
-_applyDerivationPattern(pattern, hyperedgeId, activation, budget, pathHash, pathLength, derivationPath) {
-  // Apply the learned pattern to generate new derivations
-  pattern.sources.forEach(sourceId => {
-    if (sourceId === hyperedgeId || this._hasLoop(sourceId, pathHash)) return;
-    
-    // Calculate enhanced activation based on pattern strength
-    const patternStrength = Math.min(1.0, pattern.count * 0.1);
-    const enhancedActivation = Math.min(1.0, activation * (0.7 + patternStrength * 0.3));
-    
-    // Use the pattern's typical budget scaling
-    const patternBudget = budget.scale(0.8); // Could be more sophisticated
-    
-    this._propagate(
-      sourceId,
-      enhancedActivation,
-      patternBudget,
-      pathHash ^ this._hash(sourceId),
-      pathLength + 1,
-      [...derivationPath, `pattern:${pattern.count}`]
-    );
-    
-    this.learningStats.patternHits++;
-  });
+_findMatchingPatterns(hyperedgeId)
+{
+    const matches = [];
+    const hyperedge = this.hypergraph.get(hyperedgeId);
+    if (!hyperedge) return matches;
+
+    this.learning.derivationPatterns.forEach((pattern, key) => {
+        // Check if this pattern applies to the current hyperedge
+        if (pattern.sources.has(hyperedgeId)) {
+            matches.push(pattern);
+        }
+    });
+
+    return matches;
+}
+
+_buildReasoningContext(hyperedgeId)
+{
+    const context = {
+        activeTerms: new Set(),
+        recentEvents: [],
+        currentQuestions: new Set(),
+        temporalContext: null
+    };
+
+    // Active terms in the reasoning context
+    this.activations.forEach((activation, termId) => {
+        if (activation > 0.3) {
+            context.activeTerms.add(termId);
+        }
+    });
+
+    // Current questions being processed
+    this.questionPromises.forEach((_, questionId) => {
+        const question = questionId.replace(/^Question\(|\|.*$/g, '');
+        context.currentQuestions.add(question);
+    });
+
+    // Temporal context
+    const now = Date.now();
+    context.temporalContext = {
+        recentEvents: [...this.temporalIntervals.values()]
+            .filter(interval => now - interval.endTime < 5000)
+            .map(interval => interval.id)
+    };
+
+    return context;
+}
+
+_applyDerivationPattern(pattern, hyperedgeId, activation, budget, pathHash, pathLength, derivationPath)
+{
+    // Apply the learned pattern to generate new derivations
+    pattern.sources.forEach(sourceId => {
+        if (sourceId === hyperedgeId || this._hasLoop(sourceId, pathHash)) return;
+
+        // Calculate enhanced activation based on pattern strength
+        const patternStrength = Math.min(1.0, pattern.count * 0.1);
+        const enhancedActivation = Math.min(1.0, activation * (0.7 + patternStrength * 0.3));
+
+        // Use the pattern's typical budget scaling
+        const patternBudget = budget.scale(0.8); // Could be more sophisticated
+
+        this._propagate(
+            sourceId,
+            enhancedActivation,
+            patternBudget,
+            pathHash ^ this._hash(sourceId),
+            pathLength + 1,
+            [...derivationPath, `pattern:${pattern.count}`]
+        );
+
+        this.learningStats.patternHits++;
+    });
 }
 
 /* ===== RULE PRODUCTIVITY OPTIMIZATION ===== */
-getRulePriority(ruleName) {
-  const stats = this.learning.ruleProductivity.get(ruleName) || { 
-    successes: 0, 
-    attempts: 0,
-    lastSuccess: 0
-  };
-  
-  // Calculate productivity score
-  const recency = Math.exp(-(Date.now() - stats.lastSuccess) / (60 * 1000)); // 1 minute decay
-  const successRate = stats.attempts > 0 ? stats.successes / stats.attempts : 0;
-  
-  return successRate * 0.7 + recency * 0.3;
+getRulePriority(ruleName)
+{
+    const stats = this.learning.ruleProductivity.get(ruleName) || {
+        successes: 0,
+        attempts: 0,
+        lastSuccess: 0
+    };
+
+    // Calculate productivity score
+    const recency = Math.exp(-(Date.now() - stats.lastSuccess) / (60 * 1000)); // 1 minute decay
+    const successRate = stats.attempts > 0 ? stats.successes / stats.attempts : 0;
+
+    return successRate * 0.7 + recency * 0.3;
 }
 
-_applyDerivationRules(event) {
-  const { target, activation, budget, pathHash, pathLength, derivationPath } = event;
-  const hyperedge = this.hypergraph.get(target);
-  if (!hyperedge || activation <= this.config.inferenceThreshold || pathLength > this.config.maxDerivationDepth) return;
-  
-  // Apply learned patterns first (more efficient)
-  if (this._applyLearnedPatterns(target, activation, budget, pathHash, pathLength, derivationPath)) {
-    return;
-  }
-  
-  // Apply rules in order of productivity
-  const ruleNames = Object.keys({
-    'Inheritance': () => this._deriveInheritance(hyperedge, event),
-    'Similarity': () => this._deriveSimilarity(hyperedge, event),
-    'Implication': () => this._deriveImplication(hyperedge, event),
-    'Equivalence': () => this._deriveEquivalence(hyperedge, event),
-    'Conjunction': () => this._deriveConjunction(hyperedge, event),
-    'Disjunction': () => this._deriveDisjunction(hyperedge, event),
-    'Product': () => this._deriveProduct(hyperedge, event),
-    'ImageExt': () => this._deriveImageExt(hyperedge, event),
-    'ImageInt': () => this._deriveImageInt(hyperedge, event),
-    'Term': () => this._deriveTerm(hyperedge, event)
-  });
-  
-  // Sort rules by productivity
-  const sortedRules = ruleNames
-    .filter(rule => rule === hyperedge.type)
-    .sort((a, b) => this.getRulePriority(b) - this.getRulePriority(a));
-  
-  // Apply the most productive rule
-  if (sortedRules.length > 0) {
-    const rule = sortedRules[0];
-    this[rule]();
-  }
+_applyDerivationRules(event)
+{
+    const {target, activation, budget, pathHash, pathLength, derivationPath} = event;
+    const hyperedge = this.hypergraph.get(target);
+    if (!hyperedge || activation <= this.config.inferenceThreshold || pathLength > this.config.maxDerivationDepth) return;
+
+    // Apply learned patterns first (more efficient)
+    if (this._applyLearnedPatterns(target, activation, budget, pathHash, pathLength, derivationPath)) {
+        return;
+    }
+
+    // Apply rules in order of productivity
+    const ruleNames = Object.keys({
+        'Inheritance': () => this._deriveInheritance(hyperedge, event),
+        'Similarity': () => this._deriveSimilarity(hyperedge, event),
+        'Implication': () => this._deriveImplication(hyperedge, event),
+        'Equivalence': () => this._deriveEquivalence(hyperedge, event),
+        'Conjunction': () => this._deriveConjunction(hyperedge, event),
+        'Disjunction': () => this._deriveDisjunction(hyperedge, event),
+        'Product': () => this._deriveProduct(hyperedge, event),
+        'ImageExt': () => this._deriveImageExt(hyperedge, event),
+        'ImageInt': () => this._deriveImageInt(hyperedge, event),
+        'Term': () => this._deriveTerm(hyperedge, event)
+    });
+
+    // Sort rules by productivity
+    const sortedRules = ruleNames
+        .filter(rule => rule === hyperedge.type)
+        .sort((a, b) => this.getRulePriority(b) - this.getRulePriority(a));
+
+    // Apply the most productive rule
+    if (sortedRules.length > 0) {
+        const rule = sortedRules[0];
+        this[rule]();
+    }
 }
 ```
 

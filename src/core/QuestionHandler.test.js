@@ -16,7 +16,7 @@ describe('QuestionHandler', () => {
 
     it('should add an event to the queue when a belief is added', () => {
         expect(nar.state.eventQueue.heap.length).toBe(0);
-        nar.inheritance('sky', 'blue', { truth: new TruthValue(1.0, 0.9) });
+        nar.inheritance('sky', 'blue', {truth: new TruthValue(1.0, 0.9)});
         expect(nar.state.eventQueue.heap.length).toBe(1);
         const event = nar.state.eventQueue.pop();
         expect(event.target).toBe('Inheritance(sky, blue)');
@@ -30,7 +30,7 @@ describe('QuestionHandler', () => {
         expect(nar.state.questionPromises.size).toBe(1);
 
         // Add a belief that answers the question
-        nar.inheritance('sky', 'blue', { truth: new TruthValue(1.0, 0.9) });
+        nar.inheritance('sky', 'blue', {truth: new TruthValue(1.0, 0.9)});
 
         // Manually run a few steps to process the event queue
         for (let i = 0; i < 5; i++) {

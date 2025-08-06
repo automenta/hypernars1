@@ -13,7 +13,7 @@ export default {
                     (nar, term1, term2, term3) => { // Action
                         nar.nal(`((${term1} --> ${term2}) & (${term2} --> ${term3})) ==> (${term1} --> ${term3}).`);
                     },
-                    { priority: 0.8, applicability: 0.6 }
+                    {priority: 0.8, applicability: 0.6}
                 );
             },
             assert: (nar) => {
@@ -68,7 +68,7 @@ export default {
             },
             assert: (nar) => {
                 // Define a context where our custom rule should be active.
-                const context = { has: (prop) => prop === 'transitive_relation' };
+                const context = {has: (prop) => prop === 'transitive_relation'};
                 const activeRules = nar.derivation.getActiveRules(context);
                 // The first rule in the returned array should be our custom rule because of its high priority.
                 return activeRules && activeRules.length > 0 && activeRules[0].action.toString().includes('customTransitivity');

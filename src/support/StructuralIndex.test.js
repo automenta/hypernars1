@@ -1,14 +1,14 @@
-import { StructuralIndex } from './StructuralIndex.js';
+import {StructuralIndex} from './StructuralIndex.js';
 
 describe('StructuralIndex', () => {
     let index;
 
     // Mock hyperedges with id, type, and args
-    const inheritanceEdge1 = { id: 'h1', type: 'Inheritance', args: ['A', 'B'] };
-    const inheritanceEdge2 = { id: 'h2', type: 'Inheritance', args: ['C', 'D'] };
-    const similarityEdge = { id: 'h3', type: 'Similarity', args: ['X', 'Y'] };
-    const ternaryEdge = { id: 'h4', type: 'SomeTernary', args: [1, 2, 3] };
-    const nonExistentEdge = { id: 'h99', type: 'Inheritance', args: ['Y', 'Z'] };
+    const inheritanceEdge1 = {id: 'h1', type: 'Inheritance', args: ['A', 'B']};
+    const inheritanceEdge2 = {id: 'h2', type: 'Inheritance', args: ['C', 'D']};
+    const similarityEdge = {id: 'h3', type: 'Similarity', args: ['X', 'Y']};
+    const ternaryEdge = {id: 'h4', type: 'SomeTernary', args: [1, 2, 3]};
+    const nonExistentEdge = {id: 'h99', type: 'Inheritance', args: ['Y', 'Z']};
 
 
     beforeEach(() => {
@@ -106,7 +106,7 @@ describe('StructuralIndex', () => {
         });
 
         it('should not throw an error if removing from a non-existent group', () => {
-            const edge = { id: 'h5', type: 'NonExistentType', args: [1, 2] };
+            const edge = {id: 'h5', type: 'NonExistentType', args: [1, 2]};
             expect(() => index.removeFromIndex(edge)).not.toThrow();
         });
     });

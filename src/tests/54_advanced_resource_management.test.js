@@ -12,8 +12,8 @@ export default {
             assert: (nar) => {
                 // Assuming the API from enhance.a.md is implemented and we can call it.
                 // A 'question' task should get a higher priority budget than a 'derivation' task.
-                const questionTask = { type: 'question', args: ['(a --> b)?'] };
-                const derivationTask = { type: 'derivation', args: ['(a --> b).', '(b --> c).'] };
+                const questionTask = {type: 'question', args: ['(a --> b)?']};
+                const derivationTask = {type: 'derivation', args: ['(a --> b).', '(b --> c).']};
 
                 const questionBudget = nar._resources.allocateResources(questionTask);
                 const derivationBudget = nar._resources.allocateResources(derivationTask);
@@ -28,11 +28,11 @@ export default {
             },
             assert: (nar) => {
                 // An urgent task should receive a higher priority budget.
-                const normalTask = { type: 'question', args: ['(x --> y)?'] };
-                const urgentTask = { type: 'critical-event', args: ['(reactor --> meltdown).'] };
+                const normalTask = {type: 'question', args: ['(x --> y)?']};
+                const urgentTask = {type: 'critical-event', args: ['(reactor --> meltdown).']};
 
                 const normalContext = {};
-                const urgentContext = { urgency: 0.9, importance: 0.95 };
+                const urgentContext = {urgency: 0.9, importance: 0.95};
 
                 const normalBudget = nar._resources.allocateResources(normalTask, normalContext);
                 const urgentBudget = nar._resources.allocateResources(urgentTask, urgentContext);
@@ -45,9 +45,9 @@ export default {
             action: (nar) => {
                 // Add some high-value and low-value items to the event queue for testing.
                 // Assumes we can access the event queue for this test.
-                nar.eventQueue.add({ name: 'high_value_event', budget: new Budget(0.9, 0.9, 0.9) });
-                nar.eventQueue.add({ name: 'low_value_event_1', budget: new Budget(0.1, 0.1, 0.1) });
-                nar.eventQueue.add({ name: 'low_value_event_2', budget: new Budget(0.15, 0.1, 0.1) });
+                nar.eventQueue.add({name: 'high_value_event', budget: new Budget(0.9, 0.9, 0.9)});
+                nar.eventQueue.add({name: 'low_value_event_1', budget: new Budget(0.1, 0.1, 0.1)});
+                nar.eventQueue.add({name: 'low_value_event_2', budget: new Budget(0.15, 0.1, 0.1)});
             },
             assert: (nar) => {
                 // The prune function should return the number of pruned items.

@@ -51,10 +51,10 @@ export default {
                 // The self-monitor function should return a set of metrics.
                 const report = nar.meta.selfMonitor();
                 return report &&
-                       report.metrics &&
-                       typeof report.metrics.inferenceRate === 'number' &&
-                       typeof report.metrics.contradictionRate === 'number' &&
-                       typeof report.metrics.resourceUtilization === 'number';
+                    report.metrics &&
+                    typeof report.metrics.inferenceRate === 'number' &&
+                    typeof report.metrics.contradictionRate === 'number' &&
+                    typeof report.metrics.resourceUtilization === 'number';
             }
         },
         {

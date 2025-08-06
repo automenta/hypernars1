@@ -60,8 +60,8 @@ export default {
                 const batBelief = nar.getBeliefs(nar.inheritance('bat', wingedSingerConcept.id))[0];
 
                 return sparrowBelief && sparrowBelief.truth.expectation() > 0.7 &&
-                       robinBelief && robinBelief.truth.expectation() > 0.6 &&
-                       (!batBelief || batBelief.truth.expectation() < 0.5);
+                    robinBelief && robinBelief.truth.expectation() > 0.6 &&
+                    (!batBelief || batBelief.truth.expectation() < 0.5);
             }
         }
     ]

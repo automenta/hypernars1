@@ -26,7 +26,7 @@ export default {
             assert: (nar) => {
                 const conclusionId = nar.inheritance('lion', 'animal');
                 // Assuming the API from enhance.a.md is implemented.
-                const explanation = nar.explain(conclusionId, { format: 'concise' });
+                const explanation = nar.explain(conclusionId, {format: 'concise'});
                 // A concise explanation should be a simple string and not overly long.
                 return typeof explanation === 'string' && explanation.length > 10 && explanation.length < 150;
             }
@@ -38,13 +38,13 @@ export default {
             },
             assert: (nar) => {
                 const conclusionId = nar.inheritance('lion', 'animal');
-                const explanation = nar.explain(conclusionId, { format: 'detailed' });
+                const explanation = nar.explain(conclusionId, {format: 'detailed'});
                 // A detailed explanation should be a longer string and contain specific keywords.
                 return typeof explanation === 'string' &&
-                       explanation.includes('CONCLUSION:') &&
-                       explanation.includes('PRIMARY REASONING PATH:') &&
-                       explanation.includes('Confidence:') &&
-                       explanation.includes('ALTERNATIVE PERSPECTIVES'); // Due to the reptile belief
+                    explanation.includes('CONCLUSION:') &&
+                    explanation.includes('PRIMARY REASONING PATH:') &&
+                    explanation.includes('Confidence:') &&
+                    explanation.includes('ALTERNATIVE PERSPECTIVES'); // Due to the reptile belief
             }
         },
         {
@@ -54,11 +54,11 @@ export default {
             },
             assert: (nar) => {
                 const conclusionId = nar.inheritance('lion', 'animal');
-                const explanation = nar.explain(conclusionId, { format: 'technical' });
+                const explanation = nar.explain(conclusionId, {format: 'technical'});
                 // A technical explanation might include things like hyperedge IDs, budget values, etc.
                 // For this test, we'll just check if it's a string that's different from the others.
-                const concise = nar.explain(conclusionId, { format: 'concise' });
-                const detailed = nar.explain(conclusionId, { format: 'detailed' });
+                const concise = nar.explain(conclusionId, {format: 'concise'});
+                const detailed = nar.explain(conclusionId, {format: 'detailed'});
 
                 return typeof explanation === 'string' && explanation !== concise && explanation !== detailed;
             }

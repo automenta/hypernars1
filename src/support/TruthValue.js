@@ -93,7 +93,7 @@ export class TruthValue {
     }
 
     expectation() {
-        const { frequency, confidence, doubt } = this;
+        const {frequency, confidence, doubt} = this;
         const e = (confidence * (frequency - 0.5)) + 0.5;
         return e * (1 - (doubt || 0));
     }

@@ -21,9 +21,9 @@ export default {
                 // Check if the goal 'presentation_ready' is active and has a temporal constraint.
                 const goal = nar.goals.getActive('presentation_ready');
                 return goal &&
-                       goal.temporalConstraint &&
-                       goal.temporalConstraint.type === 'before' &&
-                       goal.temporalConstraint.target === 'conference_starts';
+                    goal.temporalConstraint &&
+                    goal.temporalConstraint.type === 'before' &&
+                    goal.temporalConstraint.target === 'conference_starts';
             }
         },
         {
@@ -45,9 +45,9 @@ export default {
                 // Check if the maintenance goal is active with the correct temporal scope.
                 const goal = nar.goals.getActive('maintain(system_online)');
                 return goal &&
-                       goal.temporalConstraint &&
-                       goal.temporalConstraint.type === 'during' &&
-                       goal.temporalConstraint.target === 'work_hours';
+                    goal.temporalConstraint &&
+                    goal.temporalConstraint.type === 'during' &&
+                    goal.temporalConstraint.target === 'work_hours';
             }
         },
         {
@@ -57,7 +57,7 @@ export default {
                 nar.setTime('2025-11-30T23:00:00Z');
 
                 // Add another, less urgent goal.
-                nar.goal('organize_desktop', { priority: 0.5 });
+                nar.goal('organize_desktop', {priority: 0.5});
 
                 nar.run(50);
             },
@@ -69,8 +69,8 @@ export default {
 
                 // The budget/urgency of the presentation goal should be significantly higher.
                 return presentationGoal &&
-                       desktopGoal &&
-                       presentationGoal.budget.total() > desktopGoal.budget.total() * 2;
+                    desktopGoal &&
+                    presentationGoal.budget.total() > desktopGoal.budget.total() * 2;
             }
         }
     ]

@@ -1,11 +1,11 @@
-import { PriorityQueue } from './PriorityQueue.js';
+import {PriorityQueue} from './PriorityQueue.js';
 
 describe('PriorityQueue', () => {
     // Mock items with a budget structure, as expected by the default comparator
-    const highPriorityItem = { id: 'high', budget: { priority: 0.9 } };
-    const midPriorityItem = { id: 'mid', budget: { priority: 0.5 } };
-    const lowPriorityItem = { id: 'low', budget: { priority: 0.1 } };
-    const anotherMidPriorityItem = { id: 'mid2', budget: { priority: 0.5 } };
+    const highPriorityItem = {id: 'high', budget: {priority: 0.9}};
+    const midPriorityItem = {id: 'mid', budget: {priority: 0.5}};
+    const lowPriorityItem = {id: 'low', budget: {priority: 0.1}};
+    const anotherMidPriorityItem = {id: 'mid2', budget: {priority: 0.5}};
 
     it('should initialize as an empty queue', () => {
         const pq = new PriorityQueue();
@@ -51,9 +51,9 @@ describe('PriorityQueue', () => {
         pq.push(midPriorityItem);
         pq.push(lowPriorityItem);
         pq.push(highPriorityItem);
-        
+
         expect(pq.pop()).toBe(highPriorityItem);
-        
+
         pq.push(lowPriorityItem); // Add another low priority
         pq.push(anotherMidPriorityItem); // Add another mid priority
 
@@ -83,7 +83,7 @@ describe('PriorityQueue', () => {
         const pq = new PriorityQueue();
         const items = [];
         for (let i = 0; i < 1000; i++) {
-            const item = { budget: { priority: Math.random() } };
+            const item = {budget: {priority: Math.random()}};
             items.push(item);
             pq.push(item);
         }
@@ -98,9 +98,9 @@ describe('PriorityQueue', () => {
 
     describe('with Custom Comparator (Min-Heap)', () => {
         const minComparator = (a, b) => a.priority - b.priority;
-        const highPrio = { priority: 10 };
-        const midPrio = { priority: 5 };
-        const lowPrio = { priority: 1 };
+        const highPrio = {priority: 10};
+        const midPrio = {priority: 5};
+        const lowPrio = {priority: 1};
 
         it('should pop the lowest priority item first', () => {
             const pq = new PriorityQueue(minComparator);

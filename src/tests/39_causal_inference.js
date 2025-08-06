@@ -37,7 +37,7 @@ export default {
                 const powerConfidence = powerCorrelationBelief ? powerCorrelationBelief.truth.confidence : 0;
 
                 return switchConfidence < causalLinkBelief.truth.confidence &&
-                       powerConfidence < causalLinkBelief.truth.confidence;
+                    powerConfidence < causalLinkBelief.truth.confidence;
             }
         }
     ]

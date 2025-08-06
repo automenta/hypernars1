@@ -48,7 +48,6 @@ export default {
                 // for achieving its original goal, `light_on`. It should therefore generate
                 // `turn_on_generator` as a new instrumental goal.
                 const hasNewGoal = logs.some(log => log.includes('<turn_on_generator!>'));
-
                 return hasNewGoal;
             }
         }

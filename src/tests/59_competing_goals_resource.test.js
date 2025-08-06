@@ -6,9 +6,9 @@ export default {
             name: 'Setup two competing goals with different priorities',
             action: (nar) => {
                 // Goal 1: A high-priority, important goal.
-                nar.goal('pass_exam', { priority: 0.9 });
+                nar.goal('pass_exam', {priority: 0.9});
                 // Goal 2: A low-priority, less important goal.
-                nar.goal('watch_movie', { priority: 0.3 });
+                nar.goal('watch_movie', {priority: 0.3});
 
                 // Provide knowledge relevant to both goals.
                 nar.nal('(study --> pass_exam). %0.9;0.9%');

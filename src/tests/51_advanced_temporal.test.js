@@ -7,7 +7,7 @@ export default {
             action: (nar) => {
                 // Assuming the API from enhance.a.md is implemented
                 // "during('meeting', '9:00-10:00', 'daily')"
-                nar.temporal.during('meeting', '09:00', '10:00', { recurring: 'daily' });
+                nar.temporal.during('meeting', '09:00', '10:00', {recurring: 'daily'});
                 nar.run(10);
             },
             assert: (nar) => {
@@ -25,7 +25,7 @@ export default {
             action: (nar) => {
                 // "before('lunch', 'afternoon_meeting', { confidence: 0.9 })"
                 // Using the 'relate' function from the proposal
-                nar.temporal.relate('lunch', 'afternoon_meeting', 'before', { confidence: 0.9 });
+                nar.temporal.relate('lunch', 'afternoon_meeting', 'before', {confidence: 0.9});
                 nar.run(10);
             },
             assert: (nar) => {
