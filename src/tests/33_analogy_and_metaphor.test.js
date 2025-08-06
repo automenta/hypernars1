@@ -6,7 +6,7 @@ export default {
             comment: 'Setup the analogy: define relationships in a source domain (solar system) and a target domain (atom).',
             action: (nar) => {
                 // Source domain: A solar system has a sun at its center, and planets orbit it.
-                nar.nal('\n                // Source domain: A solar system has a sun at its center, and planets orbit it.\n                nar.nal(\'((solar_system * planet) <-> sun). \%0.9; 0.9\%\');
+                nar.nal('((solar_system * planet) <-> sun). %0.9; 0.9%');
                 nar.nal('(sun --> gravitational_center). \%0.9; 0.9\%');
 
                 // Target domain: An atom has a nucleus at its center, and electrons orbit it.
