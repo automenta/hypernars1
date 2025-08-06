@@ -429,7 +429,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         return inverses[relation];
     }
 
-    _composeTemporalRelations(rel1, rel2) {
+    _composeTemporalRelations(rel1, rel2, triedInverse = false) {
         const table = {
             'before': {
                 'before': ['before'],
@@ -466,13 +466,15 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         let composed = table[rel1]?.[rel2];
         if (composed) return composed;
 
-        // Try composing with inverse relations if a direct entry is not found
-        const inv_r1 = this._getInverseTemporalRelation(rel1);
-        const inv_r2 = this._getInverseTemporalRelation(rel2);
-        if (inv_r1 && inv_r2) {
-            const inv_composed = this._composeTemporalRelations(inv_r2, inv_r1);
-            if (inv_composed) {
-                return inv_composed.map(r => this._getInverseTemporalRelation(r)).filter(r => r);
+        // Try composing with inverse relations if a direct entry is not found, but only once.
+        if (!triedInverse) {
+            const inv_r1 = this._getInverseTemporalRelation(rel1);
+            const inv_r2 = this._getInverseTemporalRelation(rel2);
+            if (inv_r1 && inv_r2) {
+                const inv_composed = this._composeTemporalRelations(inv_r2, inv_r1, true);
+                if (inv_composed) {
+                    return inv_composed.map(r => this._getInverseTemporalRelation(r)).filter(r => r);
+                }
             }
         }
         return null;

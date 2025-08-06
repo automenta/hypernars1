@@ -1,3 +1,4 @@
+import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
 import { AdvancedDerivationEngine } from './AdvancedDerivationEngine.js';
 import { TruthValue } from '../support/TruthValue.js';
 import { Hyperedge } from '../support/Hyperedge.js';
@@ -42,8 +43,8 @@ const mockNar = {
 
 // Helper to create a mock hyperedge
 const createMockHyperedge = (id, type, args, truth = new TruthValue(0.9, 0.9)) => {
-    const edge = new Hyperedge(type, args, { truth });
-    edge.id = id;
+    const edge = new Hyperedge(mockNar, id, type, args);
+    edge.revise({ truth: truth, budget: new Budget({}) }); // Add a belief
     mockNar.state.hypergraph.set(id, edge);
     args.forEach(arg => {
         const argId = arg.id || arg;

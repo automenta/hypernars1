@@ -1,3 +1,4 @@
+import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
 import { CognitiveExecutive } from './CognitiveExecutive.js';
 import { Hyperedge } from '../support/Hyperedge.js';
 import { TruthValue } from '../support/TruthValue.js';

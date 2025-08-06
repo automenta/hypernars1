@@ -151,7 +151,9 @@ describe('AdvancedContradictionManager', () => {
         const hyperedge2_after = nar.state.hypergraph.get(termId2);
 
         // The new manager resolves all detected contradictions
-        expect(hyperedge1_after.beliefs.length).toBe(1);
+        // Hyperedge 1 used 'dominant_evidence', which weakens but keeps the other belief.
+        expect(hyperedge1_after.beliefs.length).toBe(2);
+        // Hyperedge 2 used 'specialize', which moves the conflicting belief to a new concept.
         expect(hyperedge2_after.beliefs.length).toBe(1);
     });
 });

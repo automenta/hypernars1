@@ -1,3 +1,4 @@
+import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
 import { AdvancedLearningEngine } from './AdvancedLearningEngine.js';
 import { TruthValue } from '../support/TruthValue.js';
 import { Budget } from '../support/Budget.js';
