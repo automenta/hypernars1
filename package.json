@@ -6,9 +6,7 @@
   "type": "module",
   "scripts": {
     "test": "NODE_OPTIONS=--experimental-vm-modules jest",
-    "start:example": "node src/example.js",
     "build": "babel src --out-dir dist --copy-files --extensions .js",
-    "prestart:tui": "npm run build",
     "start:tui": "node dist/tui.js"
   },
   "keywords": [
