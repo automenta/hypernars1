@@ -140,20 +140,4 @@ describe('System', () => {
         });
     });
 
-    describe.skip('Failing Tests', () => {
-        it('This test should fail: maintenance should trigger exactly on interval', () => {
-            nar.state.stepsSinceMaintenance = nar.config.memoryMaintenanceInterval;
-            const event = {target: 'concept1', budget: {priority: 0.5}};
-            nar.state.eventQueue.pop.mockReturnValue(event);
-
-            system.step();
-
-            // This is a deliberately faulty expectation. The maintenance runs *after* the step
-            // that *crosses* the interval threshold, not on the step that *is* the interval.
-            // The logic is `stepsSinceMaintenance >= interval`, and it's checked after incrementing.
-            // So if it's 99, it becomes 100, and maintenance runs. If it's 100, it becomes 101 and runs.
-            // The test above this one is correct. This one is designed to fail.
-            expect(nar.memoryManager.maintainMemory).not.toHaveBeenCalled();
-        });
-    });
 });

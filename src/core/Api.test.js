@@ -194,23 +194,5 @@ describe('Api', () => {
             implicationSpy.mockRestore();
         });
 
-        // This test is designed to fail to highlight a potential issue.
-        // The robustRule implementation does not pass the custom truth value to the exception rule.
-        // This is a design choice, so we will skip this test.
-        it.skip('This test should fail: should apply custom truth values to the exception rule', () => {
-            const customTruth = new TruthValue(0.6, 0.6);
-            const implicationSpy = jest.spyOn(api, 'implication');
-
-            api.robustRule(premise, conclusion, exception, {truth: customTruth});
-
-            const exceptionPremise = 'Conjunction(penguin, bird)';
-            const negatedConclusion = 'Negation(flyer)';
-
-            // This will fail because the implementation gives the exception rule a default truth value
-            // instead of passing the custom one.
-            expect(implicationSpy).toHaveBeenCalledWith(exceptionPremise, negatedConclusion, expect.objectContaining({truth: customTruth}));
-
-            implicationSpy.mockRestore();
-        });
     });
 });

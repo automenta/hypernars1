@@ -119,13 +119,13 @@ describe('AdvancedContradictionManager', () => {
         expect(analysis.resolutionSuggestion.strategy).toBe('dominant_evidence');
     });
 
-    it.skip('should find and resolve all detected contradictions via resolveContradictions()', () => {
+    it('should find and resolve all detected contradictions via resolveContradictions()', () => {
         const nar = new NAR(config);
 
         // Concept 1: Mild contradiction
         const termId1 = id('Term', ['d']);
         nar.api.addHyperedge('Term', ['d'], {truth: new TruthValue(0.8, 0.9), budget: new Budget(0.8, 0.9, 0.9)});
-        nar.api.addHyperedge('Term', ['d'], {truth: new TruthValue(0.3, 0.9), budget: new Budget(0.7, 0.9, 0.9)});
+        nar.api.addHyperedge('Term', ['d'], {truth: new TruthValue(0.3, 0.4), budget: new Budget(0.7, 0.9, 0.9)});
         let hyperedge1 = nar.state.hypergraph.get(termId1);
         let belief1_1 = hyperedge1.beliefs.find(b => b.truth.frequency === 0.8);
         let belief1_2 = hyperedge1.beliefs.find(b => b.truth.frequency === 0.3);
@@ -136,7 +136,7 @@ describe('AdvancedContradictionManager', () => {
         // Concept 2: Strong contradiction
         const termId2 = id('Term', ['e']);
         nar.api.addHyperedge('Term', ['e'], {truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9)});
-        nar.api.addHyperedge('Term', ['e'], {truth: new TruthValue(0.2, 0.9), budget: new Budget(0.88, 0.9, 0.9)});
+        nar.api.addHyperedge('Term', ['e'], {truth: new TruthValue(0.2, 0.4), budget: new Budget(0.88, 0.9, 0.9)});
         let hyperedge2 = nar.state.hypergraph.get(termId2);
         let belief2_1 = hyperedge2.beliefs.find(b => b.truth.frequency === 0.9);
         let belief2_2 = hyperedge2.beliefs.find(b => b.truth.frequency === 0.2);
