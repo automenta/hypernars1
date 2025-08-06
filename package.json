@@ -32,11 +32,11 @@
   "jest": {
     "testMatch": [
       "**/src/**/*.test.js",
+      "**/src/tests/**/*.js",
       "**/src/test.js"
     ],
     "testPathIgnorePatterns": [
-      "/node_modules/",
-      "/src/tests/"
+      "/node_modules/"
     ]
   }
 }

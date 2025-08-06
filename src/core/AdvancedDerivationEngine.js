@@ -7,6 +7,15 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         super(nar);
         this.rules = new Map();
         this.inferenceCount = 0;
+
+        // Bind 'this' context for all derivation methods
+        this._deriveInheritance = this._deriveInheritance.bind(this);
+        this._deriveSimilarity = this._deriveSimilarity.bind(this);
+        this._deriveImplication = this._deriveImplication.bind(this);
+        this._deriveTransitiveInheritance = this._deriveTransitiveInheritance.bind(this);
+        this._deriveAnalogy = this._deriveAnalogy.bind(this);
+        this._propagate = this._propagate.bind(this);
+
         this._registerDefaultRules();
     }
 
