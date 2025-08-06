@@ -27,7 +27,7 @@ const Tab = ({label, isActive}) => (
 const InteractionView = () => {
     const {handleCommand, runDemo, log} = useContext(TuiContext);
     const {isRawModeSupported} = useStdin();
-    const [activeTab, setActiveTab] = useState('input'); // input, demos
+    const [activeTab, setActiveTab] = useState('input');
 
     const [inputValue, setInputValue] = useState('');
     const [history, setHistory] = useState([]);

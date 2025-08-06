@@ -24,7 +24,7 @@ describe('All Tests', () => {
                 const result = runner.run(test);
 
                 if (!result.result) {
-                    // Log details if the test fails
+
                     console.log(`Test Failed: ${test.name || 'Unnamed test'}`);
                     console.log(`Description: ${test.description || 'No description'}`);
                     console.log('Logs:', result.logs.join('\n'));

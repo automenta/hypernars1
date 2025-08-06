@@ -7,9 +7,9 @@ describe('Propagation', () => {
     let propagation;
 
     beforeEach(() => {
-        nar = new NAR({budgetThreshold: 0.1}); // Use a higher threshold for testing
+        nar = new NAR({budgetThreshold: 0.1});
         propagation = nar.propagation;
-        // Ensure the event queue is clean before each test
+
         nar.state.eventQueue = new nar.state.eventQueue.constructor((a, b) => b.budget.priority - a.budget.priority);
     });
 
@@ -69,12 +69,12 @@ describe('Propagation', () => {
             derivationPath: []
         };
 
-        // First propagation should succeed
+
         propagation.propagate(event);
         expect(nar.state.eventQueue.length).toBe(1);
 
-        // Second propagation with the same target and pathHash should be blocked
-        nar.state.eventQueue.pop(); // Clear the queue for the next check
+
+        nar.state.eventQueue.pop();
         propagation.propagate(event);
         expect(nar.state.eventQueue.length).toBe(0);
     });

@@ -8,7 +8,7 @@ describe('API Enhancements', () => {
         nar.inheritance('robin', 'bird');
         nar.inheritance('sparrow', 'bird');
         nar.inheritance('penguin', 'bird');
-        nar.nal('<penguin --> flyer>. %0.1;0.9%'); // Penguins don't fly
+        nar.nal('<penguin --> flyer>. %0.1;0.9%');
 
         const results = nar.query('<$x --> bird>');
 
@@ -21,32 +21,32 @@ describe('API Enhancements', () => {
 
     it('should provide counterfactual explanations', () => {
         const nar = new NAR({useAdvanced: true});
-        // A -> B, B -> C, therefore A -> C
+
         nar.nal('<A --> B>.');
         nar.nal('<B --> C>.');
-        // Also, D -> C. This will be the alternative path.
+
         nar.nal('<D --> C>.');
 
-        nar.run(100); // Allow derivation
+        nar.run(100);
 
-        // Check that the primary conclusion was derived
+
         const derivedBeliefs = nar.query('<A --> C>');
         expect(derivedBeliefs.length).toBeGreaterThan(0);
         const conclusionId = derivedBeliefs[0].id;
 
-        // Ask the counterfactual: What if A was not a B, but a D?
+
         const explanation = nar.explain(conclusionId, {
             perspective: 'counterfactual',
             alternative: '<A --> D>.'
         });
 
         expect(explanation).toContain('Counterfactual analysis');
-        // It should identify that it's replacing <A --> B>
+
         expect(explanation).toContain('instead of "Inheritance(A, B)"');
-        // It should find that the original conclusion still holds
+
         expect(explanation).toContain('The original conclusion **still holds**');
-        // It should not mention any *new* conclusions because the original one is just re-derived.
-        // The logic for explaining *how* it still holds would be a further enhancement.
+
+
     });
 
     it('should find a directly added complex term', () => {
@@ -96,7 +96,7 @@ describe('API Enhancements', () => {
             context: 'field_conditions'
         });
 
-        nar.run(10); // Run to allow contradiction detection
+        nar.run(10);
 
         const contradictions = nar.getContradictions();
         expect(contradictions.length).toBe(1);
@@ -108,10 +108,10 @@ describe('API Enhancements', () => {
         nar.resolveContradiction(contradictionId, 'specialize');
         nar.run(5);
 
-        // The original contradiction should be resolved
+
         expect(nar.getContradictions().length).toBe(0);
 
-        // A new, specialized concept should exist
+
         const specializedHyperedgeId = `${hyperedgeId}|context:field_conditions`;
         const specializedBeliefs = nar.getBeliefs(specializedHyperedgeId);
         expect(specializedBeliefs.length).toBeGreaterThan(0);
@@ -122,8 +122,8 @@ describe('API Enhancements', () => {
         const nar = new NAR({useAdvanced: true});
         nar.configureStrategy({context: 'test_context', strategy: 'test_strategy', priority: 100});
 
-        // This is a bit tricky to test directly without more hooks,
-        // but we can verify the configuration was stored.
+
+
         const strategy = nar.cognitiveExecutive.strategies.find(s => s.context === 'test_context');
         expect(strategy).toBeDefined();
         expect(strategy.strategy).toBe('test_strategy');
@@ -134,7 +134,7 @@ describe('API Enhancements', () => {
         let goalDecomposed = false;
         let actionExecuted = false;
 
-        // Listen for system events
+
         nar.on('goal-decomposed', () => {
             goalDecomposed = true;
         });
@@ -144,20 +144,20 @@ describe('API Enhancements', () => {
             }
         });
 
-        // Define an action that can achieve a state
+
         nar.nal('<Term(action_to_achieve_B) ==> Term(B_is_achieved)>.');
 
-        // Define a complex goal
+
         const complexGoalDescription = '<C --> D>. && <B_is_achieved --> E>.';
         nar.addGoal(complexGoalDescription, 0.9);
 
-        // Add a base belief to satisfy the first part of the goal
+
         nar.nal('<C --> D>.');
 
-        // Run the system to process the goal
+
         nar.run(50);
 
-        // Assert that the goal was decomposed
+
         expect(goalDecomposed).toBe(true);
     });
 
@@ -169,26 +169,26 @@ describe('API Enhancements', () => {
             conceptFormed = data;
         });
 
-        // Repeatedly present a pattern of co-occurring terms
+
         for (let i = 0; i < 20; i++) {
             nar.nal('<termA --> propertyX>.');
             nar.nal('<termB --> propertyX>.');
             nar.nal('<termC --> propertyX>.');
-            nar.run(5); // Run a few steps to process
+            nar.run(5);
         }
 
-        // Run for enough cycles to trigger concept formation
+
         nar.run(150);
 
         expect(conceptFormed).not.toBeNull();
         expect(conceptFormed.from).toEqual(expect.arrayContaining(['Term(termA)', 'Term(termB)', 'Term(termC)']));
 
-        // Check if the concept hyperedge exists
+
         const conceptBelief = nar.queryBelief(conceptFormed.conceptId);
         expect(conceptBelief).not.toBeNull();
         expect(conceptBelief.truth.confidence).toBeGreaterThan(0.5);
 
-        // Check for inheritance links from the new concept
+
         const inheritanceLinks = nar.query(`<${conceptFormed.conceptId} --> $x>`);
         const inheritedTerms = inheritanceLinks.map(link => link.bindings['$x']);
         expect(inheritedTerms).toEqual(expect.arrayContaining(['Term(termA)', 'Term(termB)', 'Term(termC)']));

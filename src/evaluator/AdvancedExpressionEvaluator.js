@@ -1,8 +1,9 @@
 import {ExpressionEvaluatorBase} from './ExpressionEvaluatorBase.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {id} from '../support/utils.js';
+import { TASK_TYPES } from '../support/constants.js';
 
-// Custom error classes for precise error handling, as per `enhance.c.md`
+
 class NALParserError extends Error {
     constructor(message, details = {}) {
         super(message);
@@ -11,15 +12,10 @@ class NALParserError extends Error {
     }
 }
 
-/**
- * An advanced expression evaluator that merges the recursive parser from
- * `enhance.b.md` with the query/question handling from the original implementation,
- * and adds robust error handling from `enhance.c.md`.
- */
 export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     constructor(nar) {
         super(nar);
-        // This operator list is now used inside the new parser logic
+
         this.operators = [
             {symbol: '==>', precedence: 4, type: 'Implication'},
             {symbol: '<=>', precedence: 4, type: 'Equivalence'},
@@ -53,7 +49,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             const parsed = this.parse(cleanQuestion);
             if (!parsed || !parsed.type || !parsed.args) return;
 
-            const task = {type: 'question', hyperedgeType: parsed.type, args: parsed.args};
+            const task = {type: TASK_TYPES.QUESTION, hyperedgeType: parsed.type, args: parsed.args};
             const budget = this.nar.memoryManager.allocateResources(task, {importance: 1.0, urgency: 1.0});
             const hyperedgeId = this._getParsedStructureId(parsed);
             if (hyperedgeId) {
@@ -77,7 +73,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             const parsedPattern = this.parse(pattern.endsWith('?') ? pattern.slice(0, -1) : pattern);
 
             let results = [];
-            // Try direct match first
+
             const hyperedgeId = this._getParsedStructureId(parsedPattern);
             const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
 
@@ -94,7 +90,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 }
             }
 
-            // Then, perform binding or wildcard queries
+
             let queryResults;
             if (pattern.includes('$') || parsedPattern.type !== 'Term') {
                 queryResults = this.queryWithBinding(pattern, options);
@@ -104,11 +100,11 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
             results = results.concat(queryResults);
 
-            // Filter and sort
+
             results = results.filter(r => r.expectation >= minExpectation);
             this._sortQueryResults(results, sortBy);
 
-            // Deduplicate and limit
+
             const uniqueResults = [];
             const seenIds = new Set();
             for (const res of results) {
@@ -190,7 +186,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                     if (this._satisfiesConstraints(hyperedgeArgId, patternArg.constraints)) {
                         bindings.set(varName, hyperedgeArgId);
                     } else {
-                        return false; // Constraint check failed
+                        return false;
                     }
                 }
             } else if (typeof patternArg === 'object' && patternArg.type === 'Term') {
@@ -217,7 +213,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) {
-            // If the constraint is about the term not existing, this might be valid
+
             if (constraints.exists === 'false') return true;
             return false;
         }
@@ -237,7 +233,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                     const instanceOfId = id('Inheritance', [hyperedgeId, value]);
                     if (!this.nar.state.hypergraph.has(instanceOfId)) return false;
                     break;
-                // Add more constraint checks here as needed
+
             }
         }
 
@@ -321,17 +317,17 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     _parseNALExpression(content) {
         content = content.trim();
 
-        // 1. Handle Negation
+
         if (content.startsWith('!')) {
             return {type: 'Negation', args: [this._parseNALExpression(content.substring(1))]};
         }
-        // Handle alternative bracketed negation syntax
+
         if (content.startsWith('[-') && content.endsWith(']')) {
             const termContent = content.slice(2, -1).trim();
             return {type: 'Negation', args: [{type: 'Term', args: [termContent]}]};
         }
 
-        // 2. Handle Parentheses
+
         let isPaired = false;
         if (content.startsWith('(') && content.endsWith(')')) {
             let balance = 0;
@@ -349,7 +345,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             content = content.slice(1, -1).trim();
         }
 
-        // 3. Handle Operators (Implication, Conjunction, etc.)
+
         let bestOp = null;
         let depth = 0;
         let inQuotes = false;
@@ -376,7 +372,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             return {type: bestOp.type, args: [this._parseNALExpression(left), this._parseNALExpression(right)]};
         }
 
-        // 4. Handle specific term structures (Product, Image)
+
         const productMatch = content.match(/^\(\*\s*,\s*(.+)\)$/);
         if (productMatch) {
             const terms = productMatch[1].split(/\s*,\s*/).map(t => t.trim()).filter(Boolean);
@@ -390,7 +386,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             return {type, args: terms};
         }
 
-        // 5. Handle Variables
+
         if (content.startsWith('$') || content.startsWith('?')) {
             const constraintMatch = content.match(/^(\$[\w?]+)({(.*)})$/);
             if (constraintMatch) {
@@ -401,7 +397,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             return {type: 'Variable', args: [content]};
         }
 
-        // 6. Default to simple Term
+
         return {type: 'Term', args: [content]};
     }
 
@@ -423,18 +419,18 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
         const argIds = parsed.args.map(arg => {
             if (typeof arg === 'object' && arg !== null && arg.type) {
-                // For nested structures, we just need to ensure they exist.
-                const argId = this._getParsedStructureId(arg); // Just get the ID
+
+                const argId = this._getParsedStructureId(arg);
                 if (!this.nar.state.hypergraph.has(argId)) {
-                    // Add it with default options only if it's new.
+
                     this._addParsedStructure(arg, {});
                 }
                 return argId;
             }
-            return arg; // It's a simple string term
+            return arg;
         });
 
-        // The top-level statement gets the specific truth/budget from the parsed expression.
+
         const finalOptions = {...options, truth: parsed.truth, priority: parsed.priority};
         return this.nar.api.addHyperedge(parsed.type, argIds, finalOptions);
     }
@@ -444,17 +440,17 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             return parsed;
         }
 
-        if (!parsed || !parsed.args) return null; // Guard against invalid parsed objects
+        if (!parsed || !parsed.args) return null;
 
         const argIds = parsed.args.map(arg => {
             if (typeof arg === 'object' && arg !== null && arg.type) {
                 return this._getParsedStructureId(arg);
             }
-            return arg; // It's a string
+            return arg;
         });
 
         if (parsed.type === 'Negation') {
-            // Correctly handle nested structures within Negation
+
             return id(parsed.type, [argIds[0]]);
         }
 

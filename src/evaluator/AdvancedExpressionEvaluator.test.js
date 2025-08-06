@@ -34,7 +34,7 @@ describe('AdvancedExpressionEvaluator', () => {
         expect(result.args[0].type).toBe('Negation');
         const inner = result.args[0].args[0];
         expect(inner.type).toBe('Inheritance');
-        // The truth value belongs to the top-level statement, not the inner one.
+
         expect(result.truth.frequency).toBe(0.9);
         expect(result.truth.confidence).toBe(0.9);
     });
@@ -79,7 +79,7 @@ describe('AdvancedExpressionEvaluator', () => {
         it('should handle deeply nested expressions', () => {
             const result = nar.expressionEvaluator.parse('((a --> b) && (b --> c)) ==> (a --> c)');
 
-            expect(result.type).toBe('Implication'); // The ==> is the root
+            expect(result.type).toBe('Implication');
             const premise = result.args[0];
             const conclusion = result.args[1];
 
@@ -107,7 +107,7 @@ describe('AdvancedExpressionEvaluator', () => {
 
         it('should correctly parse content inside angle-brackets', () => {
             const result = nar.expressionEvaluator.parse('<a --> b>');
-            // The new parser strips the outer brackets and parses the content.
+
             expect(result.type).toBe('Inheritance');
             expect(result.args[0].args[0]).toBe('a');
             expect(result.args[1].args[0]).toBe('b');

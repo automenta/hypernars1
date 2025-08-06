@@ -14,7 +14,7 @@ describe('State', () => {
     it('should initialize with a minimal config', () => {
         const state = new State(minimalConfig);
 
-        // Check top-level properties
+
         expect(state.config).toBe(minimalConfig);
         expect(state.hypergraph).toBeInstanceOf(Map);
         expect(state.hypergraph.size).toBe(0);
@@ -28,7 +28,7 @@ describe('State', () => {
         expect(state.stepsSinceMaintenance).toBe(0);
         expect(state.sourceReliability).toBeInstanceOf(Map);
 
-        // Check index properties
+
         const {index} = state;
         expect(index.byType).toBeInstanceOf(Map);
         expect(index.byArg).toBeInstanceOf(TrieIndex);
@@ -41,7 +41,7 @@ describe('State', () => {
         expect(index.byNgram).toBeInstanceOf(Map);
         expect(index.structural).toBeInstanceOf(StructuralIndex);
 
-        // Check distributed properties
+
         const {distributed} = state;
         expect(distributed.nodeId).toBe('test-node');
         expect(distributed.cluster).toBeInstanceOf(Set);
@@ -69,12 +69,12 @@ describe('State', () => {
         expect(state.distributed.nodeId).toMatch(/^node-/);
     });
 
-    // This test is designed to fail to highlight that the State object does not
-    // have a direct link to the contradiction manager. This is a design choice,
-    // not a bug. The NAR object is the central point of coordination.
+
+
+
     it.skip('This test should fail: should have a direct link to the contradiction manager', () => {
         const state = new State(minimalConfig);
-        // This property does not exist on the State class.
+
         expect(state.contradictionManager).toBeDefined();
     });
 });

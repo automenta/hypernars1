@@ -20,6 +20,22 @@ export function getArgId(arg) {
     return 'undefined_arg';
 }
 
+import { REGEX } from './constants.js';
+import { extractTerms } from './termExtraction.js';
+
 export function hash(str) {
     return [...str].reduce((h, c) => ((h << 5) - h + c.codePointAt(0)) >>> 0, 0);
+}
+
+export function extractTermsFromQuestion(questionId, expressionEvaluator, termSet) {
+    try {
+        const match = questionId.match(REGEX.QUESTION_PATTERN);
+        if (match) {
+            const questionContent = match[1];
+            const parsedQuestion = expressionEvaluator.parse(questionContent);
+            extractTerms(parsedQuestion, termSet);
+        }
+    } catch (e) {
+        // Ignore parsing errors for patterns that don't match
+    }
 }

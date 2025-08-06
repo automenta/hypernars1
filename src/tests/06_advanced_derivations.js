@@ -22,7 +22,7 @@ export default {
             action: (nar) => {
                 nar.nal('cat.');
                 nar.nal('<(cat * entity) --> mammal>.');
-                // The previous step already added '<(dog * entity) --> mammal>.'
+
                 nar.run(10);
             },
             assert: (nar, logs) => {

@@ -7,7 +7,7 @@ export class SimpleMemoryManager extends MemoryManagerBase {
     }
 
     allocateResources(task, context = {}) {
-        // Return a default, medium-priority budget.
+
         return new Budget(0.5, 0.5, 0.5);
     }
 

@@ -10,10 +10,10 @@ const App = ({nar}) => {
     const {isRawModeSupported} = useStdin();
     const [logs, setLogs] = useState([]);
     const [selectedConceptId, setSelectedConceptId] = useState(null);
-    const [activeTab, setActiveTab] = useState('memory'); // memory, queue, system
+    const [activeTab, setActiveTab] = useState('memory');
 
     const log = useCallback((message) => {
-        setLogs(prev => [...prev, String(message)].slice(-100)); // Increased log history
+        setLogs(prev => [...prev, String(message)].slice(-100));
     }, []);
 
     const {

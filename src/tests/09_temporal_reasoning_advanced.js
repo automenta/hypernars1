@@ -1,7 +1,7 @@
 export default {
     name: '9. Advanced Temporal Reasoning',
     description: 'Tests for temporal inference chains and paradox detection.',
-    skipped: false, // SKIPPED: Uncovered potential bug where a temporal paradox is not being detected.
+    skipped: false,
     steps: [
         {
             comment: 'Case 1: Temporal Inference Chain',
@@ -20,7 +20,7 @@ export default {
             comment: 'Case 2: Temporal Paradox',
             action: (nar) => {
                 nar.temporalManager.addConstraint('event_X', 'event_Y', 'before');
-                // This should fail and log a warning, but not throw an error.
+
                 nar.temporalManager.addConstraint('event_Y', 'event_X', 'before');
             },
             assert: (nar, logs) => {

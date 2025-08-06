@@ -2,6 +2,7 @@ import React, {useContext, useEffect, useMemo, useState} from 'react';
 import {Box, Text, useInput, useStdin} from 'ink';
 import SelectInput from 'ink-select-input';
 import {TuiContext} from '../contexts/TuiContext.js';
+import { TASK_TYPES } from '../../support/constants.js';
 
 const PAGE_SIZE = 10;
 
@@ -9,7 +10,7 @@ const MemoryView = () => {
     const {nar, handleSelectConcept} = useContext(TuiContext);
     const {isRawModeSupported} = useStdin();
     const [allConcepts, setAllConcepts] = useState([]);
-    const [sortBy, setSortBy] = useState('confidence'); // confidence, frequency, recency
+    const [sortBy, setSortBy] = useState('confidence');
     const [filterType, setFilterType] = useState(null);
     const [page, setPage] = useState(0);
 
@@ -51,7 +52,7 @@ const MemoryView = () => {
             setFilterType(t => t === 'judgement' ? null : 'judgement');
             setPage(0);
         } else if (input === 'q') {
-            setFilterType(t => t === 'question' ? null : 'question');
+            setFilterType(t => t === TASK_TYPES.QUESTION ? null : TASK_TYPES.QUESTION);
             setPage(0);
         } else if (input === 'a') {
             setFilterType(null);

@@ -1,6 +1,7 @@
 import {DerivationEngineBase} from './DerivationEngineBase.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {getArgId, hash, id} from '../support/utils.js';
+import { HYPEREDGE_TYPES, RULE_NAMES, EVENT_NAMES } from '../support/constants.js';
 
 export class AdvancedDerivationEngine extends DerivationEngineBase {
     constructor(nar) {
@@ -60,12 +61,12 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     }
 
     _registerDefaultRules() {
-        this.registerRule('Inheritance', event => this.nar.state.hypergraph.get(event.target)?.type === 'Inheritance', (h, e, r) => this._deriveInheritance(h, e, r));
-        this.registerRule('Similarity', event => this.nar.state.hypergraph.get(event.target)?.type === 'Similarity', (h, e, r) => this._deriveSimilarity(h, e, r));
-        this.registerRule('Implication', event => this.nar.state.hypergraph.get(event.target)?.type === 'Implication', (h, e, r) => this._deriveImplication(h, e, r));
-        this.registerRule('Equivalence', event => this.nar.state.hypergraph.get(event.target)?.type === 'Equivalence', (h, e, r) => this._deriveEquivalence(h, e, r));
-        this.registerRule('Conjunction', event => this.nar.state.hypergraph.get(event.target)?.type === 'Conjunction', (h, e, r) => this._deriveConjunction(h, e, r));
-        this.registerRule('TemporalRelation', event => this.nar.state.hypergraph.get(event.target)?.type === 'TemporalRelation', (h, e, r) => this._deriveTransitiveTemporalRelation(h, e, r));
+        this.registerRule(RULE_NAMES.INHERITANCE, event => this.nar.state.hypergraph.get(event.target)?.type === HYPEREDGE_TYPES.INHERITANCE, (h, e, r) => this._deriveInheritance(h, e, r));
+        this.registerRule(RULE_NAMES.SIMILARITY, event => this.nar.state.hypergraph.get(event.target)?.type === HYPEREDGE_TYPES.SIMILARITY, (h, e, r) => this._deriveSimilarity(h, e, r));
+        this.registerRule(RULE_NAMES.IMPLICATION, event => this.nar.state.hypergraph.get(event.target)?.type === HYPEREDGE_TYPES.IMPLICATION, (h, e, r) => this._deriveImplication(h, e, r));
+        this.registerRule(RULE_NAMES.EQUIVALENCE, event => this.nar.state.hypergraph.get(event.target)?.type === HYPEREDGE_TYPES.EQUIVALENCE, (h, e, r) => this._deriveEquivalence(h, e, r));
+        this.registerRule(RULE_NAMES.CONJUNCTION, event => this.nar.state.hypergraph.get(event.target)?.type === HYPEREDGE_TYPES.CONJUNCTION, (h, e, r) => this._deriveConjunction(h, e, r));
+        this.registerRule(RULE_NAMES.TEMPORAL_RELATION, event => this.nar.state.hypergraph.get(event.target)?.type === HYPEREDGE_TYPES.TEMPORAL_RELATION, (h, e, r) => this._deriveTransitiveTemporalRelation(h, e, r));
     }
 
     _memoKey(type, args, pathHash) {
@@ -73,13 +74,13 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     }
 
     applyDerivationRules(event) {
-        if (event.type === 'add-belief') {
+        if (event.type === EVENT_NAMES.ADD_BELIEF) {
             const hyperedge = this.nar.state.hypergraph.get(event.target);
             if (hyperedge) {
                 const {newBelief} = hyperedge.revise(event.belief);
                 this.nar.questionHandler.checkQuestionAnswers(hyperedge.id, newBelief);
             }
-            return; // Stop further processing for this event
+            return;
         }
 
         const {target, activation, pathLength} = event;
@@ -138,9 +139,9 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
                 }
             }
         } else {
-            // If no rule was selected to run, we can treat this as a "failure" for the given event context.
-            // We can't attribute it to a specific rule, but we can log it for general performance analysis.
-            this.nar.cognitiveExecutive.monitorDerivation('no_rule_selected', false, 0, 0);
+
+
+            this.nar.cognitiveExecutive.monitorDerivation(EVENT_NAMES.NO_RULE_SELECTED, false, 0, 0);
         }
     }
 
@@ -466,7 +467,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         let composed = table[rel1]?.[rel2];
         if (composed) return composed;
 
-        // Try composing with inverse relations if a direct entry is not found
+
         const inv_r1 = this._getInverseTemporalRelation(rel1);
         const inv_r2 = this._getInverseTemporalRelation(rel2);
         if (inv_r1 && inv_r2) {
@@ -479,22 +480,22 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     }
 
     _deriveDisjunction({args}, event) {
-        // Placeholder
+
     }
 
     _deriveProduct({args}, event) {
-        // Placeholder
+
     }
 
     _deriveImageExt({args}, event) {
-        // Placeholder
+
     }
 
     _deriveImageInt({args}, event) {
-        // Placeholder
+
     }
 
     _deriveTerm(hyperedge, event) {
-        // Placeholder
+
     }
 }

@@ -10,11 +10,11 @@ const QueueView = () => {
     useEffect(() => {
         if (!nar) return;
         const interval = setInterval(() => {
-            // The queue is a min-heap, but we want to show highest priority first.
-            // The comparator is (a, b) => b.priority - a.priority, so it's a max-heap.
+
+
             const queueItems = [...nar.state.eventQueue.heap]
-                .filter(Boolean) // Filter out any null/undefined items
-                .slice(0, 10) // show top 10
+                .filter(Boolean)
+                .slice(0, 10)
                 .map(item => ({
                     label: `Evt: ${item.hyperedgeId.substring(0, 20)}... (p:${item.budget.priority.toFixed(2)})`,
                     value: item.hyperedgeId,

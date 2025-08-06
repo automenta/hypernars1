@@ -10,13 +10,13 @@ export default {
                 const beliefs = generateBeliefs(2000);
                 beliefs.forEach(b => nar.nal(b));
 
-                // Store the execution time in the scratchpad
+
                 nar.scratchpad = {executionTime: runWithTiming(nar, 1000)};
                 console.log(`Execution time for 1000 cycles with 2000 beliefs: ${nar.scratchpad.executionTime}ms`);
             },
             assert: (nar, logs) => {
-                // Set a reasonable threshold for performance. This can be adjusted.
-                const timeThreshold = 5000; // 5 seconds
+
+                const timeThreshold = 5000;
                 return nar.scratchpad.executionTime < timeThreshold;
             }
         }

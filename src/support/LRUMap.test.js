@@ -14,7 +14,7 @@ describe('LRUMap', () => {
         const lru = new LRUMap(2);
         lru.set('a', 1);
         lru.set('b', 2);
-        lru.set('c', 3); // 'a' should be evicted
+        lru.set('c', 3);
         expect(lru.get('a')).toBeUndefined();
         expect(lru.get('b')).toBe(2);
         expect(lru.get('c')).toBe(3);
@@ -24,8 +24,8 @@ describe('LRUMap', () => {
         const lru = new LRUMap(2);
         lru.set('a', 1);
         lru.set('b', 2);
-        lru.get('a'); // 'a' is now the most recently used
-        lru.set('c', 3); // 'b' should be evicted
+        lru.get('a');
+        lru.set('c', 3);
         expect(lru.get('b')).toBeUndefined();
         expect(lru.get('a')).toBe(1);
         expect(lru.get('c')).toBe(3);
@@ -51,17 +51,17 @@ describe('LRUMap', () => {
         expect(lru.get('b')).toBe(2);
     });
 
-    // Failing test: This test is designed to fail.
-    // It checks for a feature that is not implemented: `peek`.
+
+
     it('This test should fail: should peek at a value without changing its order', () => {
         const lru = new LRUMap(2);
         lru.set('a', 1);
         lru.set('b', 2);
-        // Assuming a `peek` method exists that doesn't update the order
+
         const value = lru.peek('a');
         expect(value).toBe(1);
 
-        lru.set('c', 3); // 'a' should be evicted if `peek` doesn't update order
+        lru.set('c', 3);
         expect(lru.get('a')).toBeUndefined();
         expect(lru.get('b')).toBe(2);
         expect(lru.get('c')).toBe(3);

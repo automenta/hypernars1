@@ -32,12 +32,13 @@ import {ExplanationSystem} from './managers/ExplanationSystem.js';
 import {GoalManagerBase} from './managers/GoalManagerBase.js';
 import {GoalManager} from './managers/GoalManager.js';
 import {ConceptFormation} from './managers/ConceptFormation.js';
+import { LOG_LEVELS } from '../support/constants.js';
 
 
 export class NAR extends EventEmitter {
     constructor(config = {}) {
         super();
-        this.config = Object.assign({
+        this.config = {
             logger: console,
             decay: 0.1,
             budgetDecay: 0.8,
@@ -51,7 +52,7 @@ export class NAR extends EventEmitter {
             derivationCacheSize: 1000,
             questionTimeout: 3000,
             memoryMaintenanceInterval: 100,
-            logLevel: 'info',
+            logLevel: LOG_LEVELS.INFO,
             cleanupProbability: 0.1,
             maxPathCacheSize: 1000,
             pathCacheTruncationSize: 500,
@@ -59,7 +60,8 @@ export class NAR extends EventEmitter {
             questionCacheTruncationSize: 5,
             cleanupInterval: 100,
             questionResolutionInterval: 10,
-        }, config);
+            ...config
+        };
         this.config.ruleConfig = this.config.ruleConfig || {};
 
         this.state = new State({...this.config, useStructuralIndex: config.useAdvanced});
@@ -68,8 +70,6 @@ export class NAR extends EventEmitter {
         this.system = new System(this);
 
         this._initializeModules(config);
-
-        this._exposeApi();
     }
 
     _initializeModules(config) {
@@ -130,23 +130,55 @@ export class NAR extends EventEmitter {
         this.api = new Api(this);
     }
 
-    _exposeApi() {
-        // Bind methods from the Api class
-        for (const methodName of Object.getOwnPropertyNames(Object.getPrototypeOf(this.api))) {
-            const method = this.api[methodName];
-            if (typeof method === 'function' && methodName !== 'constructor' && !methodName.startsWith('_')) {
-                this[methodName] = method.bind(this.api);
-            }
-        }
+    // System Control
+    run(cycles) { return this.system.run(cycles); }
+    step() { return this.system.step(); }
 
-        // Bind methods from other core components
-        this.run = this.system.run.bind(this.system);
-        this.step = this.system.step.bind(this.system);
-        this.ask = this.questionHandler.ask.bind(this.questionHandler);
-        this.explain = this.explanationSystem.explain.bind(this.explanationSystem);
-        this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
-        this.addGoal = this.goalManager.addGoal.bind(this.goalManager);
-    }
+    // Core API
+    nal(statement, options) { return this.api.nal(statement, options); }
+    ask(question, options) { return this.questionHandler.ask(question, options); }
+    query(pattern, options) { return this.expressionEvaluator.query(pattern, options); }
+    addGoal(description, utility, constraints, options) { return this.goalManager.addGoal(description, utility, constraints, options); }
+    getGoals() { return this.api.getGoals(); }
+    outcome(context, outcome, options) { return this.api.outcome(context, outcome, options); }
+
+    // Advanced API & Structural Operations
+    nalq(question, options) { return this.api.nalq(question, options); }
+    seq(...terms) { return this.api.seq(...terms); }
+    contextualRule(premise, conclusion, contextId, options) { return this.api.contextualRule(premise, conclusion, contextId, options); }
+    temporalSequence(...terms) { return this.api.temporalSequence(...terms); }
+    probabilisticRule(premise, conclusion, frequency, confidence, options) { return this.api.probabilisticRule(premise, conclusion, frequency, confidence, options); }
+    citedBelief(statement, citation) { return this.api.citedBelief(statement, citation); }
+    robustRule(premise, conclusion, exception, options) { return this.api.robustRule(premise, conclusion, exception, options); }
+    term(name, options) { return this.api.term(name, options); }
+    inheritance(subject, predicate, options) { return this.api.inheritance(subject, predicate, options); }
+    similarity(term1, term2, options) { return this.api.similarity(term1, term2, options); }
+    implication(premise, conclusion, options) { return this.api.implication(premise, conclusion, options); }
+    equivalence(premise, conclusion, options) { return this.api.equivalence(premise, conclusion, options); }
+    addHyperedge(type, args, options) { return this.api.addHyperedge(type, args, options); }
+    removeHyperedge(hyperedgeId) { return this.api.removeHyperedge(hyperedgeId); }
+    revise(hyperedgeId, options) { return this.api.revise(hyperedgeId, options); }
+
+    // Temporal Operations
+    temporalInterval(term, start, end, options) { return this.api.temporalInterval(term, start, end, options); }
+    temporalConstraint(event1, event2, relation, options) { return this.api.temporalConstraint(event1, event2, relation, options); }
+    inferTemporalRelationship(event1, event2) { return this.api.inferTemporalRelationship(event1, event2); }
+    projectTemporal(term, milliseconds) { return this.api.projectTemporal(term, milliseconds); }
+
+    // Introspection & Explanation
+    getBeliefs(hyperedgeId) { return this.api.getBeliefs(hyperedgeId); }
+    queryBelief(pattern) { return this.api.queryBelief(pattern); }
+    getContradictions() { return this.api.getContradictions(); }
+    analyzeContradiction(hyperedgeId) { return this.api.analyzeContradiction(hyperedgeId); }
+    resolveContradiction(hyperedgeId, strategy, options) { return this.api.resolveContradiction(hyperedgeId, strategy, options); }
+    explain(hyperedgeId) { return this.explanationSystem.explain(hyperedgeId); }
+
+    // Meta-Reasoning & Cognitive Control
+    getTrace(depth) { return this.api.getTrace(depth); }
+    configureStrategy(config) { return this.api.configureStrategy(config); }
+    getActiveStrategy() { return this.api.getActiveStrategy(); }
+    getMetrics() { return this.api.getMetrics(); }
+    getFocus() { return this.api.getFocus(); }
 
     createSandbox(options = {}) {
         const sandbox = new NAR({
@@ -180,7 +212,6 @@ export class NAR extends EventEmitter {
         });
         this._initializeModules(this.config);
         this.api = new Api(this);
-        this._exposeApi();
 
         if (this.contradictionManager && this.contradictionManager.contradictions) {
             this.contradictionManager.contradictions.clear();
@@ -207,7 +238,7 @@ export class NAR extends EventEmitter {
         }
 
         this.clearState();
-        this.config = Object.assign(this.config, stateData.config);
+        this.config = {...this.config, ...stateData.config};
         this.state.currentStep = stateData.currentStep || 0;
 
         for (const edgeData of stateData.hypergraph) {
@@ -227,16 +258,20 @@ export class NAR extends EventEmitter {
     }
 
     _log(level, message, details = {}) {
-        const levels = {'debug': 0, 'info': 1, 'warn': 2, 'error': 3};
-        const currentLevel = levels[this.config.logLevel.toLowerCase()] || 1;
-        const messageLevel = levels[level.toLowerCase()] || 1;
+        const levels = {[LOG_LEVELS.DEBUG]: 0, [LOG_LEVELS.INFO]: 1, [LOG_LEVELS.WARN]: 2, [LOG_LEVELS.ERROR]: 3};
+        const currentLevel = levels[this.config.logLevel] ?? levels[LOG_LEVELS.INFO];
+        const messageLevel = levels[level] ?? levels[LOG_LEVELS.INFO];
 
-        if (messageLevel >= currentLevel) {
-            let logOutput = `${message}`;
-            if (Object.keys(details).length > 0) {
-                logOutput += ` ${JSON.stringify(details)}`;
-            }
-            const logMethod = this.config.logger[level.toLowerCase()] || this.config.logger.log || console.log;
+        if (messageLevel < currentLevel) {
+            return;
+        }
+
+        let logOutput = `${message}`;
+        if (Object.keys(details).length > 0) {
+            logOutput += ` ${JSON.stringify(details)}`;
+        }
+        const logMethod = this.config.logger[level] || this.config.logger.log;
+        if (logMethod) {
             logMethod(logOutput);
         }
     }

@@ -33,7 +33,7 @@ describe('TemporalReasoner', () => {
 
         const inferred = temporalReasoner.inferRelationship(interval1, interval3);
         expect(inferred).not.toBeNull();
-        // According to Allen's algebra, meets + starts = overlaps
+
         expect(inferred.relation).toBe('overlaps');
     });
 
@@ -53,7 +53,7 @@ describe('TemporalReasoner', () => {
         const eventY = 'eventY';
 
         temporalReasoner.addConstraint(eventX, eventY, 'before');
-        // Adding a contradictory constraint should be handled gracefully
+
         const contradictoryConstraint = temporalReasoner.addConstraint(eventX, eventY, 'after');
 
         expect(contradictoryConstraint).toBeNull();
@@ -73,12 +73,12 @@ describe('TemporalReasoner', () => {
         const eventB = 'eventB';
         const eventC = 'eventC';
 
-        // A is before B
+
         temporalReasoner.addConstraint(eventA, eventB, 'before');
-        // B is during C
+
         temporalReasoner.addConstraint(eventB, eventC, 'during');
 
-        // The relationship between A and C is ambiguous
+
         const inferred = temporalReasoner.inferRelationship(eventA, eventC);
         expect(inferred).not.toBeNull();
 
@@ -90,14 +90,14 @@ describe('TemporalReasoner', () => {
 
     it('should handle recurring events using "during"', () => {
         const now = new Date();
-        // Set a fixed time for deterministic testing: 10:00 AM UTC
+
         now.setTime(Date.UTC(2025, 7, 3, 10, 0, 0, 0));
 
         const tomorrowAt9UTC = new Date(now);
         tomorrowAt9UTC.setUTCDate(now.getUTCDate() + 1);
         tomorrowAt9UTC.setUTCHours(9, 0, 0, 0);
 
-        // Call 'during' with the mocked 'now'
+
         temporalReasoner.during('daily_meeting', '09:00', 'daily', {}, now);
 
         let createdInterval;
@@ -113,13 +113,13 @@ describe('TemporalReasoner', () => {
     });
 
     it('should predict a future event based on a "before" constraint', () => {
-        // If "coffee" happens before "work", and "coffee" is happening now,
-        // we should predict "work" will happen soon.
+
+
         const now = Date.now();
-        temporalReasoner.interval('coffee', now, now + 1000 * 60 * 5); // Coffee for 5 mins
+        temporalReasoner.interval('coffee', now, now + 1000 * 60 * 5);
         temporalReasoner.addConstraint('coffee', 'work', 'before');
 
-        const predictions = temporalReasoner.predict('coffee', 'start_work_routine', 10); // Predict 10 mins ahead
+        const predictions = temporalReasoner.predict('coffee', 'start_work_routine', 10);
 
         expect(predictions.length).toBeGreaterThan(0);
         const workPrediction = predictions.find(p => p.term === 'work');

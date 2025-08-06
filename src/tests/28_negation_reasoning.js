@@ -7,7 +7,7 @@ const tests = [
                 comment: 'Step 1: Establish a strong belief that a whale is a mammal.',
                 action: (nar) => {
                     nar.nal('(<whale --> mammal>). %1.0;0.9%');
-                    nar.run(1); // run one cycle to process the belief
+                    nar.run(1);
                 },
                 assert: (nar, logs) => {
                     const belief = nar.getBeliefs(nar.inheritance('whale', 'mammal'))[0];
@@ -29,7 +29,7 @@ const tests = [
                 comment: 'Step 3: Introduce a general rule that mammals are not fish.',
                 action: (nar) => {
                     nar.nal('((<$x --> mammal> ==> <$x --> [-fish]>)). %1.0;0.9%');
-                    nar.run(5); // run a few cycles for the rule to be applied
+                    nar.run(5);
                 },
                 assert: (nar, logs) => {
                     const conclusion = nar.api.queryBelief('(<whale --> [-fish]>)?');
@@ -40,7 +40,7 @@ const tests = [
                 comment: 'Step 4: Introduce a contradictory belief that a whale IS a fish and check for contradiction.',
                 action: (nar) => {
                     nar.nal('(<whale --> fish>). %1.0;0.9%');
-                    nar.run(10); // run cycles to allow for contradiction detection
+                    nar.run(10);
                 },
                 assert: (nar, logs) => {
                     const contradictionDetected = logs.some(log => log.includes('Contradiction detected'));

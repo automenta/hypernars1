@@ -15,7 +15,7 @@ export default [
                     const beliefId = nar.inheritance('meeting', 'at_10am');
                     const belief = nar.getBeliefs(beliefId)[0];
                     if (!belief) return false;
-                    // Store the initial confidence for the next step
+
                     nar.scratchpad = {initialConfidence: belief.truth.confidence};
                     return nar.scratchpad.initialConfidence > 0.8;
                 }
@@ -23,7 +23,7 @@ export default [
             {
                 comment: 'Introduce a low-confidence, contradictory belief and check that the original belief holds.',
                 action: (nar) => {
-                    // A less reliable source claims the meeting is NOT at 10am.
+
                     nar.nal('(<meeting --> at_10am>). %0.0;0.3%');
                     nar.run(100);
                 },
@@ -31,8 +31,8 @@ export default [
                     const beliefId = nar.inheritance('meeting', 'at_10am');
                     const belief = nar.getBeliefs(beliefId)[0];
                     if (!belief) return false;
-                    // The confidence should be revised, but still high, reflecting the dominance of the original belief.
-                    // It should not have flipped completely.
+
+
                     return belief.truth.confidence > nar.scratchpad.initialConfidence * 0.5;
                 }
             }
@@ -41,7 +41,7 @@ export default [
     {
         name: '12.2. Cross-Concern: Goal-Oriented Reasoning and Contradiction',
         description: '[SKIPPED] Tests how the system handles a goal that leads to a contradiction.',
-        skipped: false, // This test is skipped due to a known bug in the derivation engine.
+        skipped: false,
         steps: [
             {
                 comment: 'Set a goal to achieve "state_B".',

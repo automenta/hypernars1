@@ -4,39 +4,30 @@ import {LRUMap} from '../support/LRUMap.js';
 import {ExpiringMap} from '../support/ExpiringMap.js';
 import {TemporalIndex} from '../support/TemporalIndex.js';
 
-/**
- * Optimized indexing system for large knowledge bases, as proposed
- * in the enhancement documents. It combines multiple indexing strategies
- * for efficient querying and includes mechanisms for memory optimization.
- */
 export class OptimizedIndex {
     constructor(nar) {
-        this.nar = nar; // Keep a reference to the main NAR system
+        this.nar = nar;
 
-        // --- Indexing Structures ---
+
         this.byType = new Map();
         this.byArg = new TrieIndex();
         this.byStructure = new StructuralIndex();
         this.temporal = new TemporalIndex();
         this.compound = new Map();
 
-        // --- Caching ---
+
         this.derivationCache = new LRUMap(nar.config.derivationCacheSize || 5000);
         this.questionCache = new ExpiringMap(nar.config.questionCacheTTL || 300000);
 
-        // --- Popularity and Activity Tracking ---
+
         this.activeConcepts = new Set();
         this.conceptPopularity = new Map();
 
-        // --- Stats for optimizeMemory ---
+
         this.prunedCount = 0;
         this.cacheCompressionRatio = 0;
     }
 
-    /**
-     * Adds a hyperedge to all relevant indexes.
-     * @param {Hyperedge} hyperedge
-     */
     addToIndex(hyperedge) {
         if (!this.byType.has(hyperedge.type)) {
             this.byType.set(hyperedge.type, new Set());
@@ -54,10 +45,6 @@ export class OptimizedIndex {
         this._updatePopularity(hyperedge.id);
     }
 
-    /**
-     * Removes a hyperedge from all indexes.
-     * @param {Hyperedge} hyperedge
-     */
     removeFromIndex(hyperedge) {
         if (this.byType.has(hyperedge.type)) {
             this.byType.get(hyperedge.type).delete(hyperedge.id);
@@ -75,11 +62,6 @@ export class OptimizedIndex {
         this.activeConcepts.delete(hyperedge.id);
     }
 
-    /**
-     * Finds hyperedges matching a pattern with wildcards or variables.
-     * @param {string} pattern - The search pattern.
-     * @returns {Set<string>} A set of matching hyperedge IDs.
-     */
     queryPattern(pattern) {
         if (pattern.includes('*')) {
             return this._queryWithWildcards(pattern);
@@ -90,10 +72,6 @@ export class OptimizedIndex {
         }
     }
 
-    /**
-     * Optimizes memory usage by pruning less important data and cleaning up caches.
-     * @returns {object} A report of the optimization process.
-     */
     optimizeMemory() {
         const startTime = Date.now();
         this.prunedCount = 0;
@@ -172,9 +150,6 @@ export class OptimizedIndex {
         }
     }
 
-    /**
-     * @todo Implement derivation cache compression.
-     */
     _compressDerivationCache() {
         this.cacheCompressionRatio = 0;
     }

@@ -32,7 +32,7 @@ export class TrieIndex {
         let node = this.root;
         for (const char of word) {
             if (!node[char]) {
-                return; // Word not in trie
+                return;
             }
             node = node[char];
         }
@@ -41,11 +41,6 @@ export class TrieIndex {
         }
     }
 
-    /**
-     * Searches for all words in the trie that start with a given prefix.
-     * @param {string} prefix - The prefix to search for.
-     * @returns {Set<string>} A set of all words matching the prefix.
-     */
     search(prefix) {
         let node = this.root;
         for (const char of prefix) {

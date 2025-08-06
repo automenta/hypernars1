@@ -48,15 +48,11 @@ const MainLayout = () => {
 
     return (
         <Box flexDirection="column" width="100%" height="100%">
-            {/* Main Content Area */}
             <Box flexGrow={1} flexDirection="row">
-                {/* Left Panel */}
                 <Box width="70%" flexDirection="column" padding={1}>
-                    {/* Log View */}
                     <Box flexGrow={3} borderStyle={round} borderColor="blue" padding={1}>
                         <LogView/>
                     </Box>
-                    {/* Tabbed View */}
                     <Box flexGrow={2} marginTop={1} flexDirection="column">
                         <Box>
                             <Tab label="[1] Memory" isActive={activeTab === 'memory'}/>
@@ -71,7 +67,6 @@ const MainLayout = () => {
                     </Box>
                 </Box>
 
-                {/* Right Panel */}
                 <Box width="30%" flexDirection="column" borderLeftStyle={single} borderLeftColor="gray" padding={1}>
                     <Box flexGrow={1} borderStyle={round} borderColor="magenta" padding={1}>
                         <ControlView/>
@@ -85,7 +80,6 @@ const MainLayout = () => {
                 </Box>
             </Box>
 
-            {/* Status Bar */}
             <Box
                 borderTopStyle={single}
                 borderTopColor="gray"

@@ -8,7 +8,7 @@ describe('SimpleMemoryManager', () => {
     let memoryManager;
 
     beforeEach(() => {
-        // We can use the default NARHyper, which uses SimpleMemoryManager
+
         nar = new NAR();
         memoryManager = nar.memoryManager;
     });
@@ -33,7 +33,7 @@ describe('SimpleMemoryManager', () => {
         expect(() => memoryManager.updateRelevance('some_id', 'test')).not.toThrow();
     });
 
-    // These methods are deprecated/stubs, but we test them for completeness
+
     it('should not throw an error when addToIndex is called', () => {
         expect(() => memoryManager.addToIndex({})).not.toThrow();
     });

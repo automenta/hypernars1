@@ -2,7 +2,7 @@ import {beforeEach, describe, expect, it, jest} from '@jest/globals';
 import {NAR} from '../NAR.js';
 import {TruthValue} from '../support/TruthValue.js';
 
-// Mock setTimeout and clearTimeout
+
 jest.useFakeTimers();
 
 describe('QuestionHandler', () => {
@@ -26,24 +26,24 @@ describe('QuestionHandler', () => {
         const question = '<sky --> blue>?';
         const answerPromise = questionHandler.ask(question, {minExpectation: 0.8});
 
-        // The question is pending, no answer yet
+
         expect(nar.state.questionPromises.size).toBe(1);
 
-        // Add a belief that answers the question
+
         nar.inheritance('sky', 'blue', { truth: new TruthValue(1.0, 0.9) });
 
-        // Manually run a few steps to process the event queue
+
         for (let i = 0; i < 5; i++) {
             nar.step();
         }
 
-        // The promise should resolve with the answer
+
         await expect(answerPromise).resolves.toMatchObject({
             type: 'Inheritance',
             args: ['sky', 'blue'],
         });
 
-        // The question should be removed from the pending list
+
         expect(nar.state.questionPromises.size).toBe(0);
     });
 
@@ -51,7 +51,7 @@ describe('QuestionHandler', () => {
         const question = '<moon --> cheese>?';
         const answerPromise = questionHandler.ask(question, {timeout: 100});
 
-        // Fast-forward time
+
         jest.runOnlyPendingTimers();
 
         await expect(answerPromise).rejects.toThrow('Question timed out after 100ms: <moon --> cheese>?');

@@ -2,7 +2,7 @@ import {beforeEach, describe, expect, jest, test} from '@jest/globals';
 import {OptimizedIndex} from './OptimizedIndex.js';
 import {Hyperedge} from '../support/Hyperedge.js';
 
-// Mock NAR system and its components
+
 const mockNar = {
     config: {
         derivationCacheSize: 100,
@@ -17,11 +17,11 @@ describe('OptimizedIndex', () => {
     let hyperedges;
 
     beforeEach(() => {
-        // Reset hypergraph and create a fresh index for each test
+
         mockNar.hypergraph.clear();
         index = new OptimizedIndex(mockNar);
 
-        // Create and add some sample hyperedges
+
         hyperedges = [
             new Hyperedge(mockNar, 'h1', 'Term', ['apple']),
             new Hyperedge(mockNar, 'h2', 'Term', ['apply']),
@@ -39,7 +39,7 @@ describe('OptimizedIndex', () => {
     test('should add and retrieve hyperedges directly', () => {
         const results = index.queryPattern('apple');
         expect(results).toBeInstanceOf(Set);
-        expect(results.size).toBe(3); // h1, h4, h5
+        expect(results.size).toBe(3);
         expect(results).toContain('h1');
         expect(results).toContain('h4');
         expect(results).toContain('h5');
@@ -47,7 +47,7 @@ describe('OptimizedIndex', () => {
 
     test('queryPattern should handle wildcards at the end', () => {
         const results = index.queryPattern('app*');
-        expect(results.size).toBe(4); // apple, apply, h4, h5
+        expect(results.size).toBe(4);
         expect(results).toContain('h1');
         expect(results).toContain('h2');
         expect(results).toContain('h4');
@@ -56,9 +56,9 @@ describe('OptimizedIndex', () => {
 
     test('queryPattern should handle variables as wildcards', () => {
         const results = index.queryPattern('$fruit');
-        // This is a simple test; it will find all terms.
-        // A more sophisticated variable query would involve unification.
-        // Current implementation replaces $var with *
+
+
+
         expect(results.size).toBe(5);
     });
 
@@ -66,7 +66,7 @@ describe('OptimizedIndex', () => {
         let appleResults = index.queryPattern('apple');
         expect(appleResults.size).toBe(3);
 
-        // Remove h1
+
         index.removeFromIndex(hyperedges[0]);
 
         appleResults = index.queryPattern('apple');
@@ -80,27 +80,27 @@ describe('OptimizedIndex', () => {
     });
 
     test('optimizeMemory should prune least popular concepts', () => {
-        // Access some concepts to make them more popular than others
-        index._updatePopularity('h3'); // banana
-        index._updatePopularity('h5'); // apple, banana
-        index._updatePopularity('h4'); // apple, fruit
 
-        // After setup, popularity scores are:
-        // h1 ('apple'): 1
-        // h2 ('apply'): 1
-        // h3 ('banana'): 2
-        // h4 ('apple', 'fruit'): 2
-        // h5 ('apple', 'banana'): 2
-        // The least popular concepts are h1 and h2.
+        index._updatePopularity('h3');
+        index._updatePopularity('h5');
+        index._updatePopularity('h4');
+
+
+
+
+
+
+
+
 
         const removeSpy = jest.spyOn(index, 'removeFromIndex');
 
-        // Directly test the pruning logic with a sufficient reduction rate
-        index._pruneLeastPopularConcepts(0.3); // floor(5 * 0.3) = 1, so should prune 1 item
+
+        index._pruneLeastPopularConcepts(0.3);
 
         expect(removeSpy).toHaveBeenCalledTimes(1);
 
-        // Check that the removed hyperedge is one of the least popular ones
+
         const removedHyperedge = removeSpy.mock.calls[0][0];
         const leastPopularIds = ['h1', 'h2'];
         expect(leastPopularIds).toContain(removedHyperedge.id);

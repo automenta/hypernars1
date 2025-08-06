@@ -4,7 +4,7 @@ import {TruthValue} from '../support/TruthValue.js';
 import {Budget} from '../support/Budget.js';
 import {Hyperedge} from '../support/Hyperedge.js';
 
-// Mock NAR object and its components
+
 const createMockNar = () => ({
     state: {
         hypergraph: new Map(),
@@ -49,12 +49,12 @@ describe('Api', () => {
     beforeEach(() => {
         nar = createMockNar();
         api = new Api(nar);
-        // Spy on the revise method for all tests in this suite
+
         reviseSpy = jest.spyOn(Hyperedge.prototype, 'revise').mockReturnValue({needsUpdate: true});
     });
 
     afterEach(() => {
-        // Restore the original method after each test
+
         reviseSpy.mockRestore();
         jest.clearAllMocks();
     });
@@ -96,7 +96,7 @@ describe('Api', () => {
         it('nal() should extract and handle context', () => {
             nar.expressionEvaluator.parseAndAdd.mockReturnValue('Inheritance(bird,flyer)');
 
-            // Pre-create the context hyperedge so we can spy on its revise method
+
             const contextEdgeId = 'hasContext(Inheritance(bird,flyer), biology)';
             const contextHyperedge = new Hyperedge(nar, contextEdgeId, 'hasContext', ['Inheritance(bird,flyer)', 'biology']);
             nar.state.hypergraph.set(contextEdgeId, contextHyperedge);
@@ -106,10 +106,10 @@ describe('Api', () => {
 
             expect(nar.expressionEvaluator.parseAndAdd).toHaveBeenCalledWith('<bird --> flyer>.', expect.any(Object));
 
-            // Check that a "hasContext" hyperedge was created and revised
+
             expect(nar.state.hypergraph.has(contextEdgeId)).toBe(true);
-            expect(reviseSpy).toHaveBeenCalledTimes(1); // for the main statement
-            expect(contextReviseSpy).toHaveBeenCalledTimes(1); // for the context
+            expect(reviseSpy).toHaveBeenCalledTimes(1);
+            expect(contextReviseSpy).toHaveBeenCalledTimes(1);
 
             contextReviseSpy.mockRestore();
         });
@@ -118,9 +118,9 @@ describe('Api', () => {
     describe('Revising and Removing', () => {
         it('revise() should call hyperedge.revise with new truth values', () => {
             const id = 'Inheritance(bird,flyer)';
-            // Since we are not mocking the hyperedge itself, we need to create one
+
             const hyperedge = new Hyperedge(nar, id, 'Inheritance', ['bird', 'flyer']);
-            // and mock its getStrongestBelief method
+
             jest.spyOn(hyperedge, 'getStrongestBelief').mockReturnValue({
                 truth: new TruthValue(0.5, 0.5),
                 budget: new Budget(0.5, 0.5, 0.5)
@@ -181,10 +181,10 @@ describe('Api', () => {
 
             api.robustRule(premise, conclusion, exception, {truth: customTruth});
 
-            // Check that implication was called with the custom truth for the base rule
+
             expect(implicationSpy).toHaveBeenCalledWith(premise, conclusion, expect.objectContaining({truth: customTruth}));
 
-            // Check that implication was called with the default exception truth, not the custom one
+
             const exceptionPremise = 'Conjunction(penguin, bird)';
             const negatedConclusion = 'Negation(flyer)';
             expect(implicationSpy).toHaveBeenCalledWith(exceptionPremise, negatedConclusion, expect.not.objectContaining({
@@ -194,9 +194,9 @@ describe('Api', () => {
             implicationSpy.mockRestore();
         });
 
-        // This test is designed to fail to highlight a potential issue.
-        // The robustRule implementation does not pass the custom truth value to the exception rule.
-        // This is a design choice, so we will skip this test.
+
+
+
         it.skip('This test should fail: should apply custom truth values to the exception rule', () => {
             const customTruth = new TruthValue(0.6, 0.6);
             const implicationSpy = jest.spyOn(api, 'implication');
@@ -206,8 +206,8 @@ describe('Api', () => {
             const exceptionPremise = 'Conjunction(penguin, bird)';
             const negatedConclusion = 'Negation(flyer)';
 
-            // This will fail because the implementation gives the exception rule a default truth value
-            // instead of passing the custom one.
+
+
             expect(implicationSpy).toHaveBeenCalledWith(exceptionPremise, negatedConclusion, expect.objectContaining({truth: customTruth}));
 
             implicationSpy.mockRestore();

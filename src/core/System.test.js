@@ -1,7 +1,7 @@
 import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
 import {System} from './System.js';
 
-// Mock NAR object and its components
+
 const createMockNar = () => ({
     state: {
         currentStep: 0,
@@ -116,7 +116,7 @@ describe('System', () => {
 
     describe('run', () => {
         it('should run for a specified number of steps', () => {
-            // Let's make the step function do something minimal
+
             let counter = 0;
             system.step = jest.fn(() => {
                 counter++;
@@ -134,7 +134,7 @@ describe('System', () => {
                 .mockReturnValueOnce(true)
                 .mockReturnValueOnce(false);
 
-            system.run(10); // Ask for 10 steps
+            system.run(10);
 
             expect(system.step).toHaveBeenCalledTimes(3);
         });
@@ -148,11 +148,11 @@ describe('System', () => {
 
             system.step();
 
-            // This is a deliberately faulty expectation. The maintenance runs *after* the step
-            // that *crosses* the interval threshold, not on the step that *is* the interval.
-            // The logic is `stepsSinceMaintenance >= interval`, and it's checked after incrementing.
-            // So if it's 99, it becomes 100, and maintenance runs. If it's 100, it becomes 101 and runs.
-            // The test above this one is correct. This one is designed to fail.
+
+
+
+
+
             expect(nar.memoryManager.maintainMemory).not.toHaveBeenCalled();
         });
     });

@@ -2,7 +2,7 @@ export default [
     {
         name: '15.1. Goal-Oriented Reasoning and Contradiction',
         description: 'Tests how the system handles a goal that leads to a contradiction.',
-        skipped: false, // Skipping due to bug in query engine's handling of Product types.
+        skipped: false,
         steps: [
             {
                 comment: 'Set a goal to achieve "state_B".',

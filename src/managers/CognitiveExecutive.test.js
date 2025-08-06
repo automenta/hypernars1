@@ -23,7 +23,7 @@ describe('CognitiveExecutive', () => {
     });
 
     it('should adapt rule priorities based on performance', () => {
-        // Mock the monitorDerivation to provide specific data
+
         nar.cognitiveExecutive.monitorDerivation('Inheritance', true, 10, 0.8);
         nar.cognitiveExecutive.monitorDerivation('Similarity', false, 20, 0.1);
 
@@ -33,8 +33,8 @@ describe('CognitiveExecutive', () => {
 
         const newInheritancePriority = nar.derivationEngine.rules.get('Inheritance').priority;
 
-        // This is a weak test, as the priority adaptation is complex.
-        // A more robust test would require a more controlled environment.
+
+
         expect(newInheritancePriority).not.toBe(initialInheritancePriority);
     });
 });

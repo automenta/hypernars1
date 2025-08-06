@@ -37,14 +37,14 @@ describe('AdvancedLearningEngine', () => {
     });
 
     test('should update rule productivity stats', () => {
-        // Setup a derivation
+
         const premiseId = nar.api.inheritance('bird', 'animal');
         const conclusionId = nar.api.inheritance('tweety', 'animal', {
             premises: [premiseId],
             derivedBy: 'transitivity'
         });
 
-        // Record a successful outcome
+
         learningEngine.recordExperience({conclusionId}, {success: true});
 
         const transitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
@@ -52,7 +52,7 @@ describe('AdvancedLearningEngine', () => {
         expect(transitivityStats.successes).toBe(1);
         expect(transitivityStats.attempts).toBe(1);
 
-        // Record a failed outcome
+
         const conclusion2Id = nar.api.inheritance('penguin', 'flyer', {
             premises: [premiseId],
             derivedBy: 'transitivity'
@@ -65,13 +65,13 @@ describe('AdvancedLearningEngine', () => {
     });
 
     test('should create a shortcut rule from a frequently successful reasoning path', () => {
-        // This test is adapted from the original to use the new API
+
         const premise1Id = nar.api.implication('A', 'B');
         const premise2Id = nar.api.implication('B', 'C');
-        // Manually create a "conclusion" that depends on these premises for the test
+
         const conclusionId = nar.api.term('C', {premises: [premise1Id, premise2Id]});
 
-        // Simulate the path being successful multiple times via experiences
+
         for (let i = 0; i < 60; i++) {
             learningEngine.experienceBuffer.push({
                 premises: [premise1Id, premise2Id],
@@ -81,10 +81,10 @@ describe('AdvancedLearningEngine', () => {
             });
         }
 
-        // Trigger the learning process that discovers patterns
+
         learningEngine.applyLearning();
 
-        // Assert that the shortcut rule was created
+
         const conjunctionId = id('Conjunction', [premise1Id, premise2Id].sort());
         const shortcutRuleId = id('Implication', [conjunctionId, conclusionId]);
         const shortcutRule = nar.state.hypergraph.get(shortcutRuleId);
@@ -96,7 +96,7 @@ describe('AdvancedLearningEngine', () => {
 
     test('should create an ActionConsequence mapping from an outcome', () => {
         const actionId = nar.api.term('press_button');
-        const consequenceTerm = 'light_turns_on'; // The consequence is just a term
+        const consequenceTerm = 'light_turns_on';
 
         const context = {operation: 'action', action: actionId};
         const outcome = {success: true, consequence: consequenceTerm};

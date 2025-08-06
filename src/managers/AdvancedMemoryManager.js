@@ -2,6 +2,8 @@ import {MemoryManagerBase} from './MemoryManagerBase.js';
 import {OptimizedIndex} from './OptimizedIndex.js';
 import {Budget} from '../support/Budget.js';
 import {extractTerms} from '../support/termExtraction.js';
+import {extractTermsFromQuestion} from '../support/utils.js';
+import { EVENT_TYPES, REGEX, PRUNING_TYPES, TASK_TYPES } from '../support/constants.js';
 
 const defaultConfig = {
     forgettingThreshold: 0.1,
@@ -23,11 +25,11 @@ const defaultConfig = {
     maxBeliefCapacity: 12,
     minBeliefCapacity: 4,
     basePriority: {
-        question: 0.9,
-        'critical-event': 0.95,
-        derivation: 0.6,
-        revision: 0.7,
-        default: 0.5
+        [TASK_TYPES.QUESTION]: 0.9,
+        [TASK_TYPES.CRITICAL_EVENT]: 0.95,
+        [TASK_TYPES.DERIVATION]: 0.6,
+        [TASK_TYPES.REVISION]: 0.7,
+        [TASK_TYPES.DEFAULT]: 0.5
     },
     urgencyPriorityFactor: 0.3,
     importancePriorityFactor: 0.2,
@@ -110,7 +112,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
                 if (hyperedge.beliefs.length > 1) {
                     hyperedge.beliefs.sort((a, b) => a.budget.total() - b.budget.total());
                     const weakestBelief = hyperedge.beliefs.shift();
-                    this.nar.emit('belief-pruned', {hyperedgeId: id, belief: weakestBelief});
+                    this.nar.emit(EVENT_TYPES.BELIEF_PRUNED, {hyperedgeId: id, belief: weakestBelief});
                 } else {
                     if (retentionScore < this.forgettingThreshold) {
                         this._removeHyperedge(id);
@@ -121,7 +123,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
         }
 
         if (prunedCount > 0) {
-            this.nar.emit('maintenance-info', {message: `Pruned ${prunedCount} concepts.`});
+            this.nar.emit(EVENT_TYPES.MAINTENANCE_INFO, {message: `Pruned ${prunedCount} concepts.`});
         }
     }
 
@@ -135,22 +137,13 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
 
         this.index.removeFromIndex(hyperedge);
 
-        this.nar.emit('knowledge-pruned', {id, type: hyperedge.type});
+        this.nar.emit(EVENT_TYPES.KNOWLEDGE_PRUNED, {id, type: hyperedge.type});
     }
 
     _isImportantConcept(hyperedgeId) {
         const importantTermsInQuestions = new Set();
-
         this.nar.state.questionPromises.forEach((promise, questionId) => {
-            try {
-                const match = questionId.match(/^Question\((.*)\)$/);
-                if (match) {
-                    const questionContent = match[1];
-                    const parsedQuestion = this.nar.expressionEvaluator.parse(questionContent);
-                    extractTerms(parsedQuestion, importantTermsInQuestions);
-                }
-            } catch (e) {
-            }
+            extractTermsFromQuestion(questionId, this.nar.expressionEvaluator, importantTermsInQuestions);
         });
 
         if (importantTermsInQuestions.has(hyperedgeId)) {
@@ -180,35 +173,25 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
             this.importanceScores.set(termId, Math.min(1.0, newScore));
         });
 
+        const boostScore = (termId, weight) => {
+            const currentScore = this.importanceScores.get(termId) || 0;
+            this.importanceScores.set(termId, Math.min(1.0, currentScore + weight));
+        };
+
         const importantTerms = new Set();
         this.nar.state.questionPromises.forEach((promise, questionId) => {
-            try {
-                const match = questionId.match(/^Question\((.*)\)$/);
-                if (match) {
-                    const questionContent = match[1];
-                    const parsedQuestion = this.nar.expressionEvaluator.parse(questionContent);
-                    extractTerms(parsedQuestion, importantTerms);
-                }
-            } catch (e) {
-            }
+            extractTermsFromQuestion(questionId, this.nar.expressionEvaluator, importantTerms);
         });
 
-        importantTerms.forEach(termId => {
-            const currentScore = this.importanceScores.get(termId) || 0;
-            this.importanceScores.set(termId, Math.min(1.0, currentScore + this.config.importanceQuestionWeight));
-        });
+        importantTerms.forEach(termId => boostScore(termId, this.config.importanceQuestionWeight));
 
         this.nar.learningEngine.recentSuccesses?.forEach(termId => {
-            const currentScore = this.importanceScores.get(termId) || 0;
-            this.importanceScores.set(termId, Math.min(1.0, currentScore + this.config.importanceSuccessWeight));
+            boostScore(termId, this.config.importanceSuccessWeight);
         });
 
         if (this.contextStack.length > 0) {
             const currentContext = this.contextStack[this.contextStack.length - 1];
-            currentContext.forEach(termId => {
-                const currentScore = this.importanceScores.get(termId) || 0;
-                this.importanceScores.set(termId, Math.min(1.0, currentScore + this.config.importanceContextWeight));
-            });
+            currentContext.forEach(termId => boostScore(termId, this.config.importanceContextWeight));
         }
 
         if (this.nar.goalManager && this.nar.goalManager.getActiveGoals) {
@@ -216,8 +199,7 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
             activeGoals.forEach(goal => {
                 const relatedTerms = this.nar.goalManager.getRelatedTerms(goal.id);
                 relatedTerms.forEach(termId => {
-                    const currentScore = this.importanceScores.get(termId) || 0;
-                    this.importanceScores.set(termId, Math.min(1.0, currentScore + this.config.importanceGoalWeight * goal.priority));
+                    boostScore(termId, this.config.importanceGoalWeight * goal.priority);
                 });
             });
         }
@@ -255,12 +237,11 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
         const availability = this._getResourceAvailability();
         const priority = basePriority * availability;
 
-        let durability;
-        if (task.type === 'question' || task.type === 'critical-event') {
-            durability = this.config.durability.high;
-        } else {
-            durability = this.config.durability.low;
-        }
+        const durabilityMap = {
+            [TASK_TYPES.QUESTION]: this.config.durability.high,
+            [TASK_TYPES.CRITICAL_EVENT]: this.config.durability.high,
+        };
+        const durability = durabilityMap[task.type] || this.config.durability.low;
 
         const quality = Math.sqrt(availability) * this.config.qualityAvailabilityFactor;
 
@@ -275,29 +256,15 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
     pruneLowValuePaths() {
         const threshold = this.config.lowValuePathPruningThreshold;
         const eventQueue = this.nar.state.eventQueue;
-        if (!eventQueue || eventQueue.heap.length === 0) {
+        if (!eventQueue || eventQueue.length === 0) {
             return 0;
         }
 
-        const originalSize = eventQueue.heap.length;
-        const pathsToKeep = [];
-        for (const event of eventQueue.heap) {
-            if (event.budget.total() >= threshold) {
-                pathsToKeep.push(event);
-            }
-        }
-
-        const prunedCount = originalSize - pathsToKeep.length;
+        const prunedCount = eventQueue.prune(event => event.budget.total() >= threshold);
 
         if (prunedCount > 0) {
-            eventQueue.heap = pathsToKeep;
-
-            for (let i = Math.floor(eventQueue.heap.length / 2) - 1; i >= 0; i--) {
-                eventQueue._siftDown(i);
-            }
-
-            this.nar.emit('pruning', {
-                type: 'low-value-paths',
+            this.nar.emit(EVENT_TYPES.PRUNING, {
+                type: PRUNING_TYPES.LOW_VALUE_PATHS,
                 count: prunedCount
             });
         }

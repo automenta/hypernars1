@@ -2,7 +2,7 @@ export default [
     {
         name: '18.1. Complex Temporal Contradiction (Loop)',
         description: 'Tests if the system can detect a temporal paradox.',
-        skipped: false, // Skipping due to deeper bug in reasoning engine.
+        skipped: false,
         steps: [
             {
                 comment: 'Introduce a temporal loop.',

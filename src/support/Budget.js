@@ -1,4 +1,5 @@
 import {clamp} from './utils.js';
+import { TASK_TYPES } from './constants.js';
 
 export class Budget {
     constructor(priority, durability, quality) {
@@ -14,24 +15,24 @@ export class Budget {
     static dynamicAllocate(task, context = {}) {
         let basePriority = 0.5;
         switch (task.type) {
-            case 'question':
+            case TASK_TYPES.QUESTION:
                 basePriority = 0.9;
                 break;
-            case 'critical-event':
+            case TASK_TYPES.CRITICAL_EVENT:
                 basePriority = 0.95;
                 break;
-            case 'goal':
+            case TASK_TYPES.GOAL:
                 basePriority = 0.85;
                 break;
-            case 'derivation':
+            case TASK_TYPES.DERIVATION:
                 basePriority = 0.6;
                 break;
-            case 'revision':
+            case TASK_TYPES.REVISION:
                 basePriority = 0.7;
                 break;
         }
 
-        // Adjust based on context
+
         if (context.urgency) {
             basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
         }
@@ -42,28 +43,28 @@ export class Budget {
             basePriority = Math.min(1.0, basePriority + context.noveltyScore * 0.15);
         }
 
-        // Adjust based on system load
-        const systemLoad = context.systemLoad || 0; // expected to be 0-1
+
+        const systemLoad = context.systemLoad || 0;
         const availability = Math.max(0.1, 1.0 - systemLoad * 0.7);
         let priority = basePriority * availability;
 
-        // Adjust durability based on task type
+
         let durability = 0.6;
-        if (task.type === 'question' || task.type === 'critical-event' || task.type === 'goal') {
-            durability = 0.9; // Needs sustained attention
+        if (task.type === TASK_TYPES.QUESTION || task.type === TASK_TYPES.CRITICAL_EVENT || task.type === TASK_TYPES.GOAL) {
+            durability = 0.9;
         }
         if (context.successHistory) {
             durability = Math.min(durability + context.successHistory * 0.2, 1.0);
         }
 
 
-        // Adjust quality based on availability and novelty
+
         let quality = Math.sqrt(availability) * 0.8;
         if (context.noveltyScore) {
             quality = Math.min(quality + context.noveltyScore * 0.1, 1.0);
         }
 
-        // Apply minimum thresholds to prevent starvation
+
         priority = Math.max(priority, context.minPriorityThreshold || 0.01);
         durability = Math.max(durability, context.minDurabilityThreshold || 0.01);
 

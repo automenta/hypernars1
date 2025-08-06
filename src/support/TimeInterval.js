@@ -10,7 +10,7 @@ export class TimeInterval {
         this.duration = end - start;
         this.truth = options.truth || TruthValue.certain();
         this.budget = options.budget || Budget.full();
-        this.relations = new Map(); // Stores relations to other intervals
+        this.relations = new Map();
     }
 
     relateTo(other) {
@@ -29,7 +29,7 @@ export class TimeInterval {
     }
 
     project(futureTime, decayRate = 0.05) {
-        const timeDelta = Math.max(0, futureTime - this.end) / 1000; // seconds
+        const timeDelta = Math.max(0, futureTime - this.end) / 1000;
         const decayFactor = Math.exp(-decayRate * timeDelta);
         return new TruthValue(
             this.truth.frequency,
@@ -39,7 +39,7 @@ export class TimeInterval {
     }
 
     overlapsWith(otherStart, otherEnd) {
-        // An interval overlaps if it starts before the other ends AND it ends after the other starts.
+
         return this.start < otherEnd && this.end > otherStart;
     }
 

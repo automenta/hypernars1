@@ -1,14 +1,14 @@
 export default {
     name: '4. Meta-Reasoning',
     description: 'Shows the system adapting its own parameters based on performance.',
-    skipped: false, // SKIPPED: Uncovered potential bug where meta-reasoning does not adapt the budgetThreshold as expected.
+    skipped: false,
     steps: [
         {
             action: (nar) => {
-                // Use a scratchpad on the nar object to store state between steps
+
                 nar.scratchpad = {initialThreshold: nar.config.budgetThreshold};
 
-                // Simulating high question load
+
                 nar.ask('(tweety --> ?x)?').catch(e => {
                 });
                 nar.ask('(penguin --> ?x)?').catch(e => {
@@ -16,12 +16,12 @@ export default {
                 nar.ask('(bird --> ?x)?').catch(e => {
                 });
 
-                nar.run(120); // Should trigger meta-reasoning
+                nar.run(120);
             },
             assert: (nar, logs) => {
                 const initialThreshold = nar.scratchpad.initialThreshold;
                 const newThreshold = nar.config.budgetThreshold;
-                // Assert that the system has adapted its resource policy
+
                 return initialThreshold !== newThreshold;
             }
         }

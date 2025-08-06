@@ -64,4 +64,17 @@ export class PriorityQueue {
             idx = swap;
         }
     }
+
+    prune(predicate) {
+        const originalSize = this.heap.length;
+        this.heap = this.heap.filter(predicate);
+        const prunedCount = originalSize - this.heap.length;
+
+        if (prunedCount > 0) {
+            for (let i = Math.floor(this.heap.length / 2) - 1; i >= 0; i--) {
+                this._siftDown(i);
+            }
+        }
+        return prunedCount;
+    }
 }

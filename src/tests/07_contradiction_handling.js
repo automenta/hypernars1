@@ -1,7 +1,7 @@
 export default {
     name: '7. Contradiction Handling',
     description: 'Tests how the system handles various contradiction scenarios.',
-    skipped: false, // SKIPPED: Uncovered potential bug where a strong contradiction is detected but not resolved as expected.
+    skipped: false,
     steps: [
         {
             comment: 'Case 1: Strong, direct contradiction should be detected and resolved.',

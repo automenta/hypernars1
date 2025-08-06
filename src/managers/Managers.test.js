@@ -24,14 +24,14 @@ describe('NARHyper Manager Dependency Injection', () => {
 
     it('should allow overriding specific modules', () => {
         const nar = new NAR({
-            useAdvanced: true, // Start with advanced
+            useAdvanced: true,
             modules: {
-                // Override just the learning engine with the simple one
+
                 LearningEngine: SimpleLearningEngine,
             }
         });
         expect(nar.contradictionManager).toBeInstanceOf(AdvancedContradictionManager);
-        expect(nar.learningEngine).toBeInstanceOf(SimpleLearningEngine); // Overridden
+        expect(nar.learningEngine).toBeInstanceOf(SimpleLearningEngine);
         expect(nar.memoryManager).toBeInstanceOf(AdvancedMemoryManager);
     });
 });

@@ -16,7 +16,7 @@ describe('ExplanationSystem', () => {
         const p1 = nar.inheritance('A', 'B');
         const p2 = nar.inheritance('B', 'C');
 
-        // Manually create the conclusion, passing the derivation rule name
+
         const conclusion = nar.inheritance('A', 'C', {premises: [p1, p2], derivedBy: 'transitivity'});
 
         const explanation = nar.explain(conclusion, {depth: 3, format: 'json'});
@@ -33,7 +33,7 @@ describe('ExplanationSystem', () => {
         const p1 = nar.similarity('A', 'B');
         const p2 = nar.inheritance('A', 'C');
 
-        // Manually create the conclusion, passing the derivation rule name
+
         const conclusion = nar.inheritance('B', 'C', {premises: [p1, p2], derivedBy: 'analogy'});
 
         const explanation = nar.explain(conclusion, {depth: 3, format: 'json'});
@@ -47,7 +47,7 @@ describe('ExplanationSystem', () => {
     it('should fallback to "assertion" for beliefs with no known derivation rule', () => {
         const nar = new NAR({useAdvanced: true});
         const p1 = nar.nal('premise1.');
-        // The `derivedBy` is not specified, so it should be identified as a base assertion.
+
         const conclusion = nar.implication('premise1', 'conclusion', {premises: [p1]});
 
         const explanation = nar.explain(conclusion, {depth: 2, format: 'json'});
@@ -55,24 +55,24 @@ describe('ExplanationSystem', () => {
 
         expect(rootNode).toBeDefined();
         expect(rootNode.id).toBe(conclusion);
-        // It's an assertion from the perspective of the explanation system if no rule is logged
+
         expect(rootNode.derivationRule).toBe('assertion');
     });
 
     it('should explain a derived temporal relation using templates', () => {
         const nar = new NAR({useAdvanced: true});
-        // Use the new API methods
+
         const t1 = nar.api.temporalInterval('event_A', 1000, 2000);
         const t2 = nar.api.temporalInterval('event_B', 3000, 4000);
 
         const rel1Id = nar.api.temporalConstraint(t1, t2, 'before');
-        const conclusionId = rel1Id; // The relation itself is the conclusion
+        const conclusionId = rel1Id;
 
         const explanation = nar.explain(conclusionId, {format: 'detailed'});
 
-        // The new formatter is more specific
+
         expect(explanation).toContain('CONCLUSION: TemporalRelation(TimeInterval(event_A, 1000, 2000), TimeInterval(event_B, 3000, 4000), before)');
-        // Check for the template-based explanation
+
         expect(explanation).toContain('It is a direct assertion that');
     });
 
@@ -123,7 +123,7 @@ describe('ExplanationSystem', () => {
 
         it('should generate a justification with supporting and conflicting evidence', () => {
             const term = nar.api.inheritance('penguin', 'bird');
-            // Add a conflicting belief
+
             nar.api.inheritance('penguin', 'bird', {truth: new TruthValue(0.2, 0.7)});
 
             const explanation = nar.explain(term, {format: 'justification'});
@@ -141,14 +141,14 @@ describe('ExplanationSystem', () => {
             const nar = new NAR({useAdvanced: true});
             const conceptId = 'Inheritance(penguin, flyer)';
 
-            // Introduce two strong but contradictory beliefs
+
             nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.9, 0.9)});
             nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.1, 0.9)});
 
-            // Manually resolve the contradiction
+
             nar.contradictionManager.resolveContradictions();
 
-            // The hyperedge should still exist after a merge
+
             expect(nar.state.hypergraph.has(conceptId)).toBe(true);
 
             const explanation = nar.explain(conceptId, {format: 'justification'});

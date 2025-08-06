@@ -2,7 +2,7 @@ export default [
     {
         name: '16.1. Concept Formation from Contradictions',
         description: 'Tests if the system can form a new concept to resolve a contradiction.',
-        skipped: false, // Skipping due to deeper bug in reasoning engine.
+        skipped: false,
         steps: [
             {
                 comment: 'Establish that penguins are birds.',

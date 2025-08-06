@@ -33,6 +33,6 @@ export class SimpleContradictionManager extends ContradictionManagerBase {
     }
 
     resolveContradictions() {
-        // No-op.
+
     }
 }

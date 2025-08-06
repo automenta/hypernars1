@@ -1,6 +1,3 @@
-/**
- * A base class for expression evaluators.
- */
 export class ExpressionEvaluatorBase {
     constructor(nar) {
         this.nar = nar;

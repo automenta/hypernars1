@@ -2,7 +2,7 @@ import {useCallback, useEffect, useRef, useState} from 'react';
 
 export const useNarSystem = (nar, log) => {
     const [isRunning, setIsRunning] = useState(false);
-    const [runDelay, setRunDelay] = useState(100); // ms
+    const [runDelay, setRunDelay] = useState(100);
     const [sps, setSps] = useState(0);
     const runInterval = useRef(null);
     const stepCountRef = useRef(0);

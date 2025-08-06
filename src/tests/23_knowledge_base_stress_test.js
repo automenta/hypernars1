@@ -1,7 +1,7 @@
 export default {
     name: '23. Knowledge Base Stress Test',
     description: 'Tests system performance and stability with a large knowledge base.',
-    skipped: false, // Skipping due to deeper bug in reasoning engine.
+    skipped: false,
     steps: [
         {
             comment: 'Step 1: Populate the knowledge base with a large number of beliefs and rules.',
@@ -9,7 +9,7 @@ export default {
                 const numConcepts = 2000;
                 const numRules = 500;
 
-                nar.config.beliefCapacity = 20; // Increase capacity to handle the load
+                nar.config.beliefCapacity = 20;
 
                 for (let i = 0; i < numConcepts; i++) {
                     nar.nal(`Term(concept_${i}).`);
@@ -21,7 +21,7 @@ export default {
                     nar.nal(`<${premise} --> ${conclusion}>.`);
                 }
 
-                // Add a specific, verifiable fact
+
                 nar.nal('<concept_1999 --> target_property>. %1.0;0.99%');
             },
         },
@@ -34,7 +34,7 @@ export default {
         {
             comment: 'Step 3: Perform a query and assert the result is found correctly.',
             action: (nar) => {
-                // This action is just a placeholder to separate the final assertion.
+
             },
             assert: (nar, logs) => {
                 const result = nar.query('<concept_1999 --> ?x>');

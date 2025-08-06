@@ -1,7 +1,7 @@
 export default {
     name: '11. Comprehensive Reasoning',
     description: 'A complex scenario combining analogy, belief revision, and question answering.',
-    skipped: false, // SKIPPED: Uncovered potential bug where belief revision does not decrease confidence as expected.
+    skipped: false,
     config: {
         logLevel: 'info',
     },

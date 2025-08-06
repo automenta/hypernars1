@@ -1,4 +1,5 @@
 import {hash, id} from '../support/utils.js';
+import { TASK_TYPES } from '../support/constants.js';
 
 export class QuestionHandler {
     constructor(nar) {
@@ -44,7 +45,7 @@ export class QuestionHandler {
                 const subjectArg = args[0];
                 const predicateArg = args[1];
 
-                // Safely get the string representation of the arguments
+
                 const subject = (subjectArg && subjectArg.args) ? subjectArg.args[0] : subjectArg;
                 const predicate = (predicateArg && predicateArg.args) ? predicateArg.args[0] : predicateArg;
 
@@ -72,7 +73,7 @@ export class QuestionHandler {
                     });
                 } else {
                     const hyperedgeId = id('Inheritance', [subject, predicate]);
-                    const budget = this.nar.memoryManager.allocateResources({type: 'question'}, {
+                    const budget = this.nar.memoryManager.allocateResources({type: TASK_TYPES.QUESTION}, {
                         importance: 1.0,
                         urgency: 1.0
                     });
@@ -172,7 +173,7 @@ export class QuestionHandler {
                     this.nar.learningEngine.recordSuccess?.(hyperedgeId);
                 }
             } catch (e) {
-                // Ignore parsing errors for patterns that don't match
+
             }
         });
     }

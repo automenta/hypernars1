@@ -44,7 +44,7 @@ export class Propagation {
             event.pathLength > this.nar.config.maxPathLength ||
             this._hasLoop(event.target, event.pathHash)) return;
 
-        // Track usage for concept formation
+
         if (this.nar.conceptFormation && this.nar.conceptFormation.trackUsage) {
             this.nar.conceptFormation.trackUsage(event.target, event.activation, event.budget);
         }

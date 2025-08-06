@@ -39,7 +39,7 @@ export class TruthValue {
         const f1 = t1.frequency, c1 = t1.confidence;
         const f2 = t2.frequency, c2 = t2.confidence;
 
-        //TODO check this
+
         const frequency = (f1 + f2) / 2;
         const confidence = c1 * c2 * (1 - Math.abs(f1 - f2));
         const doubt = Math.max(t1.doubt || 0, t2.doubt || 0);

@@ -39,7 +39,7 @@ describe('AdvancedContradictionManager', () => {
         nar.nal(`${term}. %0.9;0.8%`);
         nar.nal(`${term}. %0.2;0.6%`);
 
-        nar.run(5); // Allow time for processing
+        nar.run(5);
 
         const contradictions = nar.getContradictions();
         expect(contradictions.length).toBe(0);

@@ -5,7 +5,7 @@ import {Budget} from '../support/Budget.js';
 import {id} from '../support/utils.js';
 import {AdvancedContradictionManager} from './AdvancedContradictionManager.js';
 
-// Use the AdvancedContradictionManager for these tests
+
 const config = {
     useAdvanced: true,
     modules: {
@@ -19,36 +19,36 @@ describe('AdvancedContradictionManager', () => {
         const nar = new NAR(config);
         const termId = id('Term', ['a']);
 
-        // Add two contradictory beliefs
+
         nar.api.addHyperedge('Term', ['a'], {truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9)});
         nar.api.addHyperedge('Term', ['a'], {truth: new TruthValue(0.1, 0.9), budget: new Budget(0.1, 0.9, 0.9)});
 
         const hyperedge = nar.state.hypergraph.get(termId);
-        expect(hyperedge.beliefs.length).toBe(2); // Both beliefs should exist initially
+        expect(hyperedge.beliefs.length).toBe(2);
 
         const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
         const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.1);
         nar.contradictionManager.addEvidence(termId, belief1.id, {source: 'A', strength: 0.9});
         nar.contradictionManager.addEvidence(termId, belief2.id, {source: 'B', strength: 0.2});
 
-        // Resolve the contradiction
+
         nar.contradictionManager.detectContradiction(termId);
         const result = nar.contradictionManager.manualResolve(termId, 'dominant_evidence');
 
         expect(result).not.toBeNull();
-        expect(hyperedge.beliefs.length).toBe(2); // The weaker belief is now modified, not removed
+        expect(hyperedge.beliefs.length).toBe(2);
         expect(hyperedge.getStrongestBelief().truth.frequency).toBe(0.9);
 
         const weakerBelief = hyperedge.beliefs.find(b => b.truth.frequency !== 0.9);
-        expect(weakerBelief.truth.confidence).toBeLessThan(0.9); // Should be scaled down
-        expect(weakerBelief.truth.doubt).toBeGreaterThan(0.4); // Should have increased doubt
+        expect(weakerBelief.truth.confidence).toBeLessThan(0.9);
+        expect(weakerBelief.truth.doubt).toBeGreaterThan(0.4);
     });
 
     it('should specialize a concept (split) when evidence strength is similar', () => {
         const nar = new NAR(config);
         const termId = id('Term', ['b']);
 
-        // Add two contradictory beliefs, making them clearly contradictory under the new rules
+
         nar.api.addHyperedge('Term', ['b'], {truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9)});
         nar.api.addHyperedge('Term', ['b'], {truth: new TruthValue(0.2, 0.4), budget: new Budget(0.85, 0.9, 0.9)});
 
@@ -59,20 +59,20 @@ describe('AdvancedContradictionManager', () => {
         nar.contradictionManager.addEvidence(termId, belief1.id, {source: 'SourceA', strength: 0.8});
         nar.contradictionManager.addEvidence(termId, belief2.id, {source: 'SourceB', strength: 0.78});
 
-        // Resolve the contradiction
+
         nar.contradictionManager.detectContradiction(termId);
         const result = nar.contradictionManager.manualResolve(termId, 'specialize');
 
-        // Assert that the resolution was 'specialized'
+
         expect(result).not.toBeNull();
         expect(result.reason).toBe('specialized');
 
-        // Assert that the original hyperedge now only has the strongest belief
+
         const updatedOriginalHyperedge = nar.state.hypergraph.get(termId);
         expect(updatedOriginalHyperedge.beliefs.length).toBe(1);
         expect(updatedOriginalHyperedge.getStrongestBelief().truth.frequency).toBe(0.9);
 
-        // Assert that a new, specialized hyperedge was created
+
         const newHyperedgeId = `${termId}|context:SourceB`;
 
         const newHyperedge = nar.state.hypergraph.get(newHyperedgeId);
@@ -101,13 +101,13 @@ describe('AdvancedContradictionManager', () => {
         const hyperedgeAfter = nar.state.hypergraph.get(termId);
         const beliefCountAfter = hyperedgeAfter.beliefs.length;
 
-        // Ensure analyze() did not change the number of beliefs
+
         expect(beliefCountAfter).toBe(beliefCountBefore);
 
         expect(analysis).toBeDefined();
         expect(analysis.contradictions.length).toBe(2);
 
-        // The contradictions should be sorted by evidence strength
+
         expect(analysis.contradictions[0].truth.frequency).toBe(0.9);
         expect(analysis.contradictions[1].truth.frequency).toBe(0.2);
 
@@ -115,14 +115,14 @@ describe('AdvancedContradictionManager', () => {
         expect(analysis.contradictions[0].evidence[0].source).toBe('A');
         expect(analysis.contradictions[0].evidenceStrength).toBeGreaterThan(analysis.contradictions[1].evidenceStrength);
 
-        // Check the suggestion
+
         expect(analysis.resolutionSuggestion.strategy).toBe('dominant_evidence');
     });
 
     it.skip('should find and resolve all detected contradictions via resolveContradictions()', () => {
         const nar = new NAR(config);
 
-        // Concept 1: Mild contradiction
+
         const termId1 = id('Term', ['d']);
         nar.api.addHyperedge('Term', ['d'], {truth: new TruthValue(0.8, 0.9), budget: new Budget(0.8, 0.9, 0.9)});
         nar.api.addHyperedge('Term', ['d'], {truth: new TruthValue(0.3, 0.9), budget: new Budget(0.7, 0.9, 0.9)});
@@ -133,7 +133,7 @@ describe('AdvancedContradictionManager', () => {
         nar.contradictionManager.addEvidence(termId1, belief1_2.id, {source: 'B', strength: 0.5});
         nar.contradictionManager.detectContradiction(termId1);
 
-        // Concept 2: Strong contradiction
+
         const termId2 = id('Term', ['e']);
         nar.api.addHyperedge('Term', ['e'], {truth: new TruthValue(0.9, 0.9), budget: new Budget(0.9, 0.9, 0.9)});
         nar.api.addHyperedge('Term', ['e'], {truth: new TruthValue(0.2, 0.9), budget: new Budget(0.88, 0.9, 0.9)});
@@ -144,13 +144,13 @@ describe('AdvancedContradictionManager', () => {
         nar.contradictionManager.addEvidence(termId2, belief2_2.id, {source: 'D', strength: 0.78});
         nar.contradictionManager.detectContradiction(termId2);
 
-        // Run the global resolution
+
         nar.contradictionManager.resolveContradictions();
 
         const hyperedge1_after = nar.state.hypergraph.get(termId1);
         const hyperedge2_after = nar.state.hypergraph.get(termId2);
 
-        // The new manager resolves all detected contradictions
+
         expect(hyperedge1_after.beliefs.length).toBe(1);
         expect(hyperedge2_after.beliefs.length).toBe(1);
     });
