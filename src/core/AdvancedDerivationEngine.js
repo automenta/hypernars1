@@ -203,12 +203,13 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         if (this.nar.state.index.derivationCache.has(cacheKey)) return;
         this.nar.state.index.derivationCache.set(cacheKey, true);
 
-        const truth = TruthValue.transitive(premise1.getTruth(), premise2.getTruth());
-        this.nar.api.inheritance(subject, predicate, {
-            truth,
-            budget: budget.scale(0.7),
-            premises: [premise1.id, premise2.id],
-            derivedBy: 'transitivity'
+        this._propagate({
+            target: id('Inheritance', [subject, predicate]),
+            truth: TruthValue.transitive(premise1.getTruth(), premise2.getTruth()),
+            budgetFactor: 0.7,
+            activationFactor: 1.0,
+            derivationSuffix: 'transitivity',
+            premises: [premise1.id, premise2.id]
         });
 
         const currentHyperedge = this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate]));
@@ -229,7 +230,13 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         });
 
 
-        this.nar.api.similarity(subject, predicate, {budget: budget.scale(0.6), derivedBy: ruleName});
+        this._propagate({
+            target: id('Similarity', [subject, predicate]),
+            budgetFactor: 0.6,
+            activationFactor: 1.0,
+            derivationSuffix: ruleName,
+            truth: new TruthValue(1.0, 0.9) // Default truth for similarity
+        });
 
         this._derivePropertyInheritance(subject, predicateId, activation, budget, pathHash, pathLength, derivationPath, ruleName);
 
@@ -242,13 +249,11 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
             (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(propId => {
                 const property = this.nar.state.hypergraph.get(propId);
                 if (property?.type === 'Property') {
-                    this.nar.propagation.propagate({
+                    this._propagate({
                         target: id('Property', [subject, property.args[1]]),
-                        activation: activation * 0.6,
-                        budget: budget.scale(0.5),
-                        pathHash: pathHash,
-                        pathLength: pathLength + 1,
-                        derivationPath: [...derivationPath, 'property_derivation']
+                        budgetFactor: 0.5,
+                        activationFactor: 0.6,
+                        derivationSuffix: 'property_derivation'
                     });
                 }
             });

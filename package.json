@@ -31,8 +31,9 @@
   },
   "jest": {
     "testMatch": [
-      "**/src/**/*.test.js",
-      "!**/src/tests/**"
+      "**/__tests__/**/*.js?(x)",
+      "**/?(*.)+(spec|test).js?(x)",
+      "**/src/tests/adapter.test.js"
     ]
   }
 }
