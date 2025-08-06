@@ -7,7 +7,7 @@ export default {
             action: (nar) => {
                 // Base domain knowledge: A system with a central star, has a central body.
                 // Using simplified NAL for clarity.
-                nar.nal('<(*, {star}, {planet}) ==> has_central_body>. %1.0;0.9%');
+                nar.nal('((*, {star}, {planet}) ==> has_central_body). %1.0;0.9%');
 
                 // Instance of the base domain.
                 nar.nal('<solar_system ==> (*, {sun}, {earth})>. %1.0;0.9%');
