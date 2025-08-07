@@ -84,6 +84,29 @@ export class TruthValue {
         return new TruthValue(1.0 - t1.frequency, t1.confidence, t1.priority, t1.doubt || 0);
     }
 
+    static resolveContradiction(t_pro, t_con) {
+        const c_pro = t_pro.confidence;
+        const c_con = t_con.confidence;
+
+        // Using the evidence system (w = c / (1-c))
+        const w_pro = c_pro / (1 - c_pro);
+        const w_con = c_con / (1 - c_con);
+
+        const w_final = w_pro - w_con;
+        const c_final = Math.abs(w_final) / (Math.abs(w_final) + 1);
+
+        // Frequency is a weighted average of the pro-frequency and the negated con-frequency
+        const f_pro = t_pro.frequency;
+        const f_con_negated = 1.0 - t_con.frequency;
+
+        // Use confidence as the weight for the frequency calculation
+        const f_final = (f_pro * c_pro + f_con_negated * c_con) / (c_pro + c_con);
+
+        // If w_final is negative, the belief flips, but we'll let the expectation handle the sign
+        // For now, the frequency represents the belief in the "pro" statement
+        return new TruthValue(f_final, c_final);
+    }
+
     static certain() {
         return new TruthValue(1.0, 0.9, 1.0, 0.0);
     }

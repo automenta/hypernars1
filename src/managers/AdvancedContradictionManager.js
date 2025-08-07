@@ -159,20 +159,24 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                     const belief2 = otherHyperedge.getStrongestBelief();
 
                     if (belief1 && belief2) {
-                        const revisedTruth = TruthValue.revise(belief1.truth, belief2.truth.negate());
-                        const revisedBudget = belief1.budget.merge(belief2.budget);
+                        // Use the new, correct method for resolving contradictions
+                        const revisedTruth = TruthValue.resolveContradiction(belief1.truth, belief2.truth);
+                        const revisedBudget = belief1.budget.merge(belief2.budget).scale(0.9); // Scale budget down slightly after any contradiction
 
-                        const revisedBelief = {
-                            ...belief1,
+                        hyperedge.revise({
                             truth: revisedTruth,
                             budget: revisedBudget,
-                            timestamp: Date.now(),
                             premises: [belief1.id, belief2.id],
                             derivedBy: 'inter_edge_contradiction_resolution'
-                        };
+                        });
 
-                        hyperedge.beliefs = [revisedBelief];
-                        otherHyperedge.beliefs[0].budget = otherHyperedge.beliefs[0].budget.scale(this.config.interEdgeBudgetScale);
+                        // Weaken the other hyperedge's belief
+                        otherHyperedge.revise({
+                            truth: belief2.truth, // Keep its truth the same
+                            budget: belief2.budget.scale(this.config.interEdgeBudgetScale), // But significantly weaken its budget
+                            premises: belief2.premises,
+                            derivedBy: 'inter_edge_contradiction_weakening'
+                        });
                     }
                 }
             }
