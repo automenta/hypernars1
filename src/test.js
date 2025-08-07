@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeEach } from '@jest/globals';
-import { NAR } from './NAR.js';
+import {beforeEach, describe, it} from '@jest/globals';
+import {NAR} from './NAR.js';
 import fs from 'fs';
 import path from 'path';
-import { pathToFileURL } from 'url';
+import {pathToFileURL} from 'url';
 
 const testsDir = path.resolve(process.cwd(), 'src', 'tests');
 const files = fs.readdirSync(testsDir).filter(file => file.endsWith('.js') && !file.endsWith('.test.js'));
@@ -16,10 +16,10 @@ async function loadTestModules() {
         const modulePath = path.join(testsDir, file);
         try {
             const testModule = await import(pathToFileURL(modulePath));
-            testModules.push({ file, testModule });
+            testModules.push({file, testModule});
         } catch (error) {
             // Create a placeholder to report the error during test execution
-            testModules.push({ file, error });
+            testModules.push({file, error});
         }
     }
     return testModules;
@@ -28,7 +28,7 @@ async function loadTestModules() {
 const testModules = await loadTestModules();
 
 describe('All Tests', () => {
-    testModules.forEach(({ file, testModule, error }) => {
+    testModules.forEach(({file, testModule, error}) => {
         if (error) {
             it(`should import test file ${file} successfully`, () => {
                 throw new Error(`Failed to import test file: ${file}\n${error.stack}`);
@@ -56,7 +56,7 @@ describe('All Tests', () => {
                     let logs;
 
                     beforeEach(() => {
-                        nar = new NAR({ ...test.config, useAdvanced: true });
+                        nar = new NAR({...test.config, useAdvanced: true});
                         logs = [];
                         nar.on('log', (log) => {
                             logs.push(log.message);

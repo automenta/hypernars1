@@ -69,8 +69,8 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     }
 
     _addBeliefAndPropagate(options, event) {
-        const { type, args, truth, budgetFactor, activationFactor, derivationSuffix, premises } = options;
-        const { activation, budget, pathHash, pathLength, derivationPath } = event;
+        const {type, args, truth, budgetFactor, activationFactor, derivationSuffix, premises} = options;
+        const {activation, budget, pathHash, pathLength, derivationPath} = event;
 
         const targetId = id(type, args);
 
