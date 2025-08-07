@@ -13,9 +13,13 @@ export default {
                 const tweetyIsFlyerId = nar.inheritance('tweety', 'flyer');
                 const belief = nar.getBeliefs(tweetyIsFlyerId)[0];
                 if (!belief) {
-                    return false;
+                    return "Belief 'tweety --> flyer' not found.";
                 }
-                return belief.truth.expectation() > 0.4;
+                const expectation = belief.truth.expectation();
+                if (expectation <= 0.4) {
+                    return `Expected expectation > 0.4, but got ${expectation}.`;
+                }
+                return true;
             }
         }
     ]
