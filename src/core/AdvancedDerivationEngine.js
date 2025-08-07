@@ -70,7 +70,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
     _addBeliefAndPropagate(options, event) {
         const {type, args, truth, budgetFactor, activationFactor, derivationSuffix, premises} = options;
-        const {activation, budget, pathHash, pathLength, derivationPath} = event;
+        const {activation, budget, pathHash, pathLength, derivationPath = []} = event;
 
         const targetId = id(type, args);
 
@@ -216,7 +216,9 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
     _deriveTransitiveInheritance(context, event) {
         const {subject, predicate, premise1, premise2, ruleName} = context;
-        const {activation, budget, pathHash, pathLength, derivationPath} = event;
+        if (!premise1 || !premise2) return;
+
+        const {activation, budget, pathHash, pathLength, derivationPath = []} = event;
 
         const subjectId = getArgId(subject);
         const predicateId = getArgId(predicate);
@@ -239,6 +241,10 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         }, event);
 
         const currentHyperedge = this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate]));
+
+        if (!currentHyperedge) {
+            return;
+        }
 
         (this.nar.state.index.byArg.get(subjectId) || new Set()).forEach(termId => {
             const backwardChainEdge = this.nar.state.hypergraph.get(termId);
@@ -307,7 +313,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
     _deriveSimilarity({args: [term1, term2]}, event, ruleName) {
         const term1Id = getArgId(term1);
-        const {activation, budget, pathHash, pathLength, derivationPath} = event;
+        const {activation, budget, pathHash, pathLength, derivationPath = []} = event;
 
         this.nar.propagation.propagate({
             target: id('Similarity', [term2, term1]),
@@ -360,6 +366,8 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
 
     _deriveAnalogy(context, event) {
         const {term1, term2, predicate, similarity, premise, ruleName} = context;
+        if (!similarity || !premise) return;
+
         const {budget, pathHash, pathLength} = event;
 
         const term2Id = getArgId(term2);
@@ -380,18 +388,27 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     _deriveImplication({args: [premise, conclusion]}, event, ruleName) {
         const premiseId = getArgId(premise);
         if (this.nar.state.hypergraph.has(premiseId)) {
-            let targetConclusion = conclusion;
-            if (typeof targetConclusion === 'string') {
-                targetConclusion = this.nar.expressionEvaluator.parse(targetConclusion);
+            let targetId;
+            // If conclusion is a simple string (a term name), its ID is itself.
+            // Otherwise, it's a complex statement that needs to be parsed to form a hyperedge ID.
+            if (typeof conclusion === 'string' && /^[a-zA-Z0-9]+$/.test(conclusion)) {
+                targetId = conclusion;
+            } else {
+                const parsedConclusion = (typeof conclusion === 'string') ? this.nar.expressionEvaluator.parse(conclusion) : conclusion;
+                if (parsedConclusion && parsedConclusion.type && parsedConclusion.args) {
+                    targetId = id(parsedConclusion.type, parsedConclusion.args);
+                } else {
+                    targetId = getArgId(conclusion); // Fallback
+                }
             }
 
             this.nar.propagation.propagate({
-                target: id(targetConclusion.type, targetConclusion.args),
+                target: targetId,
                 activation: event.activation * 0.9,
                 budget: event.budget.scale(0.75),
                 pathHash: event.pathHash,
                 pathLength: event.pathLength + 1,
-                derivationPath: [...event.derivationPath, ruleName]
+                derivationPath: [...(event.derivationPath || []), ruleName]
             });
         }
     }
@@ -417,7 +434,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
                 budget: event.budget.scale(0.75),
                 pathHash: event.pathHash,
                 pathLength: event.pathLength + 1,
-                derivationPath: [...event.derivationPath, ruleName]
+                derivationPath: [...(event.derivationPath || []), ruleName]
             })
         );
     }

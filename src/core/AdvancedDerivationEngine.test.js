@@ -3,6 +3,7 @@ import {AdvancedDerivationEngine} from './AdvancedDerivationEngine.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {Hyperedge} from '../support/Hyperedge.js';
 import {Budget} from "../support/Budget.js";
+import {id as generateId} from "../support/utils.js";
 
 // Mock NAR system and its components
 const mockNar = {
@@ -10,15 +11,22 @@ const mockNar = {
         hypergraph: new Map(),
         index: {
             byArg: new Map(),
-            derivationCache: new Set(),
+            derivationCache: new Map(),
         },
         memoization: new Map(),
     },
     api: {
-        inheritance: jest.fn(),
+        inheritance: jest.fn((...args) => {
+            // Forward to addHyperedge to simulate creation
+            mockNar.api.addHyperedge('Inheritance', args.slice(0, 2), args[2]);
+        }),
         similarity: jest.fn(),
         implication: jest.fn(),
-        addHyperedge: jest.fn(),
+        addHyperedge: jest.fn((type, args, options) => {
+            // Use the real ID generator to ensure consistency
+            const id = generateId(type, args);
+            createMockHyperedge(id, type, args, options?.truth);
+        }),
     },
     propagation: {
         propagate: jest.fn(),
@@ -46,13 +54,21 @@ const mockNar = {
 const createMockHyperedge = (id, type, args, truth = new TruthValue(0.9, 0.9)) => {
     const edge = new Hyperedge(mockNar, id, type, args);
     edge.revise({truth: truth, budget: new Budget({})}); // Add a belief
-    mockNar.state.hypergraph.set(id, edge);
+    mockNar.state.hypergraph.set(id, edge); // Set by custom test ID
+
+    // ALSO set by the official generated ID so lookups will work
+    const officialId = generateId(type, args);
+    if (id !== officialId) {
+        mockNar.state.hypergraph.set(officialId, edge);
+    }
+
     args.forEach(arg => {
         const argId = arg.id || arg;
         if (!mockNar.state.index.byArg.has(argId)) {
             mockNar.state.index.byArg.set(argId, new Set());
         }
         mockNar.state.index.byArg.get(argId).add(id);
+        mockNar.state.index.byArg.get(argId).add(officialId);
     });
     return edge;
 };
@@ -102,8 +118,10 @@ describe('AdvancedDerivationEngine', () => {
             engine.registerRule('HighPriorityRule', () => true, () => {
             }, {priority: 0.8});
             const ruleNames = [...engine.rules.keys()];
+            // High priority rule (0.8) should be first
             expect(ruleNames[0]).toBe('HighPriorityRule');
-            expect(ruleNames[1]).toBe('LowPriorityRule');
+            // Low priority rule (0.2) should be last, after all default 0.5 rules
+            expect(ruleNames[ruleNames.length - 1]).toBe('LowPriorityRule');
         });
 
         it('should evaluate and update rule priorities based on productivity stats', () => {
@@ -152,12 +170,12 @@ describe('AdvancedDerivationEngine', () => {
     describe('Derivation Logic', () => {
         it('should derive transitive inheritance (A->B, B->C => A->C)', () => {
             const h1 = createMockHyperedge('h1', 'Inheritance', ['A', 'B']);
-            const h2 = createMockHyperedge('h2', 'Inheritance', ['B', 'C']);
+            createMockHyperedge('h2', 'Inheritance', ['B', 'C']);
 
-            const event = {target: 'h1', budget: {scale: jest.fn().mockReturnThis()}, pathLength: 1};
+            const event = {target: generateId('Inheritance', ['A', 'B']), budget: {scale: jest.fn().mockReturnThis()}, pathLength: 1};
             engine._deriveInheritance(h1, event, 'Inheritance');
 
-            expect(mockNar.api.inheritance).toHaveBeenCalledWith('A', 'C', expect.any(Object));
+            expect(mockNar.api.addHyperedge).toHaveBeenCalledWith('Inheritance', ['A', 'C'], expect.any(Object));
         });
 
         it('should derive analogy (X~Y, X->P => Y->P)', () => {

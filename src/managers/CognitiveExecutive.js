@@ -37,7 +37,7 @@ const defaultConfig = {
     MIN_RULE_PRIORITY: 0.5,
     EFFICIENCY_EPSILON: 0.01,
     DEFAULT_BUDGET_SCALE: 0.7,
-    BUDGET_SCALE_ADJUSTMENT_FACTOR_1: 0.8,
+    BUDGET_SCALE_ADJUSTMENT_FACTOR_1: 0.7,
     BUDGET_SCALE_ADJUSTMENT_FACTOR_2: 0.4,
     MIN_BUDGET_SCALE: 0.3,
     MAX_BUDGET_SCALE: 1.0,
@@ -257,7 +257,7 @@ export class CognitiveExecutive {
         }
 
         candidates.sort((a, b) => a.value - b.value);
-        const pruneCount = Math.min(this.config.MAX_PRUNE_CANDIDATES, Math.floor(candidates.length * this.config.PRUNE_CANDIDATE_RATIO));
+        const pruneCount = Math.min(this.config.MAX_PRUNE_CANDIDATES, Math.ceil(candidates.length * this.config.PRUNE_CANDIDATE_RATIO));
         for (let i = 0; i < pruneCount; i++) {
             this.nar.api.removeHyperedge(candidates[i].id);
         }
