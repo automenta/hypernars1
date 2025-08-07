@@ -34,89 +34,73 @@ import {GoalManager} from './managers/GoalManager.js';
 import {ConceptFormation} from './managers/ConceptFormation.js';
 
 
+const MODULE_DEFINITIONS = [
+    { name: 'ExpressionEvaluator', simple: ExpressionEvaluator, advanced: AdvancedExpressionEvaluator },
+    { name: 'DerivationEngine', simple: SimpleDerivationEngine, advanced: AdvancedDerivationEngine, base: DerivationEngineBase },
+    { name: 'MemoryManager', simple: SimpleMemoryManager, advanced: AdvancedMemoryManager, base: MemoryManagerBase },
+    { name: 'ContradictionManager', simple: SimpleContradictionManager, advanced: AdvancedContradictionManager, base: ContradictionManagerBase },
+    { name: 'LearningEngine', simple: SimpleLearningEngine, advanced: AdvancedLearningEngine, base: LearningEngineBase },
+    { name: 'TemporalManager', simple: SimpleTemporalManager, advanced: TemporalReasoner, base: TemporalManagerBase },
+    { name: 'CognitiveExecutive', simple: CognitiveExecutive },
+    { name: 'ExplanationSystem', simple: ExplanationSystem },
+    { name: 'GoalManager', simple: GoalManager, base: GoalManagerBase },
+    { name: 'ConceptFormation', simple: ConceptFormation },
+];
+
+
+const DEFAULT_CONFIG = {
+    logger: console,
+    decay: 0.1,
+    budgetDecay: 0.8,
+    inferenceThreshold: 0.3,
+    maxPathLength: 15,
+    beliefCapacity: 8,
+    temporalHorizon: 3,
+    budgetThreshold: 0.05,
+    maxDerivationDepth: 5,
+    expressionTimeout: 500,
+    derivationCacheSize: 1000,
+    questionTimeout: 3000,
+    memoryMaintenanceInterval: 100,
+    logLevel: 'info',
+    cleanupProbability: 0.1,
+    maxPathCacheSize: 1000,
+    pathCacheTruncationSize: 500,
+    maxQuestionCacheSize: 10,
+    questionCacheTruncationSize: 5,
+    cleanupInterval: 100,
+    questionResolutionInterval: 10,
+};
+
+
 export class NAR extends EventEmitter {
     constructor(config = {}) {
         super();
-        this.config = Object.assign({
-            logger: console,
-            decay: 0.1,
-            budgetDecay: 0.8,
-            inferenceThreshold: 0.3,
-            maxPathLength: 15,
-            beliefCapacity: 8,
-            temporalHorizon: 3,
-            budgetThreshold: 0.05,
-            maxDerivationDepth: 5,
-            expressionTimeout: 500,
-            derivationCacheSize: 1000,
-            questionTimeout: 3000,
-            memoryMaintenanceInterval: 100,
-            logLevel: 'info',
-            cleanupProbability: 0.1,
-            maxPathCacheSize: 1000,
-            pathCacheTruncationSize: 500,
-            maxQuestionCacheSize: 10,
-            questionCacheTruncationSize: 5,
-            cleanupInterval: 100,
-            questionResolutionInterval: 10,
-        }, config);
-        this.config.ruleConfig = this.config.ruleConfig || {};
+        this._initConfig(config);
+        this._initializeCoreComponents(config);
+        this._initializeModules(config);
+        this._exposeApi();
+    }
 
-        this.state = new State({...this.config, useStructuralIndex: config.useAdvanced});
+    _initConfig(config) {
+        this.config = { ...DEFAULT_CONFIG, ...config };
+        this.config.ruleConfig = this.config.ruleConfig || {};
+    }
+
+    _initializeCoreComponents(config) {
+        this.state = new State({ ...this.config, useStructuralIndex: config.useAdvanced });
         this.propagation = new Propagation(this);
         this.questionHandler = new QuestionHandler(this);
         this.system = new System(this);
-
-        this._initializeModules(config);
-
-        this._exposeApi();
     }
 
     _initializeModules(config) {
         const useAdvanced = config.useAdvanced || false;
         const customModules = config.modules || {};
 
-        const moduleDefinitions = [
-            {name: 'ExpressionEvaluator', simple: ExpressionEvaluator, advanced: AdvancedExpressionEvaluator},
-            {
-                name: 'DerivationEngine',
-                simple: SimpleDerivationEngine,
-                advanced: AdvancedDerivationEngine,
-                base: DerivationEngineBase
-            },
-            {
-                name: 'MemoryManager',
-                simple: SimpleMemoryManager,
-                advanced: AdvancedMemoryManager,
-                base: MemoryManagerBase
-            },
-            {
-                name: 'ContradictionManager',
-                simple: SimpleContradictionManager,
-                advanced: AdvancedContradictionManager,
-                base: ContradictionManagerBase
-            },
-            {
-                name: 'LearningEngine',
-                simple: SimpleLearningEngine,
-                advanced: AdvancedLearningEngine,
-                base: LearningEngineBase
-            },
-            {
-                name: 'TemporalManager',
-                simple: SimpleTemporalManager,
-                advanced: TemporalReasoner,
-                base: TemporalManagerBase
-            },
-            {name: 'CognitiveExecutive', simple: CognitiveExecutive, advanced: CognitiveExecutive},
-            {name: 'ExplanationSystem', simple: ExplanationSystem, advanced: ExplanationSystem},
-            {name: 'GoalManager', simple: GoalManager, advanced: GoalManager, base: GoalManagerBase},
-            {name: 'ConceptFormation', simple: ConceptFormation, advanced: ConceptFormation},
-        ];
-
-        for (const moduleDef of moduleDefinitions) {
+        for (const moduleDef of MODULE_DEFINITIONS) {
             const instanceName = moduleDef.name.charAt(0).toLowerCase() + moduleDef.name.slice(1);
-            const ModuleClass = customModules[moduleDef.name] || (useAdvanced ? moduleDef.advanced : moduleDef.simple);
+            const ModuleClass = customModules[moduleDef.name] || (useAdvanced ? (moduleDef.advanced || moduleDef.simple) : moduleDef.simple);
 
             if (ModuleClass) {
                 this[instanceName] = new ModuleClass(this);
@@ -131,22 +115,48 @@ export class NAR extends EventEmitter {
     }
 
     _exposeApi() {
-        // Bind methods from the Api class
-        for (const methodName of Object.getOwnPropertyNames(Object.getPrototypeOf(this.api))) {
-            const method = this.api[methodName];
-            if (typeof method === 'function' && methodName !== 'constructor' && !methodName.startsWith('_')) {
-                this[methodName] = method.bind(this.api);
-            }
-        }
+        // Methods from the core Api class
+        this.nal = this.api.nal.bind(this.api);
+        this.nalq = this.api.nalq.bind(this.api);
+        this.seq = this.api.seq.bind(this.api);
+        this.contextualRule = this.api.contextualRule.bind(this.api);
+        this.temporalSequence = this.api.temporalSequence.bind(this.api);
+        this.probabilisticRule = this.api.probabilisticRule.bind(this.api);
+        this.citedBelief = this.api.citedBelief.bind(this.api);
+        this.robustRule = this.api.robustRule.bind(this.api);
+        this.temporalInterval = this.api.temporalInterval.bind(this.api);
+        this.temporalConstraint = this.api.temporalConstraint.bind(this.api);
+        this.inferTemporalRelationship = this.api.inferTemporalRelationship.bind(this.api);
+        this.projectTemporal = this.api.projectTemporal.bind(this.api);
+        this.getContradictions = this.api.getContradictions.bind(this.api);
+        this.getGoals = this.api.getGoals.bind(this.api);
+        this.analyzeContradiction = this.api.analyzeContradiction.bind(this.api);
+        this.resolveContradiction = this.api.resolveContradiction.bind(this.api);
+        this.getTrace = this.api.getTrace.bind(this.api);
+        this.configureStrategy = this.api.configureStrategy.bind(this.api);
+        this.getActiveStrategy = this.api.getActiveStrategy.bind(this.api);
+        this.getMetrics = this.api.getMetrics.bind(this.api);
+        this.getFocus = this.api.getFocus.bind(this.api);
+        this.term = this.api.term.bind(this.api);
+        this.inheritance = this.api.inheritance.bind(this.api);
+        this.similarity = this.api.similarity.bind(this.api);
+        this.implication = this.api.implication.bind(this.api);
+        this.equivalence = this.api.equivalence.bind(this.api);
+        this.getBelief = this.api.getBelief.bind(this.api);
+        this.getBeliefs = this.api.getBeliefs.bind(this.api);
+        this.queryBelief = this.api.queryBelief.bind(this.api);
+        this.addHyperedge = this.api.addHyperedge.bind(this.api);
+        this.outcome = this.api.outcome.bind(this.api);
+        this.revise = this.api.revise.bind(this.api);
+        this.removeHyperedge = this.api.removeHyperedge.bind(this.api);
 
-        // Bind methods from other core components
+        // Methods from other core components
         this.run = this.system.run.bind(this.system);
         this.step = this.system.step.bind(this.system);
         this.ask = this.questionHandler.ask.bind(this.questionHandler);
         this.explain = this.explanationSystem.explain.bind(this.explanationSystem);
         this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
         this.addGoal = this.goalManager.addGoal.bind(this.goalManager);
-        this.getBelief = this.api.getBelief.bind(this.api);
     }
 
     createSandbox(options = {}) {
