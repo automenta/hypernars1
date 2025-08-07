@@ -12,10 +12,13 @@ export default {
             },
             assert: (nar, logs) => {
                 const belief = nar.api.queryBelief('<tweety --> flyer>.');
-                if (!belief || !belief.truth) return false;
+                if (!belief || !belief.truth) return 'Initial belief not found.';
                 // Store the initial expectation in the scratchpad for the next step
                 nar.scratchpad = {initialExpectation: belief.truth.expectation()};
-                return nar.scratchpad.initialExpectation > 0.5;
+                if (nar.scratchpad.initialExpectation > 0.5) {
+                    return true;
+                }
+                return `Initial expectation was not > 0.5. Got: ${nar.scratchpad.initialExpectation}`;
             }
         },
         {
@@ -28,10 +31,13 @@ export default {
             },
             assert: (nar, logs) => {
                 const belief = nar.api.queryBelief('<tweety --> flyer>.');
-                if (!belief || !belief.truth) return false;
+                if (!belief || !belief.truth) return 'Belief not found after contradiction.';
                 const newExpectation = belief.truth.expectation();
                 // After contradiction, the expectation should have decreased.
-                return newExpectation < nar.scratchpad.initialExpectation;
+                if (newExpectation < nar.scratchpad.initialExpectation) {
+                    return true;
+                }
+                return `Expectation did not decrease after contradiction. Initial: ${nar.scratchpad.initialExpectation}, New: ${newExpectation}`;
             }
         }
     ]

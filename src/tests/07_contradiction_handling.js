@@ -14,7 +14,9 @@ export default {
             assert: (nar, logs) => {
                 const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(sky,blue)'));
                 const resolved = logs.some(l => l.includes('Contradiction resolved for Inheritance(sky,blue)'));
-                return detected && resolved;
+                if (detected && resolved) return true;
+                if (!detected) return 'Strong contradiction was not detected.';
+                if (!resolved) return 'Strong contradiction was detected but not resolved.';
             }
         },
         {
@@ -27,7 +29,8 @@ export default {
             },
             assert: (nar, logs) => {
                 const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(moon,cheese)'));
-                return !detected;
+                if (!detected) return true;
+                return 'Weak contradiction was detected when it should have been ignored.';
             }
         },
         {
@@ -40,7 +43,8 @@ export default {
             },
             assert: (nar, logs) => {
                 const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(sun,conscious)'));
-                return !detected;
+                if (!detected) return true;
+                return 'Boundary contradiction was detected when it should have been ignored.';
             }
         }
     ]

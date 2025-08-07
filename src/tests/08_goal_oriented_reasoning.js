@@ -18,7 +18,18 @@ export default {
                 // This assertion would check if the goal was achieved.
                 const achievedQuery = nar.query('state_B', {minExpectation: 0.7});
                 const goalAchievedLog = logs.some(l => l.includes('goal-achieved'));
-                return achievedQuery && achievedQuery.length > 0 && goalAchievedLog;
+                if (achievedQuery && achievedQuery.length > 0 && goalAchievedLog) {
+                    return true;
+                }
+
+                let reason = 'Goal not achieved.';
+                if (!achievedQuery || achievedQuery.length === 0) {
+                    reason += ' Query for state_B returned no results.';
+                }
+                if (!goalAchievedLog) {
+                    reason += ' "goal-achieved" not found in logs.';
+                }
+                return reason;
             }
         }
     ]

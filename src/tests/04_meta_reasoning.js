@@ -22,7 +22,10 @@ export default {
                 const initialThreshold = nar.scratchpad.initialThreshold;
                 const newThreshold = nar.config.budgetThreshold;
                 // Assert that the system has adapted its resource policy
-                return initialThreshold !== newThreshold;
+                if (initialThreshold !== newThreshold) {
+                    return true;
+                }
+                return `budgetThreshold did not change. Initial: ${initialThreshold}, New: ${newThreshold}`;
             }
         }
     ]
