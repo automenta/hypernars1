@@ -31,8 +31,7 @@
   },
   "jest": {
     "testMatch": [
-      "**/src/**/*.test.js",
-      "**/src/test.js"
+      "**/src/**/*.test.js"
     ],
     "testPathIgnorePatterns": [
       "/node_modules/",
