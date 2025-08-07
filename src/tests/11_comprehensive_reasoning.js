@@ -40,7 +40,7 @@ export default {
         {
             comment: '--- Step 3: Ask a question ---',
             action: (nar) => {
-                nar.nal('<sparrow --> (animal * flies)>?');
+                nar.nal('<sparrow --> (animal && flies)>?');
             },
             assert: (nar, log) => {
                 const answer = log.find(entry => entry.includes('Answer:'));

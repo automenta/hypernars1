@@ -6,7 +6,7 @@ export default {
             comment: 'Setup a multi-step problem to achieve a goal.',
             action: (nar) => {
                 // Define the conditions for baking a cake
-                nar.nal('(((*, have_flour, have_sugar, have_eggs) ==> can_bake_cake)). %1.0; 0.9%');
+                nar.nal('(((&&, have_flour, have_sugar, have_eggs) ==> can_bake_cake)). %1.0; 0.9%');
                 // Provide the individual ingredients
                 nar.nal('have_flour. %1.0; 0.9%');
                 nar.nal('have_sugar. %1.0; 0.9%');
@@ -24,7 +24,7 @@ export default {
             comment: 'Introduce a shortcut and see if a new, more efficient rule is learned.',
             action: (nar) => {
                 // A cake mix provides flour and sugar
-                nar.nal('((*_ have_cake_mix) ==> (*, have_flour, have_sugar)). %1.0; 0.9%');
+                nar.nal('((&&, have_cake_mix) ==> (&&, have_flour, have_sugar)). %1.0; 0.9%');
                 // Provide the shortcut ingredient
                 nar.nal('have_cake_mix. %1.0; 0.9%');
                 // Run to allow the system to derive a new rule

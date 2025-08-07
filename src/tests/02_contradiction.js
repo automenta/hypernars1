@@ -21,7 +21,7 @@ export default {
         {
             comment: 'Introduce contradictory information and verify belief revision.',
             action: (nar) => {
-                nar.nal('(penguin --> (bird * !flyer)). #0.95#');
+                nar.nal('(penguin --> (bird && !flyer)). #0.95#');
                 nar.nal('(tweety --> penguin). %0.99;0.99%');
                 nar.contradictionManager.resolveContradictions();
                 nar.run(100);

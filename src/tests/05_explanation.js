@@ -4,7 +4,7 @@ export default {
     steps: [
         {
             action: (nar) => {
-                nar.nal('((bird * animal) --> flyer). %0.9;0.8%');
+                nar.nal('((bird && animal) --> flyer). %0.9;0.8%');
                 nar.nal('(tweety --> bird).');
                 nar.run(50);
             },

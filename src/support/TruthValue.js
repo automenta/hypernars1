@@ -97,7 +97,9 @@ export class TruthValue {
 
         // Frequency is a weighted average of the pro-frequency and the con-frequency
         const f_pro = t_pro.frequency;
-        const f_con = t_con.frequency; // Corrected: No double negation
+        // t_con is the truth value of the contradictory statement (e.g. !p),
+        // so its frequency must be inverted to be comparable with p.
+        const f_con = 1.0 - t_con.frequency;
 
         // Use confidence as the weight for the frequency calculation
         const f_final = (f_pro * c_pro + f_con * c_con) / (c_pro + c_con);

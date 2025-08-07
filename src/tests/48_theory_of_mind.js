@@ -7,7 +7,7 @@ export default {
             action: (nar) => {
                 // We represent an agent's belief using a higher-order statement: <(*, agent, belief) ==> believes>.
                 // At T1, Sally sees the marble go into the box.
-                nar.nal('<(*, sally, <marble --> in_box>) ==> believes>. %1.0;0.9%');
+                nar.nal('<(&&, sally, <marble --> in_box>) ==> believes>. %1.0;0.9%');
 
                 // The system also knows the marble is in the box as a fact.
                 nar.nal('<marble --> in_box>. %1.0;0.9%');
@@ -37,7 +37,7 @@ export default {
                 if (nar.logs) nar.logs.length = 0;
                 // Ask the question: "Where is the marble, according to Sally?"
                 // NAL representation: <(*, sally, <marble --> ?where>) ==> believes>?
-                nar.nal('<(*, sally, <marble --> ?P>) ==> believes>?');
+                nar.nal('<(&&, sally, <marble --> ?P>) ==> believes>?');
                 nar.run(50);
             },
             assert: (nar, logs) => {

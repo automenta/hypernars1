@@ -7,15 +7,15 @@ export default {
             action: (nar) => {
                 // Base domain knowledge: A system with a central star, has a central body.
                 // Using simplified NAL for clarity.
-                nar.nal('((*, {star}, {planet}) ==> has_central_body). %1.0;0.9%');
+                nar.nal('((&&, {star}, {planet}) ==> has_central_body). %1.0;0.9%');
 
                 // Instance of the base domain.
-                nar.nal('<solar_system ==> (*, {sun}, {earth})>. %1.0;0.9%');
+                nar.nal('<solar_system ==> (&&, {sun}, {earth})>. %1.0;0.9%');
                 nar.nal('<sun ==> star>. %1.0;0.9%');
                 nar.nal('<earth ==> planet>. %1.0;0.9%');
 
                 // Target domain knowledge: An atom has a nucleus and electrons.
-                nar.nal('<atom ==> (*, {nucleus}, {electron})>. %1.0;0.9%');
+                nar.nal('<atom ==> (&&, {nucleus}, {electron})>. %1.0;0.9%');
 
                 // The analogy: an atom is structurally similar to a solar system.
                 // And a nucleus is to an atom what a sun is to a solar system.

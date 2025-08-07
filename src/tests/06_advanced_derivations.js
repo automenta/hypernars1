@@ -6,7 +6,7 @@ export default {
             comment: 'Test Property Inheritance',
             action: (nar) => {
                 nar.nal('dog.');
-                nar.nal('<(dog * entity) --> mammal>.');
+                nar.nal('<(dog && entity) --> mammal>.');
                 nar.nal('Property(mammal, has_fur).');
                 nar.run(10);
             },
@@ -21,8 +21,8 @@ export default {
             comment: 'Test Induction Inheritance',
             action: (nar) => {
                 nar.nal('cat.');
-                nar.nal('<(cat * entity) --> mammal>.');
-                // The previous step already added '<(dog * entity) --> mammal>.'
+                nar.nal('<(cat && entity) --> mammal>.');
+                // The previous step already added '<(dog && entity) --> mammal>.'
                 nar.run(10);
             },
             assert: (nar, logs) => {

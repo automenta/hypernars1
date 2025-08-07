@@ -8,7 +8,7 @@ export default {
                 nar.nal('(lion --> animal).'); // Simple fact
                 nar.nal('(lion --> predator). %0.8; 0.7%'); // Uncertain belief
                 nar.nal('(human --> mammal). #1.0#'); // Definition
-                nar.nal('((#x * animal) ==> warm_blooded).'); // Procedural rule
+                nar.nal('((#x && animal) ==> warm_blooded).'); // Procedural rule
                 nar.nal('(energy --> desired)!'); // Goal
                 nar.nal('(lion --> dangerous)?'); // Question
                 nar.run(10);

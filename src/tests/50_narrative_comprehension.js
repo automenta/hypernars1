@@ -9,7 +9,7 @@ export default {
                 nar.nal('<john --> is_hungry>. %1.0;0.9%');
 
                 // Causal knowledge: If someone eats food, they are no longer hungry.
-                nar.nal('<(<#x --> food> & <(*, $y, #x) =/> eats>) =/> <$y =/> !is_hungry>>. %1.0;0.9%');
+                nar.nal('<(<#x --> food> & <(&&, $y, #x) =/> eats>) =/> <$y =/> !is_hungry>>. %1.0;0.9%');
                 nar.nal('<apple --> food>. %1.0;0.9%');
                 nar.run(10);
             }
@@ -18,7 +18,7 @@ export default {
             comment: 'Present the key event of the narrative: John eats an apple.',
             action: (nar) => {
                 // We state this as a new event. Using a timestamp can help with temporal ordering.
-                nar.nal('<(*, john, apple) =/> eats>. %1.0;0.9% {T=1}');
+                nar.nal('<(&&, john, apple) =/> eats>. %1.0;0.9% {T=1}');
                 nar.run(50);
             }
         },
