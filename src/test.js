@@ -52,11 +52,12 @@ describe('All Tests', () => {
                 const describeBlock = test.skipped ? describe.skip : describe;
 
                 describeBlock(testName, () => {
-                    let nar;
+                    const nar = new NAR({...test.config, useAdvanced: true});
                     let logs;
 
                     beforeEach(() => {
-                        nar = new NAR({...test.config, useAdvanced: true});
+                        nar.clearState();
+                        nar.removeAllListeners('log');
                         logs = [];
                         nar.on('log', (log) => {
                             logs.push(log.message);

@@ -95,12 +95,12 @@ export class TruthValue {
         const w_final = w_pro - w_con;
         const c_final = Math.abs(w_final) / (Math.abs(w_final) + 1);
 
-        // Frequency is a weighted average of the pro-frequency and the negated con-frequency
+        // Frequency is a weighted average of the pro-frequency and the con-frequency
         const f_pro = t_pro.frequency;
-        const f_con_negated = 1.0 - t_con.frequency;
+        const f_con = t_con.frequency; // Corrected: No double negation
 
         // Use confidence as the weight for the frequency calculation
-        const f_final = (f_pro * c_pro + f_con_negated * c_con) / (c_pro + c_con);
+        const f_final = (f_pro * c_pro + f_con * c_con) / (c_pro + c_con);
 
         // If w_final is negative, the belief flips, but we'll let the expectation handle the sign
         // For now, the frequency represents the belief in the "pro" statement
