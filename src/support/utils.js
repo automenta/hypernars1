@@ -6,7 +6,8 @@ export function id(type, args) {
     const stringify = (arg) => {
         if (typeof arg === 'string') return arg;
         if (arg && arg.type && arg.args) return id(arg.type, arg.args);
-        if (arg && arg.type === 'Term' && arg.args.length === 1) return arg.args[0];
+        if (arg && arg.type === 'Term' && arg.args.length === 1)
+            return arg.args[0];
         return String(arg);
     };
     const stringArgs = args.map(stringify);
@@ -21,5 +22,8 @@ export function getArgId(arg) {
 }
 
 export function hash(str) {
-    return [...str].reduce((h, c) => ((h << 5) - h + c.codePointAt(0)) >>> 0, 0);
+    return [...str].reduce(
+        (h, c) => ((h << 5) - h + c.codePointAt(0)) >>> 0,
+        0
+    );
 }

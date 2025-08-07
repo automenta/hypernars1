@@ -1,4 +1,4 @@
-import {clamp} from './utils.js';
+import { clamp } from './utils.js';
 
 export class Budget {
     constructor(priority, durability, quality) {
@@ -36,10 +36,16 @@ export class Budget {
             basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
         }
         if (context.importance) {
-            basePriority = Math.min(1.0, basePriority + context.importance * 0.2);
+            basePriority = Math.min(
+                1.0,
+                basePriority + context.importance * 0.2
+            );
         }
         if (context.noveltyScore) {
-            basePriority = Math.min(1.0, basePriority + context.noveltyScore * 0.15);
+            basePriority = Math.min(
+                1.0,
+                basePriority + context.noveltyScore * 0.15
+            );
         }
 
         // Adjust based on system load
@@ -49,13 +55,19 @@ export class Budget {
 
         // Adjust durability based on task type
         let durability = 0.6;
-        if (task.type === 'question' || task.type === 'critical-event' || task.type === 'goal') {
+        if (
+            task.type === 'question' ||
+            task.type === 'critical-event' ||
+            task.type === 'goal'
+        ) {
             durability = 0.9; // Needs sustained attention
         }
         if (context.successHistory) {
-            durability = Math.min(durability + context.successHistory * 0.2, 1.0);
+            durability = Math.min(
+                durability + context.successHistory * 0.2,
+                1.0
+            );
         }
-
 
         // Adjust quality based on availability and novelty
         let quality = Math.sqrt(availability) * 0.8;
@@ -65,7 +77,10 @@ export class Budget {
 
         // Apply minimum thresholds to prevent starvation
         priority = Math.max(priority, context.minPriorityThreshold || 0.01);
-        durability = Math.max(durability, context.minDurabilityThreshold || 0.01);
+        durability = Math.max(
+            durability,
+            context.minDurabilityThreshold || 0.01
+        );
 
         return new Budget(priority, durability, quality);
     }
@@ -92,9 +107,11 @@ export class Budget {
 
     equivalent(other) {
         const threshold = 0.05;
-        return Math.abs(this.priority - other.priority) < threshold &&
+        return (
+            Math.abs(this.priority - other.priority) < threshold &&
             Math.abs(this.durability - other.durability) < threshold &&
-            Math.abs(this.quality - other.quality) < threshold;
+            Math.abs(this.quality - other.quality) < threshold
+        );
     }
 
     toJSON() {

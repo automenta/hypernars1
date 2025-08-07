@@ -1,19 +1,21 @@
-import React, {useContext, useState} from 'react';
-import {Box, Text, useStdin} from 'ink';
+import React, { useContext, useState } from 'react';
+import { Box, Text, useStdin } from 'ink';
 import SelectInput from 'ink-select-input';
 import TextInput from 'ink-text-input';
-import {TuiContext} from '../contexts/TuiContext.js';
+import { TuiContext } from '../contexts/TuiContext.js';
 
 const ParameterView = () => {
-    const {nar, updateConfig} = useContext(TuiContext);
-    const {isRawModeSupported} = useStdin();
+    const { nar, updateConfig } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [editingItem, setEditingItem] = useState(null);
     const [inputValue, setInputValue] = useState('');
 
-    const items = nar ? Object.entries(nar.config).map(([key, value]) => ({
-        label: `${key}: ${value}`,
-        value: key
-    })) : [];
+    const items = nar
+        ? Object.entries(nar.config).map(([key, value]) => ({
+              label: `${key}: ${value}`,
+              value: key,
+          }))
+        : [];
 
     const handleSelect = (item) => {
         setEditingItem(item.value);
@@ -33,7 +35,9 @@ const ParameterView = () => {
             <Box flexDirection="column" paddingX={1}>
                 <Text bold>Edit {editingItem}</Text>
                 <Box>
-                    <Box marginRight={1}><Text>&gt;</Text></Box>
+                    <Box marginRight={1}>
+                        <Text>&gt;</Text>
+                    </Box>
                     {isRawModeSupported ? (
                         <TextInput
                             value={inputValue}
@@ -52,7 +56,7 @@ const ParameterView = () => {
         <Box flexDirection="column" paddingX={1}>
             <Text bold>Parameters</Text>
             {isRawModeSupported ? (
-                <SelectInput items={items} onSelect={handleSelect}/>
+                <SelectInput items={items} onSelect={handleSelect} />
             ) : (
                 <Text>[Input disabled in non-interactive mode]</Text>
             )}

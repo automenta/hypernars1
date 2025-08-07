@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export const useNarSystem = (nar, log) => {
     const [isRunning, setIsRunning] = useState(false);
@@ -51,15 +51,18 @@ export const useNarSystem = (nar, log) => {
         nar.clearState();
     }, [nar, log, isRunning, pause]);
 
-    const updateConfig = useCallback((key, value) => {
-        const numericValue = parseFloat(value);
-        if (isNaN(numericValue)) {
-            log(`Invalid value for ${key}: ${value}`);
-            return;
-        }
-        nar.config[key] = numericValue;
-        log(`Updated ${key} to ${numericValue}`);
-    }, [nar, log]);
+    const updateConfig = useCallback(
+        (key, value) => {
+            const numericValue = parseFloat(value);
+            if (isNaN(numericValue)) {
+                log(`Invalid value for ${key}: ${value}`);
+                return;
+            }
+            nar.config[key] = numericValue;
+            log(`Updated ${key} to ${numericValue}`);
+        },
+        [nar, log]
+    );
 
     return {
         isRunning,

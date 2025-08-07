@@ -1,6 +1,7 @@
 export default {
     name: '1. Basic Inference',
-    description: 'Demonstrates NAL parsing and a simple forward-inference chain.',
+    description:
+        'Demonstrates NAL parsing and a simple forward-inference chain.',
     steps: [
         {
             action: (nar) => {
@@ -16,7 +17,7 @@ export default {
                     return false;
                 }
                 return belief.truth.expectation() > 0.4;
-            }
-        }
-    ]
+            },
+        },
+    ],
 };

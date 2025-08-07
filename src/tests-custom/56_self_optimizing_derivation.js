@@ -1,6 +1,7 @@
 export default {
     name: '56. Self-Optimizing Derivation Rules',
-    description: 'Tests for adaptive inference rules that can be registered and optimized.',
+    description:
+        'Tests for adaptive inference rules that can be registered and optimized.',
     steps: [
         {
             name: 'Register a custom derivation rule',
@@ -10,16 +11,22 @@ export default {
                 nar.derivation.registerRule(
                     'customTransitivity',
                     (context) => context.has('transitive_relation'), // Condition
-                    (nar, term1, term2, term3) => { // Action
-                        nar.nal(`((${term1} --> ${term2}) & (${term2} --> ${term3})) ==> (${term1} --> ${term3}).`);
+                    (nar, term1, term2, term3) => {
+                        // Action
+                        nar.nal(
+                            `((${term1} --> ${term2}) & (${term2} --> ${term3})) ==> (${term1} --> ${term3}).`
+                        );
                     },
-                    {priority: 0.8, applicability: 0.6}
+                    { priority: 0.8, applicability: 0.6 }
                 );
             },
             assert: (nar) => {
                 // Check if the rule was added to the system's rule map.
-                return nar.derivation.rules && nar.derivation.rules.has('customTransitivity');
-            }
+                return (
+                    nar.derivation.rules &&
+                    nar.derivation.rules.has('customTransitivity')
+                );
+            },
         },
         {
             name: 'Evaluate and update rule priority',
@@ -59,7 +66,7 @@ export default {
                 // After update, successRate is 0.54. New priority is 0.558.
                 // So the test should be that the new priority is higher than the original calculated one.
                 return rule.priority > 0.53;
-            }
+            },
         },
         {
             name: 'Get active rules for a specific context',
@@ -68,11 +75,19 @@ export default {
             },
             assert: (nar) => {
                 // Define a context where our custom rule should be active.
-                const context = {has: (prop) => prop === 'transitive_relation'};
+                const context = {
+                    has: (prop) => prop === 'transitive_relation',
+                };
                 const activeRules = nar.derivation.getActiveRules(context);
                 // The first rule in the returned array should be our custom rule because of its high priority.
-                return activeRules && activeRules.length > 0 && activeRules[0].action.toString().includes('customTransitivity');
-            }
-        }
-    ]
+                return (
+                    activeRules &&
+                    activeRules.length > 0 &&
+                    activeRules[0].action
+                        .toString()
+                        .includes('customTransitivity')
+                );
+            },
+        },
+    ],
 };

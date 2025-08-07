@@ -1,22 +1,25 @@
-import React, {useCallback, useContext, useEffect, useState} from 'react';
-import {Box, Text, useInput, useStdin} from 'ink';
-import {TuiContext} from '../contexts/TuiContext.js';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
+import { Box, Text, useInput, useStdin } from 'ink';
+import { TuiContext } from '../contexts/TuiContext.js';
 import ContradictionDetailView from './ContradictionDetailView.js';
 import pkg from 'cli-boxes';
 
-const {single, hidden} = pkg;
+const { single, hidden } = pkg;
 
 const ContradictionView = () => {
-    const {nar} = useContext(TuiContext);
-    const {isRawModeSupported} = useStdin();
+    const { nar } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [contradictions, setContradictions] = useState([]);
     const [selectedIndex, setSelectedIndex] = useState(0);
-    const [selectedContradictionId, setSelectedContradictionId] = useState(null);
+    const [selectedContradictionId, setSelectedContradictionId] =
+        useState(null);
 
     const updateContradictions = useCallback(() => {
         const contradictionMap = nar.contradictionManager?.contradictions;
         if (contradictionMap) {
-            const contradictionList = Array.from(contradictionMap.entries()).map(([id, data]) => {
+            const contradictionList = Array.from(
+                contradictionMap.entries()
+            ).map(([id, data]) => {
                 const analysis = nar.contradictionManager.analyze(id);
                 return {
                     id,
@@ -34,26 +37,38 @@ const ContradictionView = () => {
         return () => clearInterval(interval);
     }, [updateContradictions]);
 
-    useInput((input, key) => {
-        if (selectedContradictionId) return;
+    useInput(
+        (input, key) => {
+            if (selectedContradictionId) return;
 
-        if (key.upArrow) {
-            setSelectedIndex(prev => Math.max(0, prev - 1));
-        } else if (key.downArrow) {
-            setSelectedIndex(prev => Math.min(contradictions.length - 1, prev + 1));
-        } else if (key.return) {
-            if (contradictions[selectedIndex]) {
-                setSelectedContradictionId(contradictions[selectedIndex].id);
+            if (key.upArrow) {
+                setSelectedIndex((prev) => Math.max(0, prev - 1));
+            } else if (key.downArrow) {
+                setSelectedIndex((prev) =>
+                    Math.min(contradictions.length - 1, prev + 1)
+                );
+            } else if (key.return) {
+                if (contradictions[selectedIndex]) {
+                    setSelectedContradictionId(
+                        contradictions[selectedIndex].id
+                    );
+                }
             }
-        }
-    }, {isActive: isRawModeSupported});
+        },
+        { isActive: isRawModeSupported }
+    );
 
     const handleCloseDetailView = useCallback(() => {
         setSelectedContradictionId(null);
     }, []);
 
     if (selectedContradictionId) {
-        return <ContradictionDetailView contradictionId={selectedContradictionId} onClose={handleCloseDetailView}/>;
+        return (
+            <ContradictionDetailView
+                contradictionId={selectedContradictionId}
+                onClose={handleCloseDetailView}
+            />
+        );
     }
 
     return (
@@ -64,14 +79,28 @@ const ContradictionView = () => {
                 <Text>No contradictions detected.</Text>
             ) : (
                 contradictions.map((contra, index) => (
-                    <Box key={contra.id} borderStyle={index === selectedIndex ? single : hidden} paddingX={1}>
-                        <Text color={index === selectedIndex ? 'cyan' : 'white'}>
+                    <Box
+                        key={contra.id}
+                        borderStyle={index === selectedIndex ? single : hidden}
+                        paddingX={1}
+                    >
+                        <Text
+                            color={index === selectedIndex ? 'cyan' : 'white'}
+                        >
                             {`${contra.id} (${contra.pairs.length} conflicting pair(s))`}
-                            {contra.resolved
-                                ? <Text color="green"> - Resolved: {contra.resolutionStrategy}</Text>
-                                : <Text color="yellow"> -
-                                    Suggests: {contra.analysis?.resolutionSuggestion?.strategy || 'N/A'}</Text>
-                            }
+                            {contra.resolved ? (
+                                <Text color="green">
+                                    {' '}
+                                    - Resolved: {contra.resolutionStrategy}
+                                </Text>
+                            ) : (
+                                <Text color="yellow">
+                                    {' '}
+                                    - Suggests:{' '}
+                                    {contra.analysis?.resolutionSuggestion
+                                        ?.strategy || 'N/A'}
+                                </Text>
+                            )}
                         </Text>
                     </Box>
                 ))

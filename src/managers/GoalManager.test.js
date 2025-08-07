@@ -1,7 +1,7 @@
-import {beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {NAR} from '../NAR.js';
-import {GoalManager} from './GoalManager.js';
-import {TruthValue} from '../support/TruthValue.js';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { NAR } from '../NAR.js';
+import { GoalManager } from './GoalManager.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 // Mock the Date.now() to control time-based tests
 const mockNow = 1700000000000;
@@ -13,7 +13,7 @@ describe('GoalManager', () => {
 
     beforeEach(() => {
         // Use the advanced configuration to ensure all features are available
-        nar = new NAR({useAdvanced: true});
+        nar = new NAR({ useAdvanced: true });
         goalManager = nar.goalManager;
         // Mock the emit function to spy on events
         nar.emit = jest.fn();
@@ -26,7 +26,7 @@ describe('GoalManager', () => {
         const goalId = goalManager.addGoal(description, utility);
 
         const goals = goalManager.getActiveGoals();
-        expect(goals.length).toBe(1);
+        expect(goals).toHaveLength(1);
 
         const goal = goals[0];
         expect(goal.id).toBe(goalId);
@@ -34,7 +34,9 @@ describe('GoalManager', () => {
         expect(goal.utility).toBe(utility);
         expect(goal.status).toBe('active');
 
-        expect(nar.emit).toHaveBeenCalledWith('goal-added', {goal: expect.any(Object)});
+        expect(nar.emit).toHaveBeenCalledWith('goal-added', {
+            goal: expect.any(Object),
+        });
     });
 
     it('should abandon a goal if the deadline is passed', () => {
@@ -42,14 +44,17 @@ describe('GoalManager', () => {
         const utility = 0.8;
         const deadline = mockNow - 1000; // Deadline is in the past
 
-        const goalId = goalManager.addGoal(description, utility, {deadline});
+        const goalId = goalManager.addGoal(description, utility, { deadline });
 
         // Process goals to check their status
         goalManager.processGoals();
 
         const goal = goalManager.goals.get(goalId);
         expect(goal.status).toBe('abandoned');
-        expect(nar.emit).toHaveBeenCalledWith('goal-abandoned', {goalId, reason: 'deadline'});
+        expect(nar.emit).toHaveBeenCalledWith('goal-abandoned', {
+            goalId,
+            reason: 'deadline',
+        });
     });
 
     it('should achieve a goal if its condition is met in the knowledge base', () => {
@@ -57,15 +62,19 @@ describe('GoalManager', () => {
         const utility = 0.9;
 
         // Mock the query system to simulate the goal condition being met
-        nar.query = jest.fn().mockReturnValue([{truth: new TruthValue(0.9, 0.9)}]);
+        nar.query = jest
+            .fn()
+            .mockReturnValue([{ truth: new TruthValue(0.9, 0.9) }]);
 
         const goalId = goalManager.addGoal(description, utility);
         goalManager.processGoals();
 
         const goal = goalManager.goals.get(goalId);
         expect(goal.status).toBe('achieved');
-        expect(nar.query).toHaveBeenCalledWith(description, {minExpectation: 0.7});
-        expect(nar.emit).toHaveBeenCalledWith('goal-achieved', {goalId});
+        expect(nar.query).toHaveBeenCalledWith(description, {
+            minExpectation: 0.7,
+        });
+        expect(nar.emit).toHaveBeenCalledWith('goal-achieved', { goalId });
     });
 
     it('should prioritize the goal with the highest urgency', () => {
@@ -73,13 +82,16 @@ describe('GoalManager', () => {
         const normalGoalDesc = 'normal_task';
 
         // Urgent goal: high utility, approaching deadline
-        const urgentGoalId = goalManager.addGoal(urgentGoalDesc, 0.9, {deadline: mockNow + 1000});
+        const urgentGoalId = goalManager.addGoal(urgentGoalDesc, 0.9, {
+            deadline: mockNow + 1000,
+        });
         // Normal goal: lower utility, no deadline
         const normalGoalId = goalManager.addGoal(normalGoalDesc, 0.5);
 
         // Mock _processGoal to see which one is chosen
-        const processGoalSpy = jest.spyOn(goalManager, '_processGoal').mockImplementation(() => {
-        });
+        const processGoalSpy = jest
+            .spyOn(goalManager, '_processGoal')
+            .mockImplementation(() => {});
 
         goalManager.processGoals();
 
@@ -115,8 +127,8 @@ describe('GoalManager', () => {
         nar.expressionEvaluator.parse = jest.fn().mockReturnValue({
             type: 'Conjunction',
             args: [
-                {type: 'Implication', args: ['a', 'b']},
-                {type: 'Implication', args: ['c', 'd']},
+                { type: 'Implication', args: ['a', 'b'] },
+                { type: 'Implication', args: ['c', 'd'] },
             ],
         });
 
@@ -129,6 +141,9 @@ describe('GoalManager', () => {
         const goal = goalManager.goals.get(goalId);
         // A correct implementation would set it to 'waiting'.
         expect(goal.status).toBe('waiting');
-        expect(nar.emit).toHaveBeenCalledWith('goal-decomposed', expect.any(Object));
+        expect(nar.emit).toHaveBeenCalledWith(
+            'goal-decomposed',
+            expect.any(Object)
+        );
     });
 });

@@ -1,5 +1,5 @@
-import {describe, expect, it} from '@jest/globals';
-import {LRUMap} from './LRUMap.js';
+import { describe, expect, it } from '@jest/globals';
+import { LRUMap } from './LRUMap.js';
 
 describe('LRUMap', () => {
     it('should set and get values', () => {

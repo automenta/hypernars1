@@ -1,6 +1,7 @@
 export default {
     name: '58. Concept Formation under Uncertainty',
-    description: 'Tests the ability to form new concepts from uncertain and contradictory information.',
+    description:
+        'Tests the ability to form new concepts from uncertain and contradictory information.',
     steps: [
         {
             name: 'Provide a series of related observations',
@@ -24,8 +25,12 @@ export default {
                 // This is a preliminary check. The real test is in the next step.
                 // We just want to make sure the base knowledge is in the system.
                 const sparrowConcept = nar.getConcept('sparrow');
-                return sparrowConcept && nar.getBeliefs(nar.inheritance('sparrow', 'has_wings')).length > 0;
-            }
+                return (
+                    sparrowConcept &&
+                    nar.getBeliefs(nar.inheritance('sparrow', 'has_wings'))
+                        .length > 0
+                );
+            },
         },
         {
             name: 'Check for formation of a new abstract concept',
@@ -39,10 +44,12 @@ export default {
                 // We assume a helper function for the test environment that can find concepts
                 // based on their relationships.
                 const findConcept = (properties) => {
-                    return nar.concepts.find(concept => {
+                    return nar.concepts.find((concept) => {
                         if (concept.isAtomic) return false; // Not interested in the base concepts
                         const relations = nar.getRelations(concept.id); // Assuming this function exists
-                        return properties.every(prop => relations.some(r => r.target === prop));
+                        return properties.every((prop) =>
+                            relations.some((r) => r.target === prop)
+                        );
                     });
                 };
 
@@ -54,15 +61,25 @@ export default {
 
                 // Now, check if the system has correctly classified instances.
                 // Sparrow and Robin should be strongly linked to this new concept.
-                const sparrowBelief = nar.getBeliefs(nar.inheritance('sparrow', wingedSingerConcept.id))[0];
-                const robinBelief = nar.getBeliefs(nar.inheritance('robin', wingedSingerConcept.id))[0];
+                const sparrowBelief = nar.getBeliefs(
+                    nar.inheritance('sparrow', wingedSingerConcept.id)
+                )[0];
+                const robinBelief = nar.getBeliefs(
+                    nar.inheritance('robin', wingedSingerConcept.id)
+                )[0];
                 // Bat should be weakly linked or negatively linked.
-                const batBelief = nar.getBeliefs(nar.inheritance('bat', wingedSingerConcept.id))[0];
+                const batBelief = nar.getBeliefs(
+                    nar.inheritance('bat', wingedSingerConcept.id)
+                )[0];
 
-                return sparrowBelief && sparrowBelief.truth.expectation() > 0.7 &&
-                    robinBelief && robinBelief.truth.expectation() > 0.6 &&
-                    (!batBelief || batBelief.truth.expectation() < 0.5);
-            }
-        }
-    ]
+                return (
+                    sparrowBelief &&
+                    sparrowBelief.truth.expectation() > 0.7 &&
+                    robinBelief &&
+                    robinBelief.truth.expectation() > 0.6 &&
+                    (!batBelief || batBelief.truth.expectation() < 0.5)
+                );
+            },
+        },
+    ],
 };

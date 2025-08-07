@@ -1,38 +1,54 @@
-import {beforeEach, describe, expect, test} from '@jest/globals';
-import {NAR} from '../NAR.js';
-import {id} from '../support/utils.js';
-import {TruthValue} from '../support/TruthValue.js';
+import { beforeEach, describe, expect, test } from '@jest/globals';
+import { NAR } from '../NAR.js';
+import { id } from '../support/utils.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 describe('AdvancedLearningEngine', () => {
     let nar;
     let learningEngine;
 
     beforeEach(() => {
-        nar = new NAR({useAdvanced: true});
+        nar = new NAR({ useAdvanced: true });
         learningEngine = nar.learningEngine;
     });
 
     test('should reinforce premises of a successful outcome', () => {
-        const premiseId = nar.api.inheritance('A', 'B', {truth: new TruthValue(0.8, 0.8)});
-        const conclusionId = nar.api.inheritance('A', 'C', {premises: [premiseId]});
+        const premiseId = nar.api.inheritance('A', 'B', {
+            truth: new TruthValue(0.8, 0.8),
+        });
+        const conclusionId = nar.api.inheritance('A', 'C', {
+            premises: [premiseId],
+        });
 
-        const initialConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
+        const initialConfidence = nar.state.hypergraph
+            .get(premiseId)
+            .getTruth().confidence;
 
-        learningEngine.recordExperience({conclusionId}, {success: true});
+        learningEngine.recordExperience({ conclusionId }, { success: true });
 
-        const finalConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
+        const finalConfidence = nar.state.hypergraph
+            .get(premiseId)
+            .getTruth().confidence;
         expect(finalConfidence).toBeGreaterThan(initialConfidence);
     });
 
     test('should weaken premises of a failed outcome', () => {
-        const premiseId = nar.api.inheritance('X', 'Y', {truth: new TruthValue(0.8, 0.8)});
-        const conclusionId = nar.api.inheritance('X', 'Z', {premises: [premiseId]});
+        const premiseId = nar.api.inheritance('X', 'Y', {
+            truth: new TruthValue(0.8, 0.8),
+        });
+        const conclusionId = nar.api.inheritance('X', 'Z', {
+            premises: [premiseId],
+        });
 
-        const initialConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
+        const initialConfidence = nar.state.hypergraph
+            .get(premiseId)
+            .getTruth().confidence;
 
-        learningEngine.recordExperience({conclusionId}, {success: false});
+        learningEngine.recordExperience({ conclusionId }, { success: false });
 
-        const finalConfidence = nar.state.hypergraph.get(premiseId).getTruth().confidence;
+        const finalConfidence = nar.state.hypergraph
+            .get(premiseId)
+            .getTruth().confidence;
         expect(finalConfidence).toBeLessThan(initialConfidence);
     });
 
@@ -41,13 +57,15 @@ describe('AdvancedLearningEngine', () => {
         const premiseId = nar.api.inheritance('bird', 'animal');
         const conclusionId = nar.api.inheritance('tweety', 'animal', {
             premises: [premiseId],
-            derivedBy: 'transitivity'
+            derivedBy: 'transitivity',
         });
 
         // Record a successful outcome
-        learningEngine.recordExperience({conclusionId}, {success: true});
+        learningEngine.recordExperience({ conclusionId }, { success: true });
 
-        const transitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
+        const transitivityStats = learningEngine
+            .getRuleProductivityStats()
+            .get('transitivity');
         expect(transitivityStats).toBeDefined();
         expect(transitivityStats.successes).toBe(1);
         expect(transitivityStats.attempts).toBe(1);
@@ -55,11 +73,16 @@ describe('AdvancedLearningEngine', () => {
         // Record a failed outcome
         const conclusion2Id = nar.api.inheritance('penguin', 'flyer', {
             premises: [premiseId],
-            derivedBy: 'transitivity'
+            derivedBy: 'transitivity',
         });
-        learningEngine.recordExperience({conclusionId: conclusion2Id}, {success: false});
+        learningEngine.recordExperience(
+            { conclusionId: conclusion2Id },
+            { success: false }
+        );
 
-        const updatedTransitivityStats = learningEngine.getRuleProductivityStats().get('transitivity');
+        const updatedTransitivityStats = learningEngine
+            .getRuleProductivityStats()
+            .get('transitivity');
         expect(updatedTransitivityStats.successes).toBe(1);
         expect(updatedTransitivityStats.attempts).toBe(2);
     });
@@ -69,7 +92,9 @@ describe('AdvancedLearningEngine', () => {
         const premise1Id = nar.api.implication('A', 'B');
         const premise2Id = nar.api.implication('B', 'C');
         // Manually create a "conclusion" that depends on these premises for the test
-        const conclusionId = nar.api.term('C', {premises: [premise1Id, premise2Id]});
+        const conclusionId = nar.api.term('C', {
+            premises: [premise1Id, premise2Id],
+        });
 
         // Simulate the path being successful multiple times via experiences
         for (let i = 0; i < 60; i++) {
@@ -77,7 +102,7 @@ describe('AdvancedLearningEngine', () => {
                 premises: [premise1Id, premise2Id],
                 conclusion: conclusionId,
                 success: true,
-                accuracy: 0.95
+                accuracy: 0.95,
             });
         }
 
@@ -85,7 +110,10 @@ describe('AdvancedLearningEngine', () => {
         learningEngine.applyLearning();
 
         // Assert that the shortcut rule was created
-        const conjunctionId = id('Conjunction', [premise1Id, premise2Id].sort());
+        const conjunctionId = id(
+            'Conjunction',
+            [premise1Id, premise2Id].sort()
+        );
         const shortcutRuleId = id('Implication', [conjunctionId, conclusionId]);
         const shortcutRule = nar.state.hypergraph.get(shortcutRuleId);
 
@@ -98,8 +126,8 @@ describe('AdvancedLearningEngine', () => {
         const actionId = nar.api.term('press_button');
         const consequenceTerm = 'light_turns_on'; // The consequence is just a term
 
-        const context = {operation: 'action', action: actionId};
-        const outcome = {success: true, consequence: consequenceTerm};
+        const context = { operation: 'action', action: actionId };
+        const outcome = { success: true, consequence: consequenceTerm };
 
         learningEngine.recordExperience(context, outcome);
 

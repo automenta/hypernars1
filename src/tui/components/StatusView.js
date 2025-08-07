@@ -1,9 +1,9 @@
-import React, {useContext} from 'react';
-import {Box, Text} from 'ink';
-import {TuiContext} from '../contexts/TuiContext.js';
+import React, { useContext } from 'react';
+import { Box, Text } from 'ink';
+import { TuiContext } from '../contexts/TuiContext.js';
 
 const StatusView = () => {
-    const {nar, sps, isRunning} = useContext(TuiContext);
+    const { nar, sps, isRunning } = useContext(TuiContext);
 
     if (!nar) {
         return null;
@@ -30,9 +30,11 @@ const StatusView = () => {
                 <Text color="cyan">SPS:</Text>
                 <Text color="white"> {(sps || 0).toFixed(1)}</Text>
             </Box>
-            <Box flexGrow={1}/>
+            <Box flexGrow={1} />
             <Box>
-                <Text color={runColor} bold>{runState}</Text>
+                <Text color={runColor} bold>
+                    {runState}
+                </Text>
             </Box>
         </Box>
     );

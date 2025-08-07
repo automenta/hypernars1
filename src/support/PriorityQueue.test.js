@@ -1,24 +1,25 @@
-import {PriorityQueue} from './PriorityQueue.js';
+import { describe, it, expect } from '@jest/globals';
+import { PriorityQueue } from './PriorityQueue.js';
 
 describe('PriorityQueue', () => {
     // Mock items with a budget structure, as expected by the default comparator
-    const highPriorityItem = {id: 'high', budget: {priority: 0.9}};
-    const midPriorityItem = {id: 'mid', budget: {priority: 0.5}};
-    const lowPriorityItem = {id: 'low', budget: {priority: 0.1}};
-    const anotherMidPriorityItem = {id: 'mid2', budget: {priority: 0.5}};
+    const highPriorityItem = { id: 'high', budget: { priority: 0.9 } };
+    const midPriorityItem = { id: 'mid', budget: { priority: 0.5 } };
+    const lowPriorityItem = { id: 'low', budget: { priority: 0.1 } };
+    const anotherMidPriorityItem = { id: 'mid2', budget: { priority: 0.5 } };
 
     it('should initialize as an empty queue', () => {
         const pq = new PriorityQueue();
-        expect(pq.length).toBe(0);
+        expect(pq).toHaveLength(0);
         expect(pq.peek()).toBeUndefined();
     });
 
     it('should push items and increase the length', () => {
         const pq = new PriorityQueue();
         pq.push(lowPriorityItem);
-        expect(pq.length).toBe(1);
+        expect(pq).toHaveLength(1);
         pq.push(highPriorityItem);
-        expect(pq.length).toBe(2);
+        expect(pq).toHaveLength(2);
     });
 
     it('should peek at the highest priority item without removing it', () => {
@@ -27,7 +28,7 @@ describe('PriorityQueue', () => {
         pq.push(highPriorityItem);
         pq.push(midPriorityItem);
         expect(pq.peek()).toBe(highPriorityItem);
-        expect(pq.length).toBe(3);
+        expect(pq).toHaveLength(3);
     });
 
     it('should pop the highest priority item', () => {
@@ -37,7 +38,7 @@ describe('PriorityQueue', () => {
         pq.push(midPriorityItem);
 
         expect(pq.pop()).toBe(highPriorityItem);
-        expect(pq.length).toBe(2);
+        expect(pq).toHaveLength(2);
         expect(pq.peek()).toBe(midPriorityItem);
     });
 
@@ -61,7 +62,7 @@ describe('PriorityQueue', () => {
         expect(pq.pop()).toBe(anotherMidPriorityItem); // or midPriorityItem
         expect(pq.pop()).toBe(lowPriorityItem);
         expect(pq.pop()).toBe(lowPriorityItem);
-        expect(pq.length).toBe(0);
+        expect(pq).toHaveLength(0);
     });
 
     it('should handle items with the same priority', () => {
@@ -83,7 +84,7 @@ describe('PriorityQueue', () => {
         const pq = new PriorityQueue();
         const items = [];
         for (let i = 0; i < 1000; i++) {
-            const item = {budget: {priority: Math.random()}};
+            const item = { budget: { priority: Math.random() } };
             items.push(item);
             pq.push(item);
         }
@@ -93,14 +94,14 @@ describe('PriorityQueue', () => {
         for (let i = 0; i < 1000; i++) {
             expect(pq.pop()).toBe(items[i]);
         }
-        expect(pq.length).toBe(0);
+        expect(pq).toHaveLength(0);
     });
 
     describe('with Custom Comparator (Min-Heap)', () => {
         const minComparator = (a, b) => a.priority - b.priority;
-        const highPrio = {priority: 10};
-        const midPrio = {priority: 5};
-        const lowPrio = {priority: 1};
+        const highPrio = { priority: 10 };
+        const midPrio = { priority: 5 };
+        const lowPrio = { priority: 1 };
 
         it('should pop the lowest priority item first', () => {
             const pq = new PriorityQueue(minComparator);

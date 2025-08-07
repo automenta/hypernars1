@@ -1,7 +1,8 @@
 export default [
     {
         name: '15.1. Goal-Oriented Reasoning and Contradiction',
-        description: 'Tests how the system handles a goal that leads to a contradiction.',
+        description:
+            'Tests how the system handles a goal that leads to a contradiction.',
         skipped: false, // Skipping due to bug in query engine's handling of Product types.
         steps: [
             {
@@ -12,8 +13,8 @@ export default [
                 },
                 assert: (nar, logs) => {
                     const goals = nar.api.getGoals();
-                    return goals.some(g => g.description === 'state_B');
-                }
+                    return goals.some((g) => g.description === 'state_B');
+                },
             },
             {
                 comment: 'Provide a rule that "action_A" leads to "state_B".',
@@ -23,8 +24,8 @@ export default [
                 },
                 assert: (nar, logs) => {
                     const goals = nar.api.getGoals();
-                    return goals.some(g => g.description === 'action_A');
-                }
+                    return goals.some((g) => g.description === 'action_A');
+                },
             },
             {
                 comment: 'Introduce a contradiction: "action_A" is impossible.',
@@ -34,10 +35,12 @@ export default [
                 },
                 assert: (nar, logs) => {
                     const goals = nar.api.getGoals();
-                    const actionGoal = goals.find(g => g.description === 'action_A');
+                    const actionGoal = goals.find(
+                        (g) => g.description === 'action_A'
+                    );
                     return !actionGoal || actionGoal.utility < 0.3;
-                }
-            }
-        ]
-    }
+                },
+            },
+        ],
+    },
 ];

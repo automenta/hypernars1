@@ -1,4 +1,4 @@
-import {TemporalManagerBase} from './TemporalManagerBase.js';
+import { TemporalManagerBase } from './TemporalManagerBase.js';
 
 export class SimpleTemporalManager extends TemporalManagerBase {
     constructor(nar) {
@@ -8,7 +8,7 @@ export class SimpleTemporalManager extends TemporalManagerBase {
 
     interval(term, start, end, options = {}) {
         const intervalId = `SimpleInterval(${term},${start},${end})`;
-        this.intervals.set(intervalId, {term, start, end});
+        this.intervals.set(intervalId, { term, start, end });
         return intervalId;
     }
 
@@ -36,8 +36,7 @@ export class SimpleTemporalManager extends TemporalManagerBase {
         return null;
     }
 
-    processEventWithUncertainty(eventId, timeEstimate, uncertainty) {
-    }
+    processEventWithUncertainty(eventId, timeEstimate, uncertainty) {}
 
     describeTemporalRelationship(event1, event2) {
         return 'No temporal relationship known in SimpleTemporalManager.';

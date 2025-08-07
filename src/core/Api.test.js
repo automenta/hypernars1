@@ -1,8 +1,15 @@
-import {afterEach, beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {Api} from './Api.js';
-import {TruthValue} from '../support/TruthValue.js';
-import {Budget} from '../support/Budget.js';
-import {Hyperedge} from '../support/Hyperedge.js';
+import {
+    afterEach,
+    beforeEach,
+    describe,
+    expect,
+    it,
+    jest,
+} from '@jest/globals';
+import { Api } from './Api.js';
+import { TruthValue } from '../support/TruthValue.js';
+import { Budget } from '../support/Budget.js';
+import { Hyperedge } from '../support/Hyperedge.js';
 
 // Mock NAR object and its components
 const createMockNar = () => ({
@@ -25,7 +32,9 @@ const createMockNar = () => ({
         parseQuestion: jest.fn(),
     },
     memoryManager: {
-        allocateResources: jest.fn((_, params) => new Budget(params.importance || 0.5, 0.5, 0.5)),
+        allocateResources: jest.fn(
+            (_, params) => new Budget(params.importance || 0.5, 0.5, 0.5)
+        ),
     },
     contradictionManager: {
         detectContradiction: jest.fn(),
@@ -40,7 +49,6 @@ const createMockNar = () => ({
     _log: jest.fn(),
 });
 
-
 describe('Api', () => {
     let nar;
     let api;
@@ -50,7 +58,9 @@ describe('Api', () => {
         nar = createMockNar();
         api = new Api(nar);
         // Spy on the revise method for all tests in this suite
-        reviseSpy = jest.spyOn(Hyperedge.prototype, 'revise').mockReturnValue({needsUpdate: true});
+        reviseSpy = jest
+            .spyOn(Hyperedge.prototype, 'revise')
+            .mockReturnValue({ needsUpdate: true });
     });
 
     afterEach(() => {
@@ -76,35 +86,54 @@ describe('Api', () => {
 
         it('should create an implication hyperedge with custom truth value', () => {
             const truth = new TruthValue(0.8, 0.8);
-            const id = api.implication('raining', 'wet', {truth});
+            const id = api.implication('raining', 'wet', { truth });
             expect(id).toBe('Implication(raining, wet)');
-            expect(reviseSpy).toHaveBeenCalledWith(expect.objectContaining({truth}));
+            expect(reviseSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ truth })
+            );
         });
     });
 
     describe('NAL Parsing', () => {
         it('nal() should call expressionEvaluator.parseAndAdd', () => {
             api.nal('<bird --> flyer>.');
-            expect(nar.expressionEvaluator.parseAndAdd).toHaveBeenCalledWith('<bird --> flyer>.', expect.any(Object));
+            expect(nar.expressionEvaluator.parseAndAdd).toHaveBeenCalledWith(
+                '<bird --> flyer>.',
+                expect.any(Object)
+            );
         });
 
         it('nalq() should call expressionEvaluator.parseQuestion', () => {
             api.nalq('(? x) --> bird?');
-            expect(nar.expressionEvaluator.parseQuestion).toHaveBeenCalledWith('(? x) --> bird?', expect.any(Object));
+            expect(nar.expressionEvaluator.parseQuestion).toHaveBeenCalledWith(
+                '(? x) --> bird?',
+                expect.any(Object)
+            );
         });
 
         it('nal() should extract and handle context', () => {
-            nar.expressionEvaluator.parseAndAdd.mockReturnValue('Inheritance(bird,flyer)');
+            nar.expressionEvaluator.parseAndAdd.mockReturnValue(
+                'Inheritance(bird,flyer)'
+            );
 
             // Pre-create the context hyperedge so we can spy on its revise method
-            const contextEdgeId = 'hasContext(Inheritance(bird,flyer), biology)';
-            const contextHyperedge = new Hyperedge(nar, contextEdgeId, 'hasContext', ['Inheritance(bird,flyer)', 'biology']);
+            const contextEdgeId =
+                'hasContext(Inheritance(bird,flyer), biology)';
+            const contextHyperedge = new Hyperedge(
+                nar,
+                contextEdgeId,
+                'hasContext',
+                ['Inheritance(bird,flyer)', 'biology']
+            );
             nar.state.hypergraph.set(contextEdgeId, contextHyperedge);
             const contextReviseSpy = jest.spyOn(contextHyperedge, 'revise');
 
             api.nal('<bird --> flyer>. @context:biology');
 
-            expect(nar.expressionEvaluator.parseAndAdd).toHaveBeenCalledWith('<bird --> flyer>.', expect.any(Object));
+            expect(nar.expressionEvaluator.parseAndAdd).toHaveBeenCalledWith(
+                '<bird --> flyer>.',
+                expect.any(Object)
+            );
 
             // Check that a "hasContext" hyperedge was created and revised
             expect(nar.state.hypergraph.has(contextEdgeId)).toBe(true);
@@ -119,20 +148,30 @@ describe('Api', () => {
         it('revise() should call hyperedge.revise with new truth values', () => {
             const id = 'Inheritance(bird,flyer)';
             // Since we are not mocking the hyperedge itself, we need to create one
-            const hyperedge = new Hyperedge(nar, id, 'Inheritance', ['bird', 'flyer']);
+            const hyperedge = new Hyperedge(nar, id, 'Inheritance', [
+                'bird',
+                'flyer',
+            ]);
             // and mock its getStrongestBelief method
             jest.spyOn(hyperedge, 'getStrongestBelief').mockReturnValue({
                 truth: new TruthValue(0.5, 0.5),
-                budget: new Budget(0.5, 0.5, 0.5)
+                budget: new Budget(0.5, 0.5, 0.5),
             });
             nar.state.hypergraph.set(id, hyperedge);
 
             const newTruth = new TruthValue(0.9, 0.9);
-            api.revise(id, {truth: newTruth});
+            api.revise(id, { truth: newTruth });
 
-            expect(reviseSpy).toHaveBeenCalledWith(expect.objectContaining({truth: newTruth}));
-            expect(nar.contradictionManager.detectContradiction).toHaveBeenCalledWith(id);
-            expect(nar.emit).toHaveBeenCalledWith('revision', expect.any(Object));
+            expect(reviseSpy).toHaveBeenCalledWith(
+                expect.objectContaining({ truth: newTruth })
+            );
+            expect(
+                nar.contradictionManager.detectContradiction
+            ).toHaveBeenCalledWith(id);
+            expect(nar.emit).toHaveBeenCalledWith(
+                'revision',
+                expect.any(Object)
+            );
         });
 
         it('removeHyperedge() should remove the hyperedge and its index', () => {
@@ -144,9 +183,14 @@ describe('Api', () => {
 
             expect(result).toBe(true);
             expect(nar.state.hypergraph.has(id)).toBe(false);
-            expect(nar.state.index.removeFromIndex).toHaveBeenCalledWith(hyperedge);
+            expect(nar.state.index.removeFromIndex).toHaveBeenCalledWith(
+                hyperedge
+            );
             expect(nar.state.activations.delete).toHaveBeenCalledWith(id);
-            expect(nar.emit).toHaveBeenCalledWith('knowledge-pruned', {hyperedgeId: id, type: 'Term'});
+            expect(nar.emit).toHaveBeenCalledWith('knowledge-pruned', {
+                hyperedgeId: id,
+                type: 'Term',
+            });
         });
     });
 
@@ -159,17 +203,25 @@ describe('Api', () => {
             api.robustRule(premise, conclusion, exception);
 
             const expectedBaseRuleId = 'Implication(bird, flyer)';
-            const expectedExceptionRuleId = 'Implication(Conjunction(penguin, bird), Negation(flyer))';
+            const expectedExceptionRuleId =
+                'Implication(Conjunction(penguin, bird), Negation(flyer))';
 
             expect(nar.state.hypergraph.has(expectedBaseRuleId)).toBe(true);
-            expect(nar.state.hypergraph.has(expectedExceptionRuleId)).toBe(true);
+            expect(nar.state.hypergraph.has(expectedExceptionRuleId)).toBe(
+                true
+            );
         });
 
         it('should return the correct IDs for both created rules', () => {
-            const {baseRule, exceptionRule} = api.robustRule(premise, conclusion, exception);
+            const { baseRule, exceptionRule } = api.robustRule(
+                premise,
+                conclusion,
+                exception
+            );
 
             const expectedBaseRuleId = 'Implication(bird, flyer)';
-            const expectedExceptionRuleId = 'Implication(Conjunction(penguin, bird), Negation(flyer))';
+            const expectedExceptionRuleId =
+                'Implication(Conjunction(penguin, bird), Negation(flyer))';
 
             expect(baseRule).toBe(expectedBaseRuleId);
             expect(exceptionRule).toBe(expectedExceptionRuleId);
@@ -179,20 +231,29 @@ describe('Api', () => {
             const customTruth = new TruthValue(0.7, 0.7);
             const implicationSpy = jest.spyOn(api, 'implication');
 
-            api.robustRule(premise, conclusion, exception, {truth: customTruth});
+            api.robustRule(premise, conclusion, exception, {
+                truth: customTruth,
+            });
 
             // Check that implication was called with the custom truth for the base rule
-            expect(implicationSpy).toHaveBeenCalledWith(premise, conclusion, expect.objectContaining({truth: customTruth}));
+            expect(implicationSpy).toHaveBeenCalledWith(
+                premise,
+                conclusion,
+                expect.objectContaining({ truth: customTruth })
+            );
 
             // Check that implication was called with the default exception truth, not the custom one
             const exceptionPremise = 'Conjunction(penguin, bird)';
             const negatedConclusion = 'Negation(flyer)';
-            expect(implicationSpy).toHaveBeenCalledWith(exceptionPremise, negatedConclusion, expect.not.objectContaining({
-                truth: customTruth
-            }));
+            expect(implicationSpy).toHaveBeenCalledWith(
+                exceptionPremise,
+                negatedConclusion,
+                expect.not.objectContaining({
+                    truth: customTruth,
+                })
+            );
 
             implicationSpy.mockRestore();
         });
-
     });
 });

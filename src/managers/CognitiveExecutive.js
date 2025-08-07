@@ -1,4 +1,4 @@
-import {clamp, hash} from '../support/utils.js';
+import { clamp, hash } from '../support/utils.js';
 
 const defaultConfig = {
     METRICS_HISTORY_LENGTH: 100,
@@ -47,7 +47,7 @@ export class CognitiveExecutive {
     constructor(nar) {
         this.nar = nar;
 
-        this.config = {...defaultConfig, ...nar.config.cognitiveExecutive};
+        this.config = { ...defaultConfig, ...nar.config.cognitiveExecutive };
 
         this.rulePerformance = new Map();
         this.reasoningGoals = new Set();
@@ -63,19 +63,24 @@ export class CognitiveExecutive {
         this.resourceAllocation = {
             derivation: 0.6,
             memory: 0.3,
-            temporal: 0.1
+            temporal: 0.1,
         };
         this.currentFocus = 'default';
 
-        this.configureStrategy({context: 'default', strategy: 'balanced', priority: 0});
+        this.configureStrategy({
+            context: 'default',
+            strategy: 'balanced',
+            priority: 0,
+        });
         this.nar.on('contradiction-resolved', () => this.contradictionCount++);
     }
 
     selfMonitor() {
         const metrics = this._calculateMetrics();
         this.metricsHistory.push(metrics);
-        if (this.metricsHistory.length > this.config.METRICS_HISTORY_LENGTH) this.metricsHistory.shift();
-        this.addToTrace({type: 'self-monitor', metrics});
+        if (this.metricsHistory.length > this.config.METRICS_HISTORY_LENGTH)
+            this.metricsHistory.shift();
+        this.addToTrace({ type: 'self-monitor', metrics });
 
         const issues = this._detectIssues(metrics);
         if (issues.length > 0) {
@@ -85,10 +90,16 @@ export class CognitiveExecutive {
         this._adjustResourceAllocation(metrics);
         this._adjustReasoningFocus(metrics);
 
-        if (this.nar.state.currentStep % this.config.MAINTENANCE_INTERVAL === 0) {
+        if (
+            this.nar.state.currentStep % this.config.MAINTENANCE_INTERVAL ===
+            0
+        ) {
             this.adaptRulePriorities();
             this._pruneLowValueKnowledge();
-            if (this.nar.conceptFormation && this.nar.conceptFormation.discoverNewConcepts) {
+            if (
+                this.nar.conceptFormation &&
+                this.nar.conceptFormation.discoverNewConcepts
+            ) {
                 this.nar.conceptFormation.discoverNewConcepts();
             }
         }
@@ -118,7 +129,10 @@ export class CognitiveExecutive {
         stats.totalCost += computationalCost;
         stats.totalValue += value;
 
-        this.updateStrategyEffectiveness(ruleType, success ? 'success' : 'failure');
+        this.updateStrategyEffectiveness(
+            ruleType,
+            success ? 'success' : 'failure'
+        );
     }
 
     configureStrategy(config) {
@@ -128,30 +142,43 @@ export class CognitiveExecutive {
 
     getActiveStrategy() {
         const context = this._assessReasoningContext();
-        const strategy = this.strategies.find(s =>
-            context.includes(s.context) || s.context === 'default'
+        const strategy = this.strategies.find(
+            (s) => context.includes(s.context) || s.context === 'default'
         );
         return strategy ? strategy.strategy : 'balanced';
     }
 
     adaptRulePriorities() {
-        const ruleEfficiencies = Array.from(this.rulePerformance.entries())
-            .map(([rule, stats]) => {
-                const efficiency = stats.attempts > 0
-                    ? (stats.totalValue / stats.attempts) / (stats.totalCost / stats.attempts + this.config.EFFICIENCY_EPSILON)
-                    : 0;
-                return {rule, efficiency};
-            });
+        const ruleEfficiencies = Array.from(this.rulePerformance.entries()).map(
+            ([rule, stats]) => {
+                const efficiency =
+                    stats.attempts > 0
+                        ? stats.totalValue /
+                          stats.attempts /
+                          (stats.totalCost / stats.attempts +
+                              this.config.EFFICIENCY_EPSILON)
+                        : 0;
+                return { rule, efficiency };
+            }
+        );
 
-        ruleEfficiencies.forEach(({rule, efficiency}) => {
+        ruleEfficiencies.forEach(({ rule, efficiency }) => {
             const currentConfig = this.nar.config.ruleConfig[rule] || {};
             const newScale = clamp(
-                (currentConfig.budgetScale || this.config.DEFAULT_BUDGET_SCALE) * (this.config.BUDGET_SCALE_ADJUSTMENT_FACTOR_1 + this.config.BUDGET_SCALE_ADJUSTMENT_FACTOR_2 * efficiency),
-                this.config.MIN_BUDGET_SCALE, this.config.MAX_BUDGET_SCALE
+                (currentConfig.budgetScale ||
+                    this.config.DEFAULT_BUDGET_SCALE) *
+                    (this.config.BUDGET_SCALE_ADJUSTMENT_FACTOR_1 +
+                        this.config.BUDGET_SCALE_ADJUSTMENT_FACTOR_2 *
+                            efficiency),
+                this.config.MIN_BUDGET_SCALE,
+                this.config.MAX_BUDGET_SCALE
             );
 
             if (!this.nar.config.ruleConfig) this.nar.config.ruleConfig = {};
-            this.nar.config.ruleConfig[rule] = {...currentConfig, budgetScale: newScale};
+            this.nar.config.ruleConfig[rule] = {
+                ...currentConfig,
+                budgetScale: newScale,
+            };
 
             const ruleObject = this.nar.derivationEngine.rules?.get(rule);
             if (ruleObject) {
@@ -161,7 +188,11 @@ export class CognitiveExecutive {
     }
 
     updateStrategyEffectiveness(strategyName, outcome) {
-        const record = this.strategyEffectiveness.get(strategyName) || {successes: 0, attempts: 0, lastUpdated: 0};
+        const record = this.strategyEffectiveness.get(strategyName) || {
+            successes: 0,
+            attempts: 0,
+            lastUpdated: 0,
+        };
         record.attempts++;
         if (outcome === 'success') record.successes++;
         record.lastUpdated = Date.now();
@@ -171,19 +202,42 @@ export class CognitiveExecutive {
     _calculateMetrics() {
         const now = Date.now();
         const timeDelta = (now - this.lastMetricTimestamp) / 1000 || 1;
-        const inferenceCount = this.nar.derivationEngine.getAndResetInferenceCount ? this.nar.derivationEngine.getAndResetInferenceCount() : 0;
-        const responseTimes = this.nar.questionHandler.getAndResetQuestionResponseTimes();
-
-        const avgResponseTime = responseTimes.length > 0
-            ? responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length
+        const inferenceCount = this.nar.derivationEngine
+            .getAndResetInferenceCount
+            ? this.nar.derivationEngine.getAndResetInferenceCount()
             : 0;
+        const responseTimes =
+            this.nar.questionHandler.getAndResetQuestionResponseTimes();
+
+        const avgResponseTime =
+            responseTimes.length > 0
+                ? responseTimes.reduce((a, b) => a + b, 0) /
+                  responseTimes.length
+                : 0;
 
         const metrics = {
             timestamp: now,
-            inferenceRate: Math.min(1.0, (inferenceCount / timeDelta) / this.config.INFERENCE_RATE_NORMALIZATION),
-            contradictionRate: Math.min(1.0, (this.contradictionCount / timeDelta) / this.config.CONTRADICTION_RATE_NORMALIZATION),
-            resourceUtilization: Math.min(1.0, this.nar.state.eventQueue.heap.length / this.config.RESOURCE_UTILIZATION_NORMALIZATION),
-            questionResponseTime: Math.max(0, 1 - (avgResponseTime / this.nar.config.questionTimeout)),
+            inferenceRate: Math.min(
+                1.0,
+                inferenceCount /
+                    timeDelta /
+                    this.config.INFERENCE_RATE_NORMALIZATION
+            ),
+            contradictionRate: Math.min(
+                1.0,
+                this.contradictionCount /
+                    timeDelta /
+                    this.config.CONTRADICTION_RATE_NORMALIZATION
+            ),
+            resourceUtilization: Math.min(
+                1.0,
+                this.nar.state.eventQueue.heap.length /
+                    this.config.RESOURCE_UTILIZATION_NORMALIZATION
+            ),
+            questionResponseTime: Math.max(
+                0,
+                1 - avgResponseTime / this.nar.config.questionTimeout
+            ),
             queueSize: this.nar.state.eventQueue.heap.length,
         };
 
@@ -194,70 +248,133 @@ export class CognitiveExecutive {
 
     _detectIssues(metrics) {
         const issues = [];
-        if (metrics.contradictionRate > this.config.HIGH_CONTRADICTION_THRESHOLD) issues.push('high-contradictions');
-        if (metrics.inferenceRate < this.config.LOW_INFERENCE_THRESHOLD && metrics.queueSize > this.config.LOW_INFERENCE_QUEUE_SIZE) issues.push('low-inference-rate');
-        if (metrics.resourceUtilization > this.config.HIGH_RESOURCE_THRESHOLD) issues.push('high-resource-utilization');
-        if (metrics.questionResponseTime < this.config.SLOW_QUESTION_RESPONSE_THRESHOLD) issues.push('slow-question-response');
+        if (
+            metrics.contradictionRate > this.config.HIGH_CONTRADICTION_THRESHOLD
+        )
+            issues.push('high-contradictions');
+        if (
+            metrics.inferenceRate < this.config.LOW_INFERENCE_THRESHOLD &&
+            metrics.queueSize > this.config.LOW_INFERENCE_QUEUE_SIZE
+        )
+            issues.push('low-inference-rate');
+        if (metrics.resourceUtilization > this.config.HIGH_RESOURCE_THRESHOLD)
+            issues.push('high-resource-utilization');
+        if (
+            metrics.questionResponseTime <
+            this.config.SLOW_QUESTION_RESPONSE_THRESHOLD
+        )
+            issues.push('slow-question-response');
         return issues;
     }
 
     _adaptReasoningParameters(issues, metrics) {
-        this.addToTrace({type: 'adaptation', issues, metrics});
+        this.addToTrace({ type: 'adaptation', issues, metrics });
         const policy = this.nar.config;
         const rate = this.config.ADAPTATION_RATE;
 
         if (issues.includes('high-contradictions')) {
-            policy.inferenceThreshold = Math.min(this.config.MAX_INFERENCE_THRESHOLD, policy.inferenceThreshold * (1 + rate));
+            policy.inferenceThreshold = Math.min(
+                this.config.MAX_INFERENCE_THRESHOLD,
+                policy.inferenceThreshold * (1 + rate)
+            );
         } else if (issues.includes('low-inference-rate')) {
-            policy.inferenceThreshold = Math.max(this.config.MIN_INFERENCE_THRESHOLD, policy.inferenceThreshold * (1 - rate));
-            policy.budgetThreshold = Math.max(this.config.MIN_BUDGET_THRESHOLD, policy.budgetThreshold * (1 - rate * 0.5));
+            policy.inferenceThreshold = Math.max(
+                this.config.MIN_INFERENCE_THRESHOLD,
+                policy.inferenceThreshold * (1 - rate)
+            );
+            policy.budgetThreshold = Math.max(
+                this.config.MIN_BUDGET_THRESHOLD,
+                policy.budgetThreshold * (1 - rate * 0.5)
+            );
         }
 
         if (issues.includes('high-resource-utilization')) {
-            policy.budgetThreshold = Math.min(this.config.MAX_BUDGET_THRESHOLD, policy.budgetThreshold * (1 + rate * 2));
-            policy.maxPathLength = Math.max(this.config.MIN_PATH_LENGTH, policy.maxPathLength - 1);
+            policy.budgetThreshold = Math.min(
+                this.config.MAX_BUDGET_THRESHOLD,
+                policy.budgetThreshold * (1 + rate * 2)
+            );
+            policy.maxPathLength = Math.max(
+                this.config.MIN_PATH_LENGTH,
+                policy.maxPathLength - 1
+            );
         }
     }
 
     _adjustResourceAllocation(metrics) {
-        const {inferenceRate, contradictionRate} = metrics;
+        const { inferenceRate, contradictionRate } = metrics;
         const alloc = this.resourceAllocation;
         const rate = this.config.RESOURCE_ALLOCATION_ADJUSTMENT_RATE;
 
-        if (inferenceRate < this.config.LOW_INFERENCE_RATE_ALLOCATION_THRESHOLD) alloc.derivation = Math.min(this.config.MAX_DERIVATION_ALLOCATION, alloc.derivation + rate);
-        else if (inferenceRate > this.config.HIGH_INFERENCE_RATE_ALLOCATION_THRESHOLD) alloc.derivation = Math.max(this.config.MIN_DERIVATION_ALLOCATION, alloc.derivation - rate);
-        if (contradictionRate > this.config.HIGH_CONTRADICTION_ALLOCATION_THRESHOLD) alloc.memory = Math.min(this.config.MAX_MEMORY_ALLOCATION, alloc.memory + rate);
+        if (inferenceRate < this.config.LOW_INFERENCE_RATE_ALLOCATION_THRESHOLD)
+            alloc.derivation = Math.min(
+                this.config.MAX_DERIVATION_ALLOCATION,
+                alloc.derivation + rate
+            );
+        else if (
+            inferenceRate > this.config.HIGH_INFERENCE_RATE_ALLOCATION_THRESHOLD
+        )
+            alloc.derivation = Math.max(
+                this.config.MIN_DERIVATION_ALLOCATION,
+                alloc.derivation - rate
+            );
+        if (
+            contradictionRate >
+            this.config.HIGH_CONTRADICTION_ALLOCATION_THRESHOLD
+        )
+            alloc.memory = Math.min(
+                this.config.MAX_MEMORY_ALLOCATION,
+                alloc.memory + rate
+            );
 
         const total = Object.values(alloc).reduce((a, b) => a + b, 0);
-        Object.keys(alloc).forEach(key => alloc[key] = alloc[key] / total);
+        Object.keys(alloc).forEach((key) => (alloc[key] = alloc[key] / total));
     }
 
     _adjustReasoningFocus(metrics) {
         const oldFocus = this.currentFocus;
-        if (this.nar.state.questionPromises.size > 0) this.currentFocus = 'question-answering';
-        else if (metrics.contradictionRate > this.config.HIGH_CONTRADICTION_ALLOCATION_THRESHOLD) this.currentFocus = 'contradiction-resolution';
+        if (this.nar.state.questionPromises.size > 0)
+            this.currentFocus = 'question-answering';
+        else if (
+            metrics.contradictionRate >
+            this.config.HIGH_CONTRADICTION_ALLOCATION_THRESHOLD
+        )
+            this.currentFocus = 'contradiction-resolution';
         else this.currentFocus = 'default';
 
         if (oldFocus !== this.currentFocus) {
-            this.addToTrace({type: 'focus-change', from: oldFocus, to: this.currentFocus});
+            this.addToTrace({
+                type: 'focus-change',
+                from: oldFocus,
+                to: this.currentFocus,
+            });
         }
     }
 
     _pruneLowValueKnowledge() {
         const now = Date.now();
-        const cutoff = now - (this.nar.config.knowledgeTTL || this.config.KNOWLEDGE_TTL);
+        const cutoff =
+            now - (this.nar.config.knowledgeTTL || this.config.KNOWLEDGE_TTL);
         const candidates = [];
 
         for (const [id, hyperedge] of this.nar.state.hypergraph.entries()) {
             const lastAccess = this.nar.state.activations.get(id) || 0;
             const beliefStrength = hyperedge.getTruthExpectation();
-            if (lastAccess < cutoff && beliefStrength < this.config.LOW_BELIEF_STRENGTH_PRUNE_THRESHOLD) {
-                candidates.push({id, value: beliefStrength + (lastAccess / now)});
+            if (
+                lastAccess < cutoff &&
+                beliefStrength < this.config.LOW_BELIEF_STRENGTH_PRUNE_THRESHOLD
+            ) {
+                candidates.push({
+                    id,
+                    value: beliefStrength + lastAccess / now,
+                });
             }
         }
 
         candidates.sort((a, b) => a.value - b.value);
-        const pruneCount = Math.min(this.config.MAX_PRUNE_CANDIDATES, Math.floor(candidates.length * this.config.PRUNE_CANDIDATE_RATIO));
+        const pruneCount = Math.min(
+            this.config.MAX_PRUNE_CANDIDATES,
+            Math.floor(candidates.length * this.config.PRUNE_CANDIDATE_RATIO)
+        );
         for (let i = 0; i < pruneCount; i++) {
             this.nar.api.removeHyperedge(candidates[i].id);
         }
@@ -268,7 +385,7 @@ export class CognitiveExecutive {
     }
 
     addToTrace(traceEntry) {
-        this.trace.push({...traceEntry, timestamp: Date.now()});
+        this.trace.push({ ...traceEntry, timestamp: Date.now() });
         if (this.trace.length > this.config.TRACE_LENGTH) this.trace.shift();
     }
 
@@ -277,20 +394,28 @@ export class CognitiveExecutive {
         const lastMetric = this.metricsHistory[this.metricsHistory.length - 1];
         if (!lastMetric) return context;
 
-        if (lastMetric.contradictionRate > this.config.HIGH_UNCERTAINTY_THRESHOLD) context.push('high-uncertainty');
-        if (this.nar.state.questionPromises.size > 0) context.push('question-answering');
+        if (
+            lastMetric.contradictionRate >
+            this.config.HIGH_UNCERTAINTY_THRESHOLD
+        )
+            context.push('high-uncertainty');
+        if (this.nar.state.questionPromises.size > 0)
+            context.push('question-answering');
         return context;
     }
 
     _extractContextSignature() {
         const activeConcepts = [...this.nar.state.activations.entries()]
-            .filter(([_, activation]) => activation > this.config.ACTIVE_CONCEPT_THRESHOLD)
+            .filter(
+                ([_, activation]) =>
+                    activation > this.config.ACTIVE_CONCEPT_THRESHOLD
+            )
             .map(([id]) => id)
             .sort()
             .slice(0, this.config.ACTIVE_CONCEPT_COUNT);
         const recentQuestions = [...this.nar.state.questionPromises.keys()]
             .slice(-this.config.RECENT_QUESTION_COUNT)
-            .map(q => q.replace(/^.+?\((.+?)\|.+$/, '$1'));
+            .map((q) => q.replace(/^.+?\((.+?)\|.+$/, '$1'));
         return hash(`${activeConcepts.join('|')}~${recentQuestions.join('|')}`);
     }
 

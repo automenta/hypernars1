@@ -28,7 +28,10 @@ export class PriorityQueue {
         while (idx > 0) {
             const parent = (idx - 1) >> 1;
             if (this.comparator(this.heap[idx], this.heap[parent]) < 0) {
-                [this.heap[idx], this.heap[parent]] = [this.heap[parent], this.heap[idx]];
+                [this.heap[idx], this.heap[parent]] = [
+                    this.heap[parent],
+                    this.heap[idx],
+                ];
                 idx = parent;
             } else {
                 break;
@@ -49,18 +52,27 @@ export class PriorityQueue {
             const left = (idx << 1) + 1;
             const right = left + 1;
 
-            if (left < length && this.comparator(this.heap[left], element) < 0) {
+            if (
+                left < length &&
+                this.comparator(this.heap[left], element) < 0
+            ) {
                 swap = left;
             }
 
-            if (right < length &&
-                (swap === null ? this.comparator(this.heap[right], element) < 0
-                    : this.comparator(this.heap[right], this.heap[left]) < 0)) {
+            if (
+                right < length &&
+                (swap === null
+                    ? this.comparator(this.heap[right], element) < 0
+                    : this.comparator(this.heap[right], this.heap[left]) < 0)
+            ) {
                 swap = right;
             }
 
             if (swap === null) break;
-            [this.heap[idx], this.heap[swap]] = [this.heap[swap], this.heap[idx]];
+            [this.heap[idx], this.heap[swap]] = [
+                this.heap[swap],
+                this.heap[idx],
+            ];
             idx = swap;
         }
     }

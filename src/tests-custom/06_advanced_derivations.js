@@ -1,6 +1,7 @@
 export default {
     name: '6. Advanced Derivations',
-    description: 'Tests advanced derivation rules like Property Inheritance and Induction Inheritance.',
+    description:
+        'Tests advanced derivation rules like Property Inheritance and Induction Inheritance.',
     steps: [
         {
             comment: 'Test Property Inheritance',
@@ -11,11 +12,14 @@ export default {
                 nar.run(10);
             },
             assert: (nar, logs) => {
-                const dogHasFurId = nar.inheritance('dog', 'Property(dog, has_fur)');
+                const dogHasFurId = nar.inheritance(
+                    'dog',
+                    'Property(dog, has_fur)'
+                );
                 const belief = nar.getBeliefs(dogHasFurId)[0];
                 if (!belief) return false;
                 return belief.truth.expectation() > 0.5;
-            }
+            },
         },
         {
             comment: 'Test Induction Inheritance',
@@ -30,7 +34,7 @@ export default {
                 const belief = nar.getBeliefs(catIsSimilarToDogId)[0];
                 if (!belief) return false;
                 return belief.truth.expectation() > 0.5;
-            }
-        }
-    ]
+            },
+        },
+    ],
 };

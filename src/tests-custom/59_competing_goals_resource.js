@@ -1,14 +1,15 @@
 export default {
     name: '59. Competing Goals & Resource Allocation',
-    description: 'Tests how the system prioritizes and allocates resources to multiple, competing goals.',
+    description:
+        'Tests how the system prioritizes and allocates resources to multiple, competing goals.',
     steps: [
         {
             name: 'Setup two competing goals with different priorities',
             action: (nar) => {
                 // Goal 1: A high-priority, important goal.
-                nar.goal('pass_exam', {priority: 0.9});
+                nar.goal('pass_exam', { priority: 0.9 });
                 // Goal 2: A low-priority, less important goal.
-                nar.goal('watch_movie', {priority: 0.3});
+                nar.goal('watch_movie', { priority: 0.3 });
 
                 // Provide knowledge relevant to both goals.
                 nar.nal('(study --> pass_exam). %0.9;0.9%');
@@ -23,7 +24,7 @@ export default {
                 const examGoal = nar.goals.getActive('pass_exam');
                 const movieGoal = nar.goals.getActive('watch_movie');
                 return examGoal && movieGoal;
-            }
+            },
         },
         {
             name: 'System should allocate more resources to the higher-priority goal',
@@ -45,8 +46,10 @@ export default {
                 }
 
                 // The budget of 'study' should be significantly higher than 'relax'.
-                return studyConcept.budget.total() > relaxConcept.budget.total();
-            }
+                return (
+                    studyConcept.budget.total() > relaxConcept.budget.total()
+                );
+            },
         },
         {
             name: 'System should pursue the higher-priority goal more actively',
@@ -61,15 +64,22 @@ export default {
                 // An answer in NARS is often a new belief with high confidence/budget.
                 // We expect a belief like "(free_time --> study)" to have been derived
                 // with a higher truth expectation than "(free_time --> relax)".
-                const studyBelief = nar.getBeliefs(nar.inheritance('free_time', 'study'))[0];
-                const relaxBelief = nar.getBeliefs(nar.inheritance('free_time', 'relax'))[0];
+                const studyBelief = nar.getBeliefs(
+                    nar.inheritance('free_time', 'study')
+                )[0];
+                const relaxBelief = nar.getBeliefs(
+                    nar.inheritance('free_time', 'relax')
+                )[0];
 
                 if (!studyBelief || !relaxBelief) {
                     return false; // Beliefs not found, test fails.
                 }
 
-                return studyBelief.truth.expectation() > relaxBelief.truth.expectation();
-            }
-        }
-    ]
+                return (
+                    studyBelief.truth.expectation() >
+                    relaxBelief.truth.expectation()
+                );
+            },
+        },
+    ],
 };

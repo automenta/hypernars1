@@ -1,4 +1,5 @@
-import {Budget} from './Budget.js';
+import { describe, it, expect } from '@jest/globals';
+import { Budget } from './Budget.js';
 
 describe('Budget', () => {
     describe('constructor', () => {

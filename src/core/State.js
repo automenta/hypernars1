@@ -1,7 +1,7 @@
-import {TrieIndex} from '../support/TrieIndex.js';
-import {StructuralIndex} from '../support/StructuralIndex.js';
-import {LRUMap} from '../support/LRUMap.js';
-import {PriorityQueue} from '../support/PriorityQueue.js';
+import { TrieIndex } from '../support/TrieIndex.js';
+import { StructuralIndex } from '../support/StructuralIndex.js';
+import { LRUMap } from '../support/LRUMap.js';
+import { PriorityQueue } from '../support/PriorityQueue.js';
 
 export class State {
     constructor(config) {
@@ -20,7 +20,9 @@ export class State {
             byNgram: new Map(),
             structural: new StructuralIndex(),
         };
-        this.eventQueue = new PriorityQueue((a, b) => b.budget.priority - a.budget.priority);
+        this.eventQueue = new PriorityQueue(
+            (a, b) => b.budget.priority - a.budget.priority
+        );
         this.pathCache = new Map();
         this.activations = new Map();
         this.temporalLinks = new Map();
@@ -30,13 +32,14 @@ export class State {
         this.stepsSinceMaintenance = 0;
         this.sourceReliability = new Map();
 
-        const nodeId = config.nodeId || `node-${Math.random().toString(36).substr(2, 9)}`;
+        const nodeId =
+            config.nodeId || `node-${Math.random().toString(36).substr(2, 9)}`;
         this.distributed = {
             nodeId,
             cluster: new Set([nodeId]),
             knowledgePartition: new Map(),
             pendingRequests: new Map(),
-            connectionManager: null
+            connectionManager: null,
         };
     }
 }

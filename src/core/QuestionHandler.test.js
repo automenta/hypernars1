@@ -1,6 +1,6 @@
-import {beforeEach, describe, expect, it, jest} from '@jest/globals';
-import {NAR} from '../NAR.js';
-import {TruthValue} from '../support/TruthValue.js';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
+import { NAR } from '../NAR.js';
+import { TruthValue } from '../support/TruthValue.js';
 
 // Mock setTimeout and clearTimeout
 jest.useFakeTimers();
@@ -10,27 +10,29 @@ describe('QuestionHandler', () => {
     let questionHandler;
 
     beforeEach(() => {
-        nar = new NAR({useAdvanced: true});
+        nar = new NAR({ useAdvanced: true });
         questionHandler = nar.questionHandler;
     });
 
     it('should add an event to the queue when a belief is added', () => {
-        expect(nar.state.eventQueue.heap.length).toBe(0);
-        nar.inheritance('sky', 'blue', {truth: new TruthValue(1.0, 0.9)});
-        expect(nar.state.eventQueue.heap.length).toBe(1);
+        expect(nar.state.eventQueue.heap).toHaveLength(0);
+        nar.inheritance('sky', 'blue', { truth: new TruthValue(1.0, 0.9) });
+        expect(nar.state.eventQueue.heap).toHaveLength(1);
         const event = nar.state.eventQueue.pop();
         expect(event.target).toBe('Inheritance(sky, blue)');
     });
 
     it('should answer a question when a corresponding belief is added', async () => {
         const question = '<sky --> blue>?';
-        const answerPromise = questionHandler.ask(question, {minExpectation: 0.8});
+        const answerPromise = questionHandler.ask(question, {
+            minExpectation: 0.8,
+        });
 
         // The question is pending, no answer yet
         expect(nar.state.questionPromises.size).toBe(1);
 
         // Add a belief that answers the question
-        nar.inheritance('sky', 'blue', {truth: new TruthValue(1.0, 0.9)});
+        nar.inheritance('sky', 'blue', { truth: new TruthValue(1.0, 0.9) });
 
         // Manually run a few steps to process the event queue
         for (let i = 0; i < 5; i++) {
@@ -49,11 +51,13 @@ describe('QuestionHandler', () => {
 
     it('should reject the promise on timeout', async () => {
         const question = '<moon --> cheese>?';
-        const answerPromise = questionHandler.ask(question, {timeout: 100});
+        const answerPromise = questionHandler.ask(question, { timeout: 100 });
 
         // Fast-forward time
         jest.runOnlyPendingTimers();
 
-        await expect(answerPromise).rejects.toThrow('Question timed out after 100ms: <moon --> cheese>?');
+        await expect(answerPromise).rejects.toThrow(
+            'Question timed out after 100ms: <moon --> cheese>?'
+        );
     });
 });

@@ -1,5 +1,5 @@
-import {TruthValue} from './TruthValue.js';
-import {Budget} from './Budget.js';
+import { TruthValue } from './TruthValue.js';
+import { Budget } from './Budget.js';
 
 export class TimeInterval {
     constructor(id, term, start, end, options = {}) {
@@ -18,13 +18,25 @@ export class TimeInterval {
         if (this.start > other.end) return 'after';
         if (this.end === other.start) return 'meets';
         if (this.start === other.end) return 'metBy';
-        if (this.start < other.start && this.end > other.start && this.end < other.end) return 'overlaps';
-        if (other.start < this.start && other.end > this.start && other.end < this.end) return 'overlappedBy';
+        if (
+            this.start < other.start &&
+            this.end > other.start &&
+            this.end < other.end
+        )
+            return 'overlaps';
+        if (
+            other.start < this.start &&
+            other.end > this.start &&
+            other.end < this.end
+        )
+            return 'overlappedBy';
         if (this.start > other.start && this.end < other.end) return 'during';
         if (this.start < other.start && this.end > other.end) return 'contains';
         if (this.start === other.start && this.end < other.end) return 'starts';
-        if (this.start > other.start && this.end === other.end) return 'finishes';
-        if (this.start === other.start && this.end === other.end) return 'equals';
+        if (this.start > other.start && this.end === other.end)
+            return 'finishes';
+        if (this.start === other.start && this.end === other.end)
+            return 'equals';
         return 'unknown';
     }
 

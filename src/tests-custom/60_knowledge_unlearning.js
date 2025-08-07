@@ -1,6 +1,7 @@
 export default {
     name: '60. Knowledge Unlearning and Forgetting',
-    description: 'Tests the system ability to revise beliefs and forget old information.',
+    description:
+        'Tests the system ability to revise beliefs and forget old information.',
     steps: [
         {
             name: 'Establish a strong initial belief',
@@ -14,7 +15,7 @@ export default {
                 const plutoIsPlanetId = nar.inheritance('pluto', 'is_planet');
                 const belief = nar.getBeliefs(plutoIsPlanetId)[0];
                 return belief && belief.truth.confidence > 0.9;
-            }
+            },
         },
         {
             name: 'Introduce new, superseding evidence',
@@ -30,7 +31,7 @@ export default {
                 const belief = nar.getBeliefs(plutoIsPlanetId)[0];
                 // The expectation should now be close to 0.
                 return belief && belief.truth.expectation() < 0.1;
-            }
+            },
         },
         {
             name: 'Test passive forgetting (budget decay)',
@@ -41,11 +42,14 @@ export default {
             },
             assert: (nar) => {
                 // Store the initial budget for later comparison.
-                const keysId = nar.inheritance('my_car_keys', 'are_on_the_table');
+                const keysId = nar.inheritance(
+                    'my_car_keys',
+                    'are_on_the_table'
+                );
                 const concept = nar.getConcept(keysId);
                 nar.context.initialKeysBudget = concept.budget.total(); // Store in test context
                 return nar.context.initialKeysBudget > 0;
-            }
+            },
         },
         {
             name: 'Run system for many cycles to induce forgetting',
@@ -58,12 +62,15 @@ export default {
             },
             assert: (nar) => {
                 // The budget of the un-reinforced belief should have decayed.
-                const keysId = nar.inheritance('my_car_keys', 'are_on_the_table');
+                const keysId = nar.inheritance(
+                    'my_car_keys',
+                    'are_on_the_table'
+                );
                 const concept = nar.getConcept(keysId);
                 const finalKeysBudget = concept.budget.total();
                 // The final budget should be noticeably lower than the initial budget.
                 return finalKeysBudget < nar.context.initialKeysBudget;
-            }
-        }
-    ]
+            },
+        },
+    ],
 };

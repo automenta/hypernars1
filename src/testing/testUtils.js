@@ -1,4 +1,4 @@
-import {NAR} from '../NAR.js';
+import { NAR } from '../NAR.js';
 
 /**
  * Generates an array of simple Narsese belief statements.
@@ -32,5 +32,5 @@ export function runWithTiming(nar, cycles) {
  * @returns {NAR} A new NARHyper instance.
  */
 export function createTestNar(config = {}) {
-    return new NAR({useAdvanced: true, ...config});
+    return new NAR({ useAdvanced: true, ...config });
 }

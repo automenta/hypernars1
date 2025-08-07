@@ -1,6 +1,6 @@
-import {ExpressionEvaluatorBase} from './ExpressionEvaluatorBase.js';
-import {TruthValue} from '../support/TruthValue.js';
-import {id} from '../support/utils.js';
+import { ExpressionEvaluatorBase } from './ExpressionEvaluatorBase.js';
+import { TruthValue } from '../support/TruthValue.js';
+import { id } from '../support/utils.js';
 
 // Custom error classes for precise error handling, as per `enhance.c.md`
 class NALParserError extends Error {
@@ -21,12 +21,12 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         super(nar);
         // This operator list is now used inside the new parser logic
         this.operators = [
-            {symbol: '==>', precedence: 4, type: 'Implication'},
-            {symbol: '<=>', precedence: 4, type: 'Equivalence'},
-            {symbol: '-->', precedence: 3, type: 'Inheritance'},
-            {symbol: '&&', precedence: 2, type: 'Conjunction'},
-            {symbol: '||', precedence: 2, type: 'Disjunction'},
-            {symbol: '<->', precedence: 1, type: 'Similarity'}
+            { symbol: '==>', precedence: 4, type: 'Implication' },
+            { symbol: '<=>', precedence: 4, type: 'Equivalence' },
+            { symbol: '-->', precedence: 3, type: 'Inheritance' },
+            { symbol: '&&', precedence: 2, type: 'Conjunction' },
+            { symbol: '||', precedence: 2, type: 'Disjunction' },
+            { symbol: '<->', precedence: 1, type: 'Similarity' },
         ];
     }
 
@@ -39,7 +39,9 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     parseQuestion(question, options = {}) {
-        const cleanQuestion = question.endsWith('?') ? question.slice(0, -1) : question;
+        const cleanQuestion = question.endsWith('?')
+            ? question.slice(0, -1)
+            : question;
         const questionId = id('Question', [cleanQuestion]);
 
         return new Promise((resolve, reject) => {
@@ -48,13 +50,25 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 reject(new Error(`Question timed out: ${cleanQuestion}`));
             }, this.nar.config.questionTimeout || 5000);
 
-            this.nar.state.questionPromises.set(questionId, {resolve, reject, timer, options});
+            this.nar.state.questionPromises.set(questionId, {
+                resolve,
+                reject,
+                timer,
+                options,
+            });
 
             const parsed = this.parse(cleanQuestion);
             if (!parsed || !parsed.type || !parsed.args) return;
 
-            const task = {type: 'question', hyperedgeType: parsed.type, args: parsed.args};
-            const budget = this.nar.memoryManager.allocateResources(task, {importance: 1.0, urgency: 1.0});
+            const task = {
+                type: 'question',
+                hyperedgeType: parsed.type,
+                args: parsed.args,
+            };
+            const budget = this.nar.memoryManager.allocateResources(task, {
+                importance: 1.0,
+                urgency: 1.0,
+            });
             const hyperedgeId = this._getParsedStructureId(parsed);
             if (hyperedgeId) {
                 this.nar.propagation.propagate({
@@ -63,18 +77,24 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                     budget: budget,
                     pathHash: 0,
                     pathLength: 0,
-                    derivationPath: []
+                    derivationPath: [],
                 });
             }
         });
     }
 
     query(pattern, options = {}) {
-        const {limit = 10, minExpectation = 0.5, sortBy = 'expectation'} = options;
+        const {
+            limit = 10,
+            minExpectation = 0.5,
+            sortBy = 'expectation',
+        } = options;
         const startTime = Date.now();
 
         try {
-            const parsedPattern = this.parse(pattern.endsWith('?') ? pattern.slice(0, -1) : pattern);
+            const parsedPattern = this.parse(
+                pattern.endsWith('?') ? pattern.slice(0, -1) : pattern
+            );
 
             let results = [];
             // Try direct match first
@@ -105,7 +125,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             results = results.concat(queryResults);
 
             // Filter and sort
-            results = results.filter(r => r.expectation >= minExpectation);
+            results = results.filter((r) => r.expectation >= minExpectation);
             this._sortQueryResults(results, sortBy);
 
             // Deduplicate and limit
@@ -120,7 +140,11 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
             return uniqueResults.slice(0, limit);
         } catch (e) {
-            this.nar.emit('log', {message: `Query execution failed: ${e.message}`, level: 'error', error: e});
+            this.nar.emit('log', {
+                message: `Query execution failed: ${e.message}`,
+                level: 'error',
+                error: e,
+            });
             return [];
         } finally {
             const duration = Date.now() - startTime;
@@ -128,9 +152,14 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     }
 
     _wildcardQuery(pattern, options) {
-        const {limit = 10, minExpectation = 0.0} = options;
+        const { limit = 10, minExpectation = 0.0 } = options;
         const results = [];
-        const regex = new RegExp(pattern.replace(/\*/g, '.*').replace(/\(/g, '\\(').replace(/\)/g, '\\)'));
+        const regex = new RegExp(
+            pattern
+                .replace(/\*/g, '.*')
+                .replace(/\(/g, '\\(')
+                .replace(/\)/g, '\\)')
+        );
         for (const [id, hyperedge] of this.nar.state.hypergraph.entries()) {
             if (regex.test(id)) {
                 results.push({
@@ -142,15 +171,16 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             }
             if (results.length >= limit) break;
         }
-        return results.filter(r => r.expectation >= minExpectation);
+        return results.filter((r) => r.expectation >= minExpectation);
     }
 
     queryWithBinding(pattern, options = {}) {
-        const {minExpectation = 0.5} = options;
+        const { minExpectation = 0.5 } = options;
         const results = [];
         const parsedPattern = this.parse(pattern);
 
-        const candidateEdges = this.nar.state.index.byType.get(parsedPattern.type) || new Set();
+        const candidateEdges =
+            this.nar.state.index.byType.get(parsedPattern.type) || new Set();
 
         for (const edgeId of candidateEdges) {
             const hyperedge = this.nar.state.hypergraph.get(edgeId);
@@ -164,7 +194,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                         id: edgeId,
                         bindings: Object.fromEntries(bindings),
                         expectation,
-                        hyperedge
+                        hyperedge,
                     });
                 }
             }
@@ -182,25 +212,43 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             const patternArg = patternNode.args[i];
             const hyperedgeArgId = hyperedgeNode.args[i];
 
-            if (typeof patternArg === 'object' && patternArg.type === 'Variable') {
+            if (
+                typeof patternArg === 'object' &&
+                patternArg.type === 'Variable'
+            ) {
                 const varName = patternArg.args[0];
                 if (bindings.has(varName)) {
                     if (bindings.get(varName) !== hyperedgeArgId) return false;
                 } else {
-                    if (this._satisfiesConstraints(hyperedgeArgId, patternArg.constraints)) {
+                    if (
+                        this._satisfiesConstraints(
+                            hyperedgeArgId,
+                            patternArg.constraints
+                        )
+                    ) {
                         bindings.set(varName, hyperedgeArgId);
                     } else {
                         return false; // Constraint check failed
                     }
                 }
-            } else if (typeof patternArg === 'object' && patternArg.type === 'Term') {
+            } else if (
+                typeof patternArg === 'object' &&
+                patternArg.type === 'Term'
+            ) {
                 const expectedId = id(patternArg.type, patternArg.args);
-                if (expectedId !== hyperedgeArgId && patternArg.args[0] !== hyperedgeArgId) {
+                if (
+                    expectedId !== hyperedgeArgId &&
+                    patternArg.args[0] !== hyperedgeArgId
+                ) {
                     return false;
                 }
             } else if (typeof patternArg === 'object' && patternArg.type) {
-                const nestedHyperedge = this.nar.state.hypergraph.get(hyperedgeArgId);
-                if (!nestedHyperedge || !this._matchRecursive(patternArg, nestedHyperedge, bindings)) {
+                const nestedHyperedge =
+                    this.nar.state.hypergraph.get(hyperedgeArgId);
+                if (
+                    !nestedHyperedge ||
+                    !this._matchRecursive(patternArg, nestedHyperedge, bindings)
+                ) {
                     return false;
                 }
             } else {
@@ -228,15 +276,22 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                     if (hyperedge.type !== value) return false;
                     break;
                 case 'minExpectation':
-                    if (hyperedge.getTruth().expectation() < parseFloat(value)) return false;
+                    if (hyperedge.getTruth().expectation() < parseFloat(value))
+                        return false;
                     break;
                 case 'maxExpectation':
-                    if (hyperedge.getTruth().expectation() > parseFloat(value)) return false;
+                    if (hyperedge.getTruth().expectation() > parseFloat(value))
+                        return false;
                     break;
-                case 'isA':
-                    const instanceOfId = id('Inheritance', [hyperedgeId, value]);
-                    if (!this.nar.state.hypergraph.has(instanceOfId)) return false;
+                case 'isA': {
+                    const instanceOfId = id('Inheritance', [
+                        hyperedgeId,
+                        value,
+                    ]);
+                    if (!this.nar.state.hypergraph.has(instanceOfId))
+                        return false;
                     break;
+                }
                 // Add more constraint checks here as needed
             }
         }
@@ -250,14 +305,20 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 results.sort((a, b) => b.expectation - a.expectation);
                 break;
             case 'activation':
-                results.sort((a, b) =>
-                    (this.nar.state.activations.get(b.id) || 0) - (this.nar.state.activations.get(a.id) || 0)
+                results.sort(
+                    (a, b) =>
+                        (this.nar.state.activations.get(b.id) || 0) -
+                        (this.nar.state.activations.get(a.id) || 0)
                 );
                 break;
             case 'recent':
                 results.sort((a, b) => {
-                    const aTime = this.nar.state.hypergraph.get(a.id)?.beliefs[0]?.timestamp || 0;
-                    const bTime = this.nar.state.hypergraph.get(b.id)?.beliefs[0]?.timestamp || 0;
+                    const aTime =
+                        this.nar.state.hypergraph.get(a.id)?.beliefs[0]
+                            ?.timestamp || 0;
+                    const bTime =
+                        this.nar.state.hypergraph.get(b.id)?.beliefs[0]
+                            ?.timestamp || 0;
                     return bTime - aTime;
                 });
                 break;
@@ -268,14 +329,18 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
     parse(expression) {
         if (typeof expression !== 'string' || !expression.trim()) {
-            throw new NALParserError('Input must be a non-empty string.', {expression});
+            throw new NALParserError('Input must be a non-empty string.', {
+                expression,
+            });
         }
 
         let truth = new TruthValue(1.0, 0.9);
         let priority = 1.0;
         let content = expression.trim();
 
-        const truthMatch = content.match(/(?:%([\d.]+);([\d.]+)(?:;([\d.]+))?%|#([\d.]+)#)\s*$/);
+        const truthMatch = content.match(
+            /(?:%([\d.]+);([\d.]+)(?:;([\d.]+))?%|#([\d.]+)#)\s*$/
+        );
         if (truthMatch) {
             const freqStr = truthMatch[1];
             const confStr = truthMatch[2];
@@ -283,10 +348,15 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 const frequency = parseFloat(freqStr);
                 const confidence = parseFloat(confStr);
                 if (isNaN(frequency) || frequency < 0 || frequency > 1) {
-                    throw new NALParserError('Invalid truth frequency value.', {value: freqStr});
+                    throw new NALParserError('Invalid truth frequency value.', {
+                        value: freqStr,
+                    });
                 }
                 if (isNaN(confidence) || confidence < 0 || confidence > 1) {
-                    throw new NALParserError('Invalid truth confidence value.', {value: confStr});
+                    throw new NALParserError(
+                        'Invalid truth confidence value.',
+                        { value: confStr }
+                    );
                 }
                 truth = new TruthValue(frequency, confidence);
             }
@@ -314,7 +384,10 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             if (e instanceof NALParserError) {
                 throw e;
             }
-            throw new NALParserError(`Failed to parse expression: ${e.message}`, {content});
+            throw new NALParserError(
+                `Failed to parse expression: ${e.message}`,
+                { content }
+            );
         }
     }
 
@@ -323,12 +396,18 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
         // 1. Handle Negation
         if (content.startsWith('!')) {
-            return {type: 'Negation', args: [this._parseNALExpression(content.substring(1))]};
+            return {
+                type: 'Negation',
+                args: [this._parseNALExpression(content.substring(1))],
+            };
         }
         // Handle alternative bracketed negation syntax
         if (content.startsWith('[-') && content.endsWith(']')) {
             const termContent = content.slice(2, -1).trim();
-            return {type: 'Negation', args: [{type: 'Term', args: [termContent]}]};
+            return {
+                type: 'Negation',
+                args: [{ type: 'Term', args: [termContent] }],
+            };
         }
 
         // 2. Handle Parentheses
@@ -361,9 +440,11 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
             if (depth === 0 && !inQuotes) {
                 for (const op of this.operators) {
-                    if (content.substring(i, i + op.symbol.length) === op.symbol) {
+                    if (
+                        content.substring(i, i + op.symbol.length) === op.symbol
+                    ) {
                         if (!bestOp || op.precedence > bestOp.precedence) {
-                            bestOp = {...op, position: i};
+                            bestOp = { ...op, position: i };
                         }
                     }
                 }
@@ -372,22 +453,36 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
         if (bestOp) {
             const left = content.substring(0, bestOp.position).trim();
-            const right = content.substring(bestOp.position + bestOp.symbol.length).trim();
-            return {type: bestOp.type, args: [this._parseNALExpression(left), this._parseNALExpression(right)]};
+            const right = content
+                .substring(bestOp.position + bestOp.symbol.length)
+                .trim();
+            return {
+                type: bestOp.type,
+                args: [
+                    this._parseNALExpression(left),
+                    this._parseNALExpression(right),
+                ],
+            };
         }
 
         // 4. Handle specific term structures (Product, Image)
         const productMatch = content.match(/^\(\*\s*,\s*(.+)\)$/);
         if (productMatch) {
-            const terms = productMatch[1].split(/\s*,\s*/).map(t => t.trim()).filter(Boolean);
-            return {type: 'Product', args: terms};
+            const terms = productMatch[1]
+                .split(/\s*,\s*/)
+                .map((t) => t.trim())
+                .filter(Boolean);
+            return { type: 'Product', args: terms };
         }
 
         const imageMatch = content.match(/^\((\/|\*)\s*,\s*(.+)\)$/);
         if (imageMatch) {
             const type = imageMatch[1] === '/' ? 'ImageExt' : 'ImageInt';
-            const terms = imageMatch[2].split(/\s*,\s*/).map(t => t.trim()).filter(Boolean);
-            return {type, args: terms};
+            const terms = imageMatch[2]
+                .split(/\s*,\s*/)
+                .map((t) => t.trim())
+                .filter(Boolean);
+            return { type, args: terms };
         }
 
         // 5. Handle Variables
@@ -396,21 +491,21 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             if (constraintMatch) {
                 const varName = constraintMatch[1];
                 const constraints = this._parseConstraints(constraintMatch[3]);
-                return {type: 'Variable', args: [varName], constraints};
+                return { type: 'Variable', args: [varName], constraints };
             }
-            return {type: 'Variable', args: [content]};
+            return { type: 'Variable', args: [content] };
         }
 
         // 6. Default to simple Term
-        return {type: 'Term', args: [content]};
+        return { type: 'Term', args: [content] };
     }
 
     _parseConstraints(constraintStr) {
         const constraints = {};
         if (!constraintStr) return constraints;
         const parts = constraintStr.split(',');
-        parts.forEach(part => {
-            const [key, value] = part.split('=').map(s => s.trim());
+        parts.forEach((part) => {
+            const [key, value] = part.split('=').map((s) => s.trim());
             if (key && value) {
                 constraints[key] = value;
             }
@@ -421,7 +516,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
     _addParsedStructure(parsed, options) {
         if (!parsed || !parsed.args) return null;
 
-        const argIds = parsed.args.map(arg => {
+        const argIds = parsed.args.map((arg) => {
             if (typeof arg === 'object' && arg !== null && arg.type) {
                 // For nested structures, we just need to ensure they exist.
                 const argId = this._getParsedStructureId(arg); // Just get the ID
@@ -435,7 +530,11 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         });
 
         // The top-level statement gets the specific truth/budget from the parsed expression.
-        const finalOptions = {...options, truth: parsed.truth, priority: parsed.priority};
+        const finalOptions = {
+            ...options,
+            truth: parsed.truth,
+            priority: parsed.priority,
+        };
         return this.nar.api.addHyperedge(parsed.type, argIds, finalOptions);
     }
 
@@ -446,7 +545,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
 
         if (!parsed || !parsed.args) return null; // Guard against invalid parsed objects
 
-        const argIds = parsed.args.map(arg => {
+        const argIds = parsed.args.map((arg) => {
             if (typeof arg === 'object' && arg !== null && arg.type) {
                 return this._getParsedStructureId(arg);
             }

@@ -1,9 +1,11 @@
 export default {
     name: '47. Paradox Handling',
-    description: 'Tests the system\'s stability when reasoning about a logical paradox.',
+    description:
+        "Tests the system's stability when reasoning about a logical paradox.",
     steps: [
         {
-            comment: 'Introduce a statement that asserts its own falsehood (Liar Paradox).',
+            comment:
+                'Introduce a statement that asserts its own falsehood (Liar Paradox).',
             action: (nar) => {
                 // Let L be the name of the statement "L is false".
                 // So, we define the meaning of L as the implication "L leads to falsehood".
@@ -31,7 +33,7 @@ export default {
                 // or have its frequency oscillate around 0.5, representing total uncertainty.
                 // The expectation value, which is (frequency - 0.5) * 2 * confidence, should be near 0.
                 return Math.abs(beliefInL.truth.expectation()) < 0.2;
-            }
-        }
-    ]
+            },
+        },
+    ],
 };

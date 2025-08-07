@@ -1,5 +1,5 @@
-import {MemoryManagerBase} from './MemoryManagerBase.js';
-import {Budget} from '../support/Budget.js';
+import { MemoryManagerBase } from './MemoryManagerBase.js';
+import { Budget } from '../support/Budget.js';
 
 export class SimpleMemoryManager extends MemoryManagerBase {
     constructor(nar) {
@@ -11,15 +11,11 @@ export class SimpleMemoryManager extends MemoryManagerBase {
         return new Budget(0.5, 0.5, 0.5);
     }
 
-    addToIndex(hyperedge) {
-    }
+    addToIndex(hyperedge) {}
 
-    removeFromIndex(hyperedge) {
-    }
+    removeFromIndex(hyperedge) {}
 
-    maintainMemory() {
-    }
+    maintainMemory() {}
 
-    updateRelevance(hyperedgeId, activityType, intensity = 1.0) {
-    }
+    updateRelevance(hyperedgeId, activityType, intensity = 1.0) {}
 }

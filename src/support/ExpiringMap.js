@@ -17,7 +17,7 @@ export class ExpiringMap {
      */
     set(key, value) {
         const expires = Date.now() + this.ttl;
-        this.map.set(key, {value, expires});
+        this.map.set(key, { value, expires });
     }
 
     /**

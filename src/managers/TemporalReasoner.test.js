@@ -1,12 +1,12 @@
-import {beforeEach, describe, expect, it} from '@jest/globals';
-import {NAR} from '../NAR.js';
+import { beforeEach, describe, expect, it } from '@jest/globals';
+import { NAR } from '../NAR.js';
 
 describe('TemporalReasoner', () => {
     let nar;
     let temporalReasoner;
 
     beforeEach(() => {
-        nar = new NAR({useAdvanced: true});
+        nar = new NAR({ useAdvanced: true });
         temporalReasoner = nar.temporalManager;
     });
 
@@ -31,19 +31,34 @@ describe('TemporalReasoner', () => {
         temporalReasoner.addConstraint(interval1, interval2, 'meets');
         temporalReasoner.addConstraint(interval2, interval3, 'starts');
 
-        const inferred = temporalReasoner.inferRelationship(interval1, interval3);
+        const inferred = temporalReasoner.inferRelationship(
+            interval1,
+            interval3
+        );
         expect(inferred).not.toBeNull();
         // According to Allen's algebra, meets + starts = overlaps
         expect(inferred.relation).toBe('overlaps');
     });
 
     it('should handle a chain of temporal relations', () => {
-        const actions = ['wake_up', 'get_dressed', 'eat_breakfast', 'leave_for_work'];
+        const actions = [
+            'wake_up',
+            'get_dressed',
+            'eat_breakfast',
+            'leave_for_work',
+        ];
         for (let i = 0; i < actions.length - 1; i++) {
-            temporalReasoner.addConstraint(actions[i], actions[i + 1], 'before');
+            temporalReasoner.addConstraint(
+                actions[i],
+                actions[i + 1],
+                'before'
+            );
         }
 
-        const inferred = temporalReasoner.inferRelationship('wake_up', 'leave_for_work');
+        const inferred = temporalReasoner.inferRelationship(
+            'wake_up',
+            'leave_for_work'
+        );
         expect(inferred).not.toBeNull();
         expect(inferred.relation).toBe('before');
     });
@@ -54,7 +69,11 @@ describe('TemporalReasoner', () => {
 
         temporalReasoner.addConstraint(eventX, eventY, 'before');
         // Adding a contradictory constraint should be handled gracefully
-        const contradictoryConstraint = temporalReasoner.addConstraint(eventX, eventY, 'after');
+        const contradictoryConstraint = temporalReasoner.addConstraint(
+            eventX,
+            eventY,
+            'after'
+        );
 
         expect(contradictoryConstraint).toBeNull();
     });
@@ -64,8 +83,13 @@ describe('TemporalReasoner', () => {
         const event2 = 'presentation_due';
         temporalReasoner.addConstraint(event1, event2, 'after');
 
-        const description = temporalReasoner.describeTemporalRelationship(event1, event2);
-        expect(description).toBe(`The event "${event1}" happens after the event "${event2}".`);
+        const description = temporalReasoner.describeTemporalRelationship(
+            event1,
+            event2
+        );
+        expect(description).toBe(
+            `The event "${event1}" happens after the event "${event2}".`
+        );
     });
 
     it('should return an array of possible relations for ambiguous compositions', () => {
@@ -82,7 +106,13 @@ describe('TemporalReasoner', () => {
         const inferred = temporalReasoner.inferRelationship(eventA, eventC);
         expect(inferred).not.toBeNull();
 
-        const expectedRelations = ['before', 'meets', 'overlaps', 'starts', 'during'];
+        const expectedRelations = [
+            'before',
+            'meets',
+            'overlaps',
+            'starts',
+            'during',
+        ];
         expect(Array.isArray(inferred.relation)).toBe(true);
         expect(inferred.relation).toHaveLength(expectedRelations.length);
         expect(inferred.relation.sort()).toEqual(expectedRelations.sort());
@@ -119,10 +149,14 @@ describe('TemporalReasoner', () => {
         temporalReasoner.interval('coffee', now, now + 1000 * 60 * 5); // Coffee for 5 mins
         temporalReasoner.addConstraint('coffee', 'work', 'before');
 
-        const predictions = temporalReasoner.predict('coffee', 'start_work_routine', 10); // Predict 10 mins ahead
+        const predictions = temporalReasoner.predict(
+            'coffee',
+            'start_work_routine',
+            10
+        ); // Predict 10 mins ahead
 
         expect(predictions.length).toBeGreaterThan(0);
-        const workPrediction = predictions.find(p => p.term === 'work');
+        const workPrediction = predictions.find((p) => p.term === 'work');
         expect(workPrediction).toBeDefined();
         expect(workPrediction.confidence).toBeGreaterThan(0);
     });

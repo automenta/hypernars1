@@ -1,10 +1,9 @@
-import {DerivationEngineBase} from './DerivationEngineBase.js';
+import { DerivationEngineBase } from './DerivationEngineBase.js';
 
 export class SimpleDerivationEngine extends DerivationEngineBase {
     constructor(nar) {
         super(nar);
     }
 
-    applyDerivationRules(event) {
-    }
+    applyDerivationRules(event) {}
 }

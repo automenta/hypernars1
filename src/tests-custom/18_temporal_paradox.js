@@ -13,10 +13,13 @@ export default [
                     nar.run(100);
                 },
                 assert: (nar, logs) => {
-                    const contradiction = nar.contradictionManager.contradictions.get(nar.inheritance('event_A', 'event_B'));
+                    const contradiction =
+                        nar.contradictionManager.contradictions.get(
+                            nar.inheritance('event_A', 'event_B')
+                        );
                     return contradiction !== undefined;
-                }
-            }
-        ]
-    }
+                },
+            },
+        ],
+    },
 ];

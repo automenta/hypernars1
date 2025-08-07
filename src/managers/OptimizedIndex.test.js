@@ -1,6 +1,6 @@
-import {beforeEach, describe, expect, jest, test} from '@jest/globals';
-import {OptimizedIndex} from './OptimizedIndex.js';
-import {Hyperedge} from '../support/Hyperedge.js';
+import { beforeEach, describe, expect, jest, test } from '@jest/globals';
+import { OptimizedIndex } from './OptimizedIndex.js';
+import { Hyperedge } from '../support/Hyperedge.js';
 
 // Mock NAR system and its components
 const mockNar = {
@@ -30,7 +30,7 @@ describe('OptimizedIndex', () => {
             new Hyperedge(mockNar, 'h5', 'Similarity', ['apple', 'banana']),
         ];
 
-        hyperedges.forEach(h => {
+        hyperedges.forEach((h) => {
             mockNar.hypergraph.set(h.id, h);
             index.addToIndex(h);
         });

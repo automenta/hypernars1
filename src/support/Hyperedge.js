@@ -1,4 +1,4 @@
-import {TruthValue} from './TruthValue.js';
+import { TruthValue } from './TruthValue.js';
 
 export class Hyperedge {
     constructor(nar, id, type, args) {
@@ -16,7 +16,7 @@ export class Hyperedge {
             beliefCapacity = 8,
             premises = [],
             context = null,
-            derivedBy = null
+            derivedBy = null,
         } = options;
 
         const newBelief = {
@@ -26,7 +26,7 @@ export class Hyperedge {
             premises: premises || [],
             context,
             derivedBy,
-            timestamp: Date.now()
+            timestamp: Date.now(),
         };
 
         this.beliefs.push(newBelief);
@@ -36,7 +36,7 @@ export class Hyperedge {
             this.beliefs.length = beliefCapacity;
         }
 
-        return {newBelief: this.getStrongestBelief(), needsUpdate: true};
+        return { newBelief: this.getStrongestBelief(), needsUpdate: true };
     }
 
     getStrongestBelief() {
@@ -44,11 +44,15 @@ export class Hyperedge {
     }
 
     getWeakestBelief() {
-        return this.beliefs.length > 0 ? this.beliefs[this.beliefs.length - 1] : undefined;
+        return this.beliefs.length > 0
+            ? this.beliefs[this.beliefs.length - 1]
+            : undefined;
     }
 
     getTruth() {
-        return this.beliefs.length ? this.beliefs[0].truth : TruthValue.unknown();
+        return this.beliefs.length
+            ? this.beliefs[0].truth
+            : TruthValue.unknown();
     }
 
     getTruthExpectation() {
@@ -60,7 +64,7 @@ export class Hyperedge {
             id: this.id,
             type: this.type,
             args: this.args,
-            beliefs: this.beliefs.map(b => ({
+            beliefs: this.beliefs.map((b) => ({
                 ...b,
                 truth: b.truth.toJSON(),
                 budget: b.budget.toJSON(),

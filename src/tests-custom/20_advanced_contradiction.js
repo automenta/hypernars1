@@ -1,10 +1,12 @@
 export default {
     name: '20. Advanced Contradiction',
-    description: 'Tests belief revision with multiple contradictory pieces of evidence of varying strength.',
+    description:
+        'Tests belief revision with multiple contradictory pieces of evidence of varying strength.',
     skipped: false, // Skipping due to deeper bug in reasoning engine.
     steps: [
         {
-            comment: 'Establish the initial, incorrect belief that whales are fish.',
+            comment:
+                'Establish the initial, incorrect belief that whales are fish.',
             action: (nar) => {
                 nar.nal('(whale --> fish). %0.6;0.7%'); // Medium confidence
                 nar.run(10);
@@ -14,9 +16,11 @@ export default {
                 const belief = nar.getBeliefs(beliefId)[0];
                 if (!belief || !belief.truth) return false;
                 // Store the initial expectation
-                nar.scratchpad = {initialExpectation: belief.truth.expectation()};
+                nar.scratchpad = {
+                    initialExpectation: belief.truth.expectation(),
+                };
                 return nar.scratchpad.initialExpectation > 0.5;
-            }
+            },
         },
         {
             comment: 'Introduce a weak contradiction.',
@@ -31,8 +35,11 @@ export default {
                 const newExpectation = belief.truth.expectation();
                 nar.scratchpad.weakContradictionExpectation = newExpectation;
                 // Expectation should decrease, but still be positive.
-                return newExpectation < nar.scratchpad.initialExpectation && newExpectation > 0;
-            }
+                return (
+                    newExpectation < nar.scratchpad.initialExpectation &&
+                    newExpectation > 0
+                );
+            },
         },
         {
             comment: 'Introduce a strong contradiction.',
@@ -47,8 +54,12 @@ export default {
                 if (!belief || !belief.truth) return false;
                 const finalExpectation = belief.truth.expectation();
                 // Expectation should now be very low, possibly negative (representing belief in !fish).
-                return finalExpectation < nar.scratchpad.weakContradictionExpectation && finalExpectation < 0.1;
-            }
-        }
-    ]
+                return (
+                    finalExpectation <
+                        nar.scratchpad.weakContradictionExpectation &&
+                    finalExpectation < 0.1
+                );
+            },
+        },
+    ],
 };

@@ -1,7 +1,8 @@
 export default [
     {
         name: '16.1. Concept Formation from Contradictions',
-        description: 'Tests if the system can form a new concept to resolve a contradiction.',
+        description:
+            'Tests if the system can form a new concept to resolve a contradiction.',
         skipped: false, // Skipping due to deeper bug in reasoning engine.
         steps: [
             {
@@ -14,7 +15,7 @@ export default [
                     const beliefId = nar.inheritance('penguin', 'bird');
                     const belief = nar.getBeliefs(beliefId)[0];
                     return belief && belief.truth.confidence > 0.8;
-                }
+                },
             },
             {
                 comment: 'Establish that birds can fly.',
@@ -26,22 +27,29 @@ export default [
                     const beliefId = nar.inheritance('bird', 'flyer');
                     const belief = nar.getBeliefs(beliefId)[0];
                     return belief && belief.truth.confidence > 0.8;
-                }
+                },
             },
             {
-                comment: 'Introduce the contradictory belief that penguins cannot fly.',
+                comment:
+                    'Introduce the contradictory belief that penguins cannot fly.',
                 action: (nar) => {
                     const penguinFlyerId = nar.inheritance('penguin', 'flyer');
                     const belief = nar.nal('(<penguin --> flyer>). %0.0;0.99%');
-                    nar.contradictionManager.addEvidence(penguinFlyerId, belief.id, {source: 'special_book'});
+                    nar.contradictionManager.addEvidence(
+                        penguinFlyerId,
+                        belief.id,
+                        { source: 'special_book' }
+                    );
                     nar.run(100);
                 },
                 assert: (nar, logs) => {
-                    const specializedPenguinId = 'Inheritance(penguin,flyer)|context:special_book';
-                    const specializedPenguin = nar.state.hypergraph.get(specializedPenguinId);
+                    const specializedPenguinId =
+                        'Inheritance(penguin,flyer)|context:special_book';
+                    const specializedPenguin =
+                        nar.state.hypergraph.get(specializedPenguinId);
                     return specializedPenguin !== undefined;
-                }
-            }
-        ]
-    }
+                },
+            },
+        ],
+    },
 ];

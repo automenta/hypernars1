@@ -5,7 +5,7 @@ import path from 'path';
 import { pathToFileURL } from 'url';
 
 const testsDir = path.resolve(process.cwd(), 'src', 'tests-custom');
-const files = fs.readdirSync(testsDir).filter(file => file.endsWith('.js'));
+const files = fs.readdirSync(testsDir).filter((file) => file.endsWith('.js'));
 
 describe('Custom NAR Tests', () => {
     for (const file of files) {
@@ -18,7 +18,9 @@ describe('Custom NAR Tests', () => {
                 testModule = await import(pathToFileURL(modulePath));
             } catch (error) {
                 // Fail the test if the module can't be imported
-                throw new Error(`Failed to import test file: ${file}\n${error.stack}`);
+                throw new Error(
+                    `Failed to import test file: ${file}\n${error.stack}`
+                );
             }
 
             // If the file doesn't have a default export, it's not a test file.
@@ -27,7 +29,9 @@ describe('Custom NAR Tests', () => {
                 return;
             }
 
-            const tests = Array.isArray(testModule.default) ? testModule.default : [testModule.default];
+            const tests = Array.isArray(testModule.default)
+                ? testModule.default
+                : [testModule.default];
 
             for (const test of tests) {
                 if (!test || !test.steps) continue;

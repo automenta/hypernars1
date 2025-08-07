@@ -1,4 +1,5 @@
-import {NAR} from '../NAR.js';
+import { describe, it, expect, beforeEach } from '@jest/globals';
+import { NAR } from '../NAR.js';
 
 describe('AdvancedExpressionEvaluator', () => {
     let nar;
@@ -69,7 +70,9 @@ describe('AdvancedExpressionEvaluator', () => {
         });
 
         it('should respect parentheses to override precedence', () => {
-            const result = nar.expressionEvaluator.parse('(a && b) --> (c || d)');
+            const result = nar.expressionEvaluator.parse(
+                '(a && b) --> (c || d)'
+            );
 
             expect(result.type).toBe('Inheritance');
             expect(result.args[0].type).toBe('Conjunction');
@@ -77,7 +80,9 @@ describe('AdvancedExpressionEvaluator', () => {
         });
 
         it('should handle deeply nested expressions', () => {
-            const result = nar.expressionEvaluator.parse('((a --> b) && (b --> c)) ==> (a --> c)');
+            const result = nar.expressionEvaluator.parse(
+                '((a --> b) && (b --> c)) ==> (a --> c)'
+            );
 
             expect(result.type).toBe('Implication'); // The ==> is the root
             const premise = result.args[0];
@@ -98,7 +103,9 @@ describe('AdvancedExpressionEvaluator', () => {
         });
 
         it('should parse variables correctly', () => {
-            const result = nar.expressionEvaluator.parse('($x --> living_thing) ==> ($x --> mortal)');
+            const result = nar.expressionEvaluator.parse(
+                '($x --> living_thing) ==> ($x --> mortal)'
+            );
             expect(result.type).toBe('Implication');
             expect(result.args[0].type).toBe('Inheritance');
             expect(result.args[0].args[0].type).toBe('Variable');

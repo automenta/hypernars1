@@ -1,4 +1,4 @@
-import {id as generateId} from './utils.js';
+import { id as generateId } from './utils.js';
 
 export const extractTerms = (parsed, terms = new Set()) => {
     if (!parsed) {
@@ -10,7 +10,7 @@ export const extractTerms = (parsed, terms = new Set()) => {
     }
 
     if (parsed.args) {
-        parsed.args.forEach(arg => {
+        parsed.args.forEach((arg) => {
             if (typeof arg === 'object' && arg !== null) {
                 extractTerms(arg, terms);
             }

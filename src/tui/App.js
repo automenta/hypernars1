@@ -1,19 +1,19 @@
-import React, {useCallback, useState} from 'react';
-import {useInput, useStdin} from 'ink';
+import React, { useCallback, useState } from 'react';
+import { useInput, useStdin } from 'ink';
 
 import ConceptView from './components/ConceptView.js';
 import MainLayout from './components/MainLayout.js';
-import {useNarSystem} from '../hooks/useNarSystem.js';
-import {TuiContext} from './contexts/TuiContext.js';
+import { useNarSystem } from '../hooks/useNarSystem.js';
+import { TuiContext } from './contexts/TuiContext.js';
 
-const App = ({nar}) => {
-    const {isRawModeSupported} = useStdin();
+const App = ({ nar }) => {
+    const { isRawModeSupported } = useStdin();
     const [logs, setLogs] = useState([]);
     const [selectedConceptId, setSelectedConceptId] = useState(null);
     const [activeTab, setActiveTab] = useState('memory'); // memory, queue, system
 
     const log = useCallback((message) => {
-        setLogs(prev => [...prev, String(message)].slice(-100)); // Increased log history
+        setLogs((prev) => [...prev, String(message)].slice(-100)); // Increased log history
     }, []);
 
     const {
@@ -39,22 +39,25 @@ const App = ({nar}) => {
         }
     };
 
-    useInput((input, key) => {
-        if (selectedConceptId) return;
+    useInput(
+        (input, key) => {
+            if (selectedConceptId) return;
 
-        if (input === 's') start();
-        else if (input === 'p') pause();
-        else if (input === 't') step();
-        else if (input === 'c') clear();
-        else if (input === '+') setRunDelay(d => Math.max(0, d / 2));
-        else if (input === '-') setRunDelay(d => d * 2 || 10);
-        else if (input === '1') setActiveTab('memory');
-        else if (input === '2') setActiveTab('queue');
-        else if (input === '3') setActiveTab('system');
-        else if (input === '4') setActiveTab('contradictions');
-        else if (input === '5') setActiveTab('temporal');
-        else if (key.escape) process.exit();
-    }, {isActive: isRawModeSupported});
+            if (input === 's') start();
+            else if (input === 'p') pause();
+            else if (input === 't') step();
+            else if (input === 'c') clear();
+            else if (input === '+') setRunDelay((d) => Math.max(0, d / 2));
+            else if (input === '-') setRunDelay((d) => d * 2 || 10);
+            else if (input === '1') setActiveTab('memory');
+            else if (input === '2') setActiveTab('queue');
+            else if (input === '3') setActiveTab('system');
+            else if (input === '4') setActiveTab('contradictions');
+            else if (input === '5') setActiveTab('temporal');
+            else if (key.escape) process.exit();
+        },
+        { isActive: isRawModeSupported }
+    );
 
     const handleCommand = (command) => {
         if (command.startsWith('/')) {
@@ -67,16 +70,25 @@ const App = ({nar}) => {
                     nar.run(parseInt(args[0], 10) || 1);
                     break;
                 case 'ask':
-                    nar.ask(args.join(' ')).then(a => log(`Answer: ${JSON.stringify(a)}`)).catch(e => log(`Error: ${e.message}`));
+                    nar.ask(args.join(' '))
+                        .then((a) => log(`Answer: ${JSON.stringify(a)}`))
+                        .catch((e) => log(`Error: ${e.message}`));
                     break;
                 case 'contradict':
                     if (args.length === 2) {
                         const [belief1, belief2] = args;
-                        const result = nar.contradictionManager.contradict(belief1, belief2);
+                        const result = nar.contradictionManager.contradict(
+                            belief1,
+                            belief2
+                        );
                         if (result) {
-                            log(`Flagged contradiction between ${belief1} and ${belief2}. ID: ${result}`);
+                            log(
+                                `Flagged contradiction between ${belief1} and ${belief2}. ID: ${result}`
+                            );
                         } else {
-                            log(`Failed to flag contradiction between ${belief1} and ${belief2}.`);
+                            log(
+                                `Failed to flag contradiction between ${belief1} and ${belief2}.`
+                            );
                         }
                     } else {
                         log('Usage: /contradict <belief1_id> <belief2_id>');
@@ -85,9 +97,14 @@ const App = ({nar}) => {
                 case 'resolve':
                     if (args.length >= 1) {
                         const [hyperedgeId, strategy] = args;
-                        const result = nar.contradictionManager.manualResolve(hyperedgeId, strategy || 'default');
+                        const result = nar.contradictionManager.manualResolve(
+                            hyperedgeId,
+                            strategy || 'default'
+                        );
                         if (result) {
-                            log(`Resolved ${hyperedgeId} with strategy ${strategy || 'default'}. Reason: ${result.reason}`);
+                            log(
+                                `Resolved ${hyperedgeId} with strategy ${strategy || 'default'}. Reason: ${result.reason}`
+                            );
                         } else {
                             log(`Failed to resolve ${hyperedgeId}.`);
                         }
@@ -116,22 +133,39 @@ const App = ({nar}) => {
     }, []);
 
     const contextValue = {
-        nar, log, logs, handleCommand, start, pause, step, clear, isRunning,
-        runDemo, updateConfig, handleSelectConcept, runDelay, setRunDelay,
-        activeTab, setActiveTab, sps
+        nar,
+        log,
+        logs,
+        handleCommand,
+        start,
+        pause,
+        step,
+        clear,
+        isRunning,
+        runDemo,
+        updateConfig,
+        handleSelectConcept,
+        runDelay,
+        setRunDelay,
+        activeTab,
+        setActiveTab,
+        sps,
     };
 
     if (selectedConceptId) {
         return (
             <TuiContext.Provider value={contextValue}>
-                <ConceptView conceptId={selectedConceptId} onClose={handleCloseConceptView}/>
+                <ConceptView
+                    conceptId={selectedConceptId}
+                    onClose={handleCloseConceptView}
+                />
             </TuiContext.Provider>
         );
     }
 
     return (
         <TuiContext.Provider value={contextValue}>
-            <MainLayout/>
+            <MainLayout />
         </TuiContext.Provider>
     );
 };

@@ -1,6 +1,7 @@
 export default {
     name: '38. Complex Goal Management',
-    description: 'Tests the system\'s ability to manage conflicting goals and prioritize them based on higher-level objectives.',
+    description:
+        "Tests the system's ability to manage conflicting goals and prioritize them based on higher-level objectives.",
     steps: [
         {
             comment: 'Introduce two potentially conflicting goals.',
@@ -13,14 +14,18 @@ export default {
             },
             assert: (nar, logs) => {
                 // The system should detect a contradiction or a negative implication between the goals.
-                const conflictId = nar.implication(nar.term('be_safe'), nar.negation(nar.term('have_fun')));
+                const conflictId = nar.implication(
+                    nar.term('be_safe'),
+                    nar.negation(nar.term('have_fun'))
+                );
                 const belief = nar.getBeliefs(conflictId)[0];
                 // Check if a belief about the conflict exists.
                 return belief && belief.truth.expectation() > 0.5;
-            }
+            },
         },
         {
-            comment: 'Introduce a higher-level goal that depends on one of the conflicting goals.',
+            comment:
+                'Introduce a higher-level goal that depends on one of the conflicting goals.',
             action: (nar) => {
                 // Living a good life is a high-priority goal.
                 nar.nal('(live_a_good_life)! %0.99%');
@@ -30,10 +35,15 @@ export default {
             },
         },
         {
-            comment: 'Assert that the system prioritizes the goal that serves the higher-level objective.',
+            comment:
+                'Assert that the system prioritizes the goal that serves the higher-level objective.',
             assert: (nar, logs) => {
-                const safeGoal = nar.memory.goals.find(g => g.term.id === nar.term('be_safe').id);
-                const funGoal = nar.memory.goals.find(g => g.term.id === nar.term('have_fun').id);
+                const safeGoal = nar.memory.goals.find(
+                    (g) => g.term.id === nar.term('be_safe').id
+                );
+                const funGoal = nar.memory.goals.find(
+                    (g) => g.term.id === nar.term('have_fun').id
+                );
 
                 if (!safeGoal || !funGoal) {
                     return false; // Goals should still be present.
@@ -42,7 +52,7 @@ export default {
                 // The budget/priority of 'be_safe' should now be significantly higher than 'have_fun'
                 // due to its connection to the high-priority 'live_a_good_life' goal.
                 return safeGoal.budget.priority > funGoal.budget.priority;
-            }
-        }
-    ]
+            },
+        },
+    ],
 };

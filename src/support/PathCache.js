@@ -59,8 +59,10 @@ export class PathCache {
     _pruneLeastUsedPaths(targetReduction = 0.2) {
         const now = Date.now();
         const paths = Array.from(this.usageCount.entries()).sort((a, b) => {
-            const aScore = a[1] + (now - (this.lastAccess.get(a[0]) || now)) / 1000000;
-            const bScore = b[1] + (now - (this.lastAccess.get(b[0]) || now)) / 1000000;
+            const aScore =
+                a[1] + (now - (this.lastAccess.get(a[0]) || now)) / 1000000;
+            const bScore =
+                b[1] + (now - (this.lastAccess.get(b[0]) || now)) / 1000000;
             return aScore - bScore;
         });
 

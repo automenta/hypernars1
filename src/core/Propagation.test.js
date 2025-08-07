@@ -1,31 +1,37 @@
-import {beforeEach, describe, expect, it} from '@jest/globals';
-import {NAR} from '../NAR.js';
-import {Budget} from '../support/Budget.js';
+import { beforeEach, describe, expect, it } from '@jest/globals';
+import { NAR } from '../NAR.js';
+import { Budget } from '../support/Budget.js';
 
 describe('Propagation', () => {
     let nar;
     let propagation;
 
     beforeEach(() => {
-        nar = new NAR({budgetThreshold: 0.1}); // Use a higher threshold for testing
+        nar = new NAR({ budgetThreshold: 0.1 }); // Use a higher threshold for testing
         propagation = nar.propagation;
         // Ensure the event queue is clean before each test
-        nar.state.eventQueue = new nar.state.eventQueue.constructor((a, b) => b.budget.priority - a.budget.priority);
+        nar.state.eventQueue = new nar.state.eventQueue.constructor(
+            (a, b) => b.budget.priority - a.budget.priority
+        );
     });
 
     it('should add a valid event to the event queue', () => {
         const event = {
             target: 'some_target',
             activation: 0.8,
-            budget: new Budget({priority: 0.9, durability: 0.9, quality: 0.9}),
+            budget: new Budget({
+                priority: 0.9,
+                durability: 0.9,
+                quality: 0.9,
+            }),
             pathHash: 123,
             pathLength: 1,
-            derivationPath: []
+            derivationPath: [],
         };
 
         propagation.propagate(event);
 
-        expect(nar.state.eventQueue.length).toBe(1);
+        expect(nar.state.eventQueue).toHaveLength(1);
         expect(nar.state.eventQueue.peek()).toEqual(event);
     });
 
@@ -36,46 +42,54 @@ describe('Propagation', () => {
             budget: new Budget(0.01, 0.9, 0.9),
             pathHash: 123,
             pathLength: 1,
-            derivationPath: []
+            derivationPath: [],
         };
 
         propagation.propagate(event);
 
-        expect(nar.state.eventQueue.length).toBe(0);
+        expect(nar.state.eventQueue).toHaveLength(0);
     });
 
     it('should not add an event with a long path to the queue', () => {
         const event = {
             target: 'some_target',
             activation: 0.8,
-            budget: new Budget({priority: 0.9, durability: 0.9, quality: 0.9}),
+            budget: new Budget({
+                priority: 0.9,
+                durability: 0.9,
+                quality: 0.9,
+            }),
             pathHash: 123,
             pathLength: nar.config.maxPathLength + 1,
-            derivationPath: []
+            derivationPath: [],
         };
 
         propagation.propagate(event);
 
-        expect(nar.state.eventQueue.length).toBe(0);
+        expect(nar.state.eventQueue).toHaveLength(0);
     });
 
     it('should not add an event that creates a loop', () => {
         const event = {
             target: 'some_target',
             activation: 0.8,
-            budget: new Budget({priority: 0.9, durability: 0.9, quality: 0.9}),
+            budget: new Budget({
+                priority: 0.9,
+                durability: 0.9,
+                quality: 0.9,
+            }),
             pathHash: 123,
             pathLength: 1,
-            derivationPath: []
+            derivationPath: [],
         };
 
         // First propagation should succeed
         propagation.propagate(event);
-        expect(nar.state.eventQueue.length).toBe(1);
+        expect(nar.state.eventQueue).toHaveLength(1);
 
         // Second propagation with the same target and pathHash should be blocked
         nar.state.eventQueue.pop(); // Clear the queue for the next check
         propagation.propagate(event);
-        expect(nar.state.eventQueue.length).toBe(0);
+        expect(nar.state.eventQueue).toHaveLength(0);
     });
 });

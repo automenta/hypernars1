@@ -1,7 +1,7 @@
-import {PatternTracker} from '../support/PatternTracker.js';
-import {TruthValue} from '../support/TruthValue.js';
-import {Budget} from '../support/Budget.js';
-import {id} from '../support/utils.js';
+import { PatternTracker } from '../support/PatternTracker.js';
+import { TruthValue } from '../support/TruthValue.js';
+import { Budget } from '../support/Budget.js';
+import { id } from '../support/utils.js';
 
 /**
  * # Adaptive Concept Formation System
@@ -51,47 +51,57 @@ class ConceptFormation {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
 
         if (hyperedge) {
-            hyperedge.args.forEach(arg => {
-                if (this.nar.state.activations.has(arg) && this.nar.state.activations.get(arg) > 0.4) {
+            hyperedge.args.forEach((arg) => {
+                if (
+                    this.nar.state.activations.has(arg) &&
+                    this.nar.state.activations.get(arg) > 0.4
+                ) {
                     activeNeighbors.add(arg);
                 }
             });
         }
 
         // Also check incoming references
-        (this.nar.state.index.byArg.get(hyperedgeId) || new Set()).forEach(refId => {
-            if (this.nar.state.activations.has(refId) && this.nar.state.activations.get(refId) > 0.4) {
-                activeNeighbors.add(refId);
+        (this.nar.state.index.byArg.get(hyperedgeId) || new Set()).forEach(
+            (refId) => {
+                if (
+                    this.nar.state.activations.has(refId) &&
+                    this.nar.state.activations.get(refId) > 0.4
+                ) {
+                    activeNeighbors.add(refId);
+                }
             }
-        });
+        );
 
         return [...activeNeighbors];
     }
 
     discoverNewConcepts(minSupport = 0.6, minConfidence = 0.7) {
         const newConcepts = [];
-        const frequentPatterns = this.patternTracker.getFrequentPatterns(minSupport);
+        const frequentPatterns =
+            this.patternTracker.getFrequentPatterns(minSupport);
 
         for (const pattern of frequentPatterns) {
             // Skip if this pattern is already a known concept
             if (this.nar.state.hypergraph.has(pattern.signature)) continue;
 
             // Calculate truth value based on pattern consistency
-            const {frequency, confidence} = this.patternTracker.getPatternTruth(pattern);
+            const { frequency, confidence } =
+                this.patternTracker.getPatternTruth(pattern);
 
             if (confidence >= minConfidence) {
                 // Create the new concept
                 const conceptId = this._createCompoundConcept(pattern.terms, {
                     frequency,
                     confidence,
-                    priority: Math.min(frequency * confidence * 2, 1.0)
+                    priority: Math.min(frequency * confidence * 2, 1.0),
                 });
 
                 newConcepts.push({
                     id: conceptId,
                     terms: pattern.terms,
-                    truth: {frequency, confidence},
-                    support: pattern.support
+                    truth: { frequency, confidence },
+                    support: pattern.support,
                 });
 
                 // Cache for future reference
@@ -102,7 +112,7 @@ class ConceptFormation {
         return newConcepts;
     }
 
-    _createCompoundConcept(terms, {frequency, confidence, priority}) {
+    _createCompoundConcept(terms, { frequency, confidence, priority }) {
         // Sort terms to create canonical ordering
         const sortedTerms = [...terms].sort();
         const conceptId = id('Concept', sortedTerms);
@@ -110,14 +120,18 @@ class ConceptFormation {
         // Create the concept node
         this.nar.api.term(conceptId, {
             truth: new TruthValue(frequency, confidence, priority),
-            budget: Budget.full().scale(priority * 0.8)
+            budget: Budget.full().scale(priority * 0.8),
         });
 
         // Create inheritance links to component terms
-        sortedTerms.forEach(term => {
+        sortedTerms.forEach((term) => {
             this.nar.api.inheritance(term, conceptId, {
-                truth: new TruthValue(frequency, confidence * 0.9, priority * 0.7),
-                budget: Budget.full().scale(priority * 0.6)
+                truth: new TruthValue(
+                    frequency,
+                    confidence * 0.9,
+                    priority * 0.7
+                ),
+                budget: Budget.full().scale(priority * 0.6),
             });
         });
 
@@ -128,28 +142,29 @@ class ConceptFormation {
         const conceptsToPrune = [];
 
         // Find concepts that are subsets of other more general concepts
-        this.nar.state.index.byType.get('Concept')?.forEach(conceptId => {
+        this.nar.state.index.byType.get('Concept')?.forEach((conceptId) => {
             const hyperedge = this.nar.state.hypergraph.get(conceptId);
             if (!hyperedge) return;
 
             const terms = hyperedge.args;
-            this.nar.state.index.byType.get('Concept')?.forEach(otherId => {
+            this.nar.state.index.byType.get('Concept')?.forEach((otherId) => {
                 if (conceptId === otherId) return;
 
                 const other = this.nar.state.hypergraph.get(otherId);
                 if (!other) return;
 
                 // Check if this concept is a subset of the other
-                if (terms.every(term => other.args.includes(term))) {
+                if (terms.every((term) => other.args.includes(term))) {
                     // Compare specificity and usage
                     const thisUsage = this._getConceptUsage(conceptId);
                     const otherUsage = this._getConceptUsage(otherId);
 
-                    if (otherUsage > thisUsage * 1.5) { // Other concept is significantly more useful
+                    if (otherUsage > thisUsage * 1.5) {
+                        // Other concept is significantly more useful
                         conceptsToPrune.push({
                             redundant: conceptId,
                             replacement: otherId,
-                            ratio: otherUsage / thisUsage
+                            ratio: otherUsage / thisUsage,
                         });
                     }
                 }
@@ -170,4 +185,4 @@ class ConceptFormation {
     }
 }
 
-export {ConceptFormation};
+export { ConceptFormation };

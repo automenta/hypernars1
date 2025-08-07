@@ -1,4 +1,5 @@
-import {TruthValue} from './TruthValue.js';
+import { describe, it, expect } from '@jest/globals';
+import { TruthValue } from './TruthValue.js';
 
 describe('TruthValue', () => {
     describe('constructor', () => {
@@ -152,5 +153,4 @@ describe('TruthValue', () => {
             expect(revised.confidence).toBeGreaterThan(maxConfidence);
         });
     });
-
 });

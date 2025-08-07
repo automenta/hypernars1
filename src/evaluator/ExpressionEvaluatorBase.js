@@ -7,14 +7,14 @@ export class ExpressionEvaluatorBase {
     }
 
     parseAndAdd(nalStatement, options = {}) {
-        throw new Error("parseAndAdd must be implemented by subclasses");
+        throw new Error('parseAndAdd must be implemented by subclasses');
     }
 
     parseQuestion(question, options = {}) {
-        throw new Error("parseQuestion must be implemented by subclasses");
+        throw new Error('parseQuestion must be implemented by subclasses');
     }
 
     query(pattern, options = {}) {
-        throw new Error("query must be implemented by subclasses");
+        throw new Error('query must be implemented by subclasses');
     }
 }

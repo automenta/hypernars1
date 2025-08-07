@@ -1,9 +1,10 @@
-import {ContradictionManagerBase} from './ContradictionManagerBase.js';
+import { ContradictionManagerBase } from './ContradictionManagerBase.js';
 
 export class SimpleContradictionManager extends ContradictionManagerBase {
     constructor(nar) {
         super(nar);
-        this.contradictionThreshold = this.nar.config.contradictionThreshold || 0.7;
+        this.contradictionThreshold =
+            this.nar.config.contradictionThreshold || 0.7;
     }
 
     detectContradictions(hyperedgeId) {
@@ -18,12 +19,18 @@ export class SimpleContradictionManager extends ContradictionManagerBase {
                 const belief1 = beliefs[i];
                 const belief2 = beliefs[j];
 
-                const freqDiff = Math.abs(belief1.truth.frequency - belief2.truth.frequency);
+                const freqDiff = Math.abs(
+                    belief1.truth.frequency - belief2.truth.frequency
+                );
 
-                if (freqDiff > this.contradictionThreshold && belief1.truth.confidence > 0.5 && belief2.truth.confidence > 0.5) {
+                if (
+                    freqDiff > this.contradictionThreshold &&
+                    belief1.truth.confidence > 0.5 &&
+                    belief2.truth.confidence > 0.5
+                ) {
                     this.nar.emit('contradiction-detected', {
                         hyperedgeId,
-                        contradictions: [{belief1, belief2}]
+                        contradictions: [{ belief1, belief2 }],
                     });
                     return true;
                 }

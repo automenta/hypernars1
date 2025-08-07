@@ -1,32 +1,34 @@
-import React, {useContext, useEffect, useState} from 'react';
-import {Box, Text, useInput, useStdin} from 'ink';
+import React, { useContext, useEffect, useState } from 'react';
+import { Box, Text, useInput, useStdin } from 'ink';
 import TextInput from 'ink-text-input';
 import SelectInput from 'ink-select-input';
 import fs from 'fs/promises';
 import path from 'path';
-import {fileURLToPath} from 'url';
-import {TuiContext} from '../contexts/TuiContext.js';
+import { fileURLToPath } from 'url';
+import { TuiContext } from '../contexts/TuiContext.js';
 import pkg from 'cli-boxes';
 
-const {round} = pkg;
+const { round } = pkg;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const demoDir = path.join(__dirname, '../../demos');
 
-const Tab = ({label, isActive}) => (
+const Tab = ({ label, isActive }) => (
     <Box
         marginRight={2}
         borderStyle={isActive ? round : undefined}
         borderColor={isActive ? 'cyan' : 'gray'}
         paddingX={1}
     >
-        <Text bold color={isActive ? 'cyan' : 'white'}>{label}</Text>
+        <Text bold color={isActive ? 'cyan' : 'white'}>
+            {label}
+        </Text>
     </Box>
 );
 
 const InteractionView = () => {
-    const {handleCommand, runDemo, log} = useContext(TuiContext);
-    const {isRawModeSupported} = useStdin();
+    const { handleCommand, runDemo, log } = useContext(TuiContext);
+    const { isRawModeSupported } = useStdin();
     const [activeTab, setActiveTab] = useState('input'); // input, demos
 
     const [inputValue, setInputValue] = useState('');
@@ -37,14 +39,16 @@ const InteractionView = () => {
     useEffect(() => {
         const loadDemos = async () => {
             try {
-                const files = await fs.readdir(demoDir).then(f => f.filter(x => x.endsWith('.js')).sort());
+                const files = await fs
+                    .readdir(demoDir)
+                    .then((f) => f.filter((x) => x.endsWith('.js')).sort());
                 const demoModules = await Promise.all(
-                    files.map(async file => {
+                    files.map(async (file) => {
                         const module = await import(path.join(demoDir, file));
                         return {
                             label: module.default.name,
                             value: module.default,
-                            key: module.default.name
+                            key: module.default.name,
                         };
                     })
                 );
@@ -56,33 +60,39 @@ const InteractionView = () => {
         loadDemos();
     }, [log]);
 
-    useInput((input, key) => {
-        if (input.toUpperCase() === 'I') {
-            setActiveTab('input');
-            return;
-        }
-        if (input.toUpperCase() === 'D') {
-            setActiveTab('demos');
-            return;
-        }
-
-        if (activeTab === 'input') {
-            if (key.upArrow) {
-                const newIndex = Math.min(history.length - 1, historyIndex + 1);
-                setHistoryIndex(newIndex);
-                setInputValue(history[newIndex] || '');
-            } else if (key.downArrow) {
-                const newIndex = Math.max(-1, historyIndex - 1);
-                setHistoryIndex(newIndex);
-                setInputValue(history[newIndex] || '');
+    useInput(
+        (input, key) => {
+            if (input.toUpperCase() === 'I') {
+                setActiveTab('input');
+                return;
             }
-        }
-    }, {isActive: isRawModeSupported});
+            if (input.toUpperCase() === 'D') {
+                setActiveTab('demos');
+                return;
+            }
+
+            if (activeTab === 'input') {
+                if (key.upArrow) {
+                    const newIndex = Math.min(
+                        history.length - 1,
+                        historyIndex + 1
+                    );
+                    setHistoryIndex(newIndex);
+                    setInputValue(history[newIndex] || '');
+                } else if (key.downArrow) {
+                    const newIndex = Math.max(-1, historyIndex - 1);
+                    setHistoryIndex(newIndex);
+                    setInputValue(history[newIndex] || '');
+                }
+            }
+        },
+        { isActive: isRawModeSupported }
+    );
 
     const handleSubmit = () => {
         if (handleCommand && inputValue) {
             handleCommand(inputValue);
-            setHistory(prev => [inputValue, ...prev].slice(0, 50));
+            setHistory((prev) => [inputValue, ...prev].slice(0, 50));
             setHistoryIndex(-1);
             setInputValue('');
         }
@@ -96,7 +106,9 @@ const InteractionView = () => {
 
     const renderInput = () => (
         <Box paddingX={1}>
-            <Text color="cyan" bold>&gt; </Text>
+            <Text color="cyan" bold>
+                &gt;{' '}
+            </Text>
             {isRawModeSupported ? (
                 <TextInput
                     value={inputValue}
@@ -113,7 +125,7 @@ const InteractionView = () => {
     const renderDemos = () => (
         <Box flexDirection="column">
             {isRawModeSupported ? (
-                <SelectInput items={demos} onSelect={handleDemoSelect}/>
+                <SelectInput items={demos} onSelect={handleDemoSelect} />
             ) : (
                 <Text>[Input disabled in non-interactive mode]</Text>
             )}
@@ -123,8 +135,8 @@ const InteractionView = () => {
     return (
         <Box flexDirection="column" flexGrow={1}>
             <Box>
-                <Tab label="[I]nput" isActive={activeTab === 'input'}/>
-                <Tab label="[D]emos" isActive={activeTab === 'demos'}/>
+                <Tab label="[I]nput" isActive={activeTab === 'input'} />
+                <Tab label="[D]emos" isActive={activeTab === 'demos'} />
             </Box>
             <Box flexGrow={1}>
                 {activeTab === 'input' ? renderInput() : renderDemos()}

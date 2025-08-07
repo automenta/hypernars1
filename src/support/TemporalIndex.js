@@ -18,7 +18,11 @@ export class TemporalIndex {
      * @param {object} event - The temporal event to add.
      */
     add(event) {
-        if (event && event.startTime !== undefined && event.endTime !== undefined) {
+        if (
+            event &&
+            event.startTime !== undefined &&
+            event.endTime !== undefined
+        ) {
             this.events.push(event);
         }
     }
@@ -28,7 +32,7 @@ export class TemporalIndex {
      * @param {object} event - The temporal event to remove.
      */
     remove(event) {
-        this.events = this.events.filter(e => e !== event);
+        this.events = this.events.filter((e) => e !== event);
     }
 
     /**
@@ -39,8 +43,8 @@ export class TemporalIndex {
      */
     query(startTime, endTime) {
         // This is a naive, linear scan. Not suitable for production.
-        return this.events.filter(event =>
-            event.startTime < endTime && event.endTime > startTime
+        return this.events.filter(
+            (event) => event.startTime < endTime && event.endTime > startTime
         );
     }
 

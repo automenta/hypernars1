@@ -1,23 +1,27 @@
-import {describe, expect, it} from '@jest/globals';
-import {NAR} from '../NAR.js';
-import {AdvancedContradictionManager} from './AdvancedContradictionManager.js';
-import {SimpleContradictionManager} from './SimpleContradictionManager.js';
-import {AdvancedLearningEngine} from './AdvancedLearningEngine.js';
-import {SimpleLearningEngine} from './SimpleLearningEngine.js';
-import {AdvancedMemoryManager} from './AdvancedMemoryManager.js';
-import {SimpleMemoryManager} from './SimpleMemoryManager.js';
+import { describe, expect, it } from '@jest/globals';
+import { NAR } from '../NAR.js';
+import { AdvancedContradictionManager } from './AdvancedContradictionManager.js';
+import { SimpleContradictionManager } from './SimpleContradictionManager.js';
+import { AdvancedLearningEngine } from './AdvancedLearningEngine.js';
+import { SimpleLearningEngine } from './SimpleLearningEngine.js';
+import { AdvancedMemoryManager } from './AdvancedMemoryManager.js';
+import { SimpleMemoryManager } from './SimpleMemoryManager.js';
 
 describe('NARHyper Manager Dependency Injection', () => {
     it('should use Simple managers by default', () => {
         const nar = new NAR();
-        expect(nar.contradictionManager).toBeInstanceOf(SimpleContradictionManager);
+        expect(nar.contradictionManager).toBeInstanceOf(
+            SimpleContradictionManager
+        );
         expect(nar.learningEngine).toBeInstanceOf(SimpleLearningEngine);
         expect(nar.memoryManager).toBeInstanceOf(SimpleMemoryManager);
     });
 
     it('should use Advanced managers when configured', () => {
-        const nar = new NAR({useAdvanced: true});
-        expect(nar.contradictionManager).toBeInstanceOf(AdvancedContradictionManager);
+        const nar = new NAR({ useAdvanced: true });
+        expect(nar.contradictionManager).toBeInstanceOf(
+            AdvancedContradictionManager
+        );
         expect(nar.learningEngine).toBeInstanceOf(AdvancedLearningEngine);
         expect(nar.memoryManager).toBeInstanceOf(AdvancedMemoryManager);
     });
@@ -28,9 +32,11 @@ describe('NARHyper Manager Dependency Injection', () => {
             modules: {
                 // Override just the learning engine with the simple one
                 LearningEngine: SimpleLearningEngine,
-            }
+            },
         });
-        expect(nar.contradictionManager).toBeInstanceOf(AdvancedContradictionManager);
+        expect(nar.contradictionManager).toBeInstanceOf(
+            AdvancedContradictionManager
+        );
         expect(nar.learningEngine).toBeInstanceOf(SimpleLearningEngine); // Overridden
         expect(nar.memoryManager).toBeInstanceOf(AdvancedMemoryManager);
     });

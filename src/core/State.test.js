@@ -1,14 +1,14 @@
-import {describe, expect, it} from '@jest/globals';
-import {State} from './State.js';
-import {TrieIndex} from '../support/TrieIndex.js';
-import {StructuralIndex} from '../support/StructuralIndex.js';
-import {LRUMap} from '../support/LRUMap.js';
-import {PriorityQueue} from '../support/PriorityQueue.js';
+import { describe, expect, it } from '@jest/globals';
+import { State } from './State.js';
+import { TrieIndex } from '../support/TrieIndex.js';
+import { StructuralIndex } from '../support/StructuralIndex.js';
+import { LRUMap } from '../support/LRUMap.js';
+import { PriorityQueue } from '../support/PriorityQueue.js';
 
 describe('State', () => {
     const minimalConfig = {
         derivationCacheSize: 100,
-        nodeId: 'test-node'
+        nodeId: 'test-node',
     };
 
     it('should initialize with a minimal config', () => {
@@ -29,7 +29,7 @@ describe('State', () => {
         expect(state.sourceReliability).toBeInstanceOf(Map);
 
         // Check index properties
-        const {index} = state;
+        const { index } = state;
         expect(index.byType).toBeInstanceOf(Map);
         expect(index.byArg).toBeInstanceOf(TrieIndex);
         expect(index.temporal).toBeInstanceOf(Map);
@@ -42,7 +42,7 @@ describe('State', () => {
         expect(index.structural).toBeInstanceOf(StructuralIndex);
 
         // Check distributed properties
-        const {distributed} = state;
+        const { distributed } = state;
         expect(distributed.nodeId).toBe('test-node');
         expect(distributed.cluster).toBeInstanceOf(Set);
         expect(distributed.cluster.has('test-node')).toBe(true);
@@ -54,7 +54,7 @@ describe('State', () => {
     it('should use config values for initialization', () => {
         const specificConfig = {
             derivationCacheSize: 5000,
-            nodeId: 'my-special-node-123'
+            nodeId: 'my-special-node-123',
         };
         const state = new State(specificConfig);
 
@@ -64,9 +64,8 @@ describe('State', () => {
     });
 
     it('should generate a random nodeId if not provided', () => {
-        const state = new State({derivationCacheSize: 100});
+        const state = new State({ derivationCacheSize: 100 });
         expect(state.distributed.nodeId).toBeDefined();
         expect(state.distributed.nodeId).toMatch(/^node-/);
     });
-
 });

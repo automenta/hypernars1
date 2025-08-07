@@ -11,6 +11,8 @@ export class ContradictionManagerBase {
     }
 
     resolveContradictions() {
-        throw new Error("Method 'resolveContradictions()' must be implemented.");
+        throw new Error(
+            "Method 'resolveContradictions()' must be implemented."
+        );
     }
 }

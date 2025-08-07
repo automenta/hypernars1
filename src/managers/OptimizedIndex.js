@@ -1,8 +1,8 @@
-import {TrieIndex} from '../support/TrieIndex.js';
-import {StructuralIndex} from '../support/StructuralIndex.js';
-import {LRUMap} from '../support/LRUMap.js';
-import {ExpiringMap} from '../support/ExpiringMap.js';
-import {TemporalIndex} from '../support/TemporalIndex.js';
+import { TrieIndex } from '../support/TrieIndex.js';
+import { StructuralIndex } from '../support/StructuralIndex.js';
+import { LRUMap } from '../support/LRUMap.js';
+import { ExpiringMap } from '../support/ExpiringMap.js';
+import { TemporalIndex } from '../support/TemporalIndex.js';
 
 /**
  * Optimized indexing system for large knowledge bases, as proposed
@@ -21,8 +21,12 @@ export class OptimizedIndex {
         this.compound = new Map();
 
         // --- Caching ---
-        this.derivationCache = new LRUMap(nar.config.derivationCacheSize || 5000);
-        this.questionCache = new ExpiringMap(nar.config.questionCacheTTL || 300000);
+        this.derivationCache = new LRUMap(
+            nar.config.derivationCacheSize || 5000
+        );
+        this.questionCache = new ExpiringMap(
+            nar.config.questionCacheTTL || 300000
+        );
 
         // --- Popularity and Activity Tracking ---
         this.activeConcepts = new Set();
@@ -43,7 +47,7 @@ export class OptimizedIndex {
         }
         this.byType.get(hyperedge.type).add(hyperedge.id);
 
-        hyperedge.args.forEach(arg => {
+        hyperedge.args.forEach((arg) => {
             if (typeof arg === 'string') {
                 this.byArg.add(arg, hyperedge.id);
                 this._indexSubstrings(arg, hyperedge.id);
@@ -63,7 +67,7 @@ export class OptimizedIndex {
             this.byType.get(hyperedge.type).delete(hyperedge.id);
         }
 
-        hyperedge.args.forEach(arg => {
+        hyperedge.args.forEach((arg) => {
             if (typeof arg === 'string') {
                 this.byArg.remove(arg, hyperedge.id);
             }
@@ -84,7 +88,9 @@ export class OptimizedIndex {
         if (pattern.includes('*')) {
             return this._queryWithWildcards(pattern);
         } else if (pattern.includes('$')) {
-            return this._queryWithWildcards(pattern.replace(/\$[a-zA-Z0-9_]+/g, '*'));
+            return this._queryWithWildcards(
+                pattern.replace(/\$[a-zA-Z0-9_]+/g, '*')
+            );
         } else {
             return this.byArg.get(pattern) || new Set();
         }
@@ -126,7 +132,10 @@ export class OptimizedIndex {
         this.conceptPopularity.set(conceptId, score);
 
         this.activeConcepts.add(conceptId);
-        if (this.activeConcepts.size > (this.nar.config.activeConceptsSize || 2000)) {
+        if (
+            this.activeConcepts.size >
+            (this.nar.config.activeConceptsSize || 2000)
+        ) {
             const oldest = this.activeConcepts.keys().next().value;
             this.activeConcepts.delete(oldest);
         }
@@ -148,7 +157,7 @@ export class OptimizedIndex {
             if (regex.test(term)) {
                 const hyperedges = this.byArg.get(term);
                 if (hyperedges) {
-                    hyperedges.forEach(id => results.add(id));
+                    hyperedges.forEach((id) => results.add(id));
                 }
             }
         }
@@ -156,8 +165,9 @@ export class OptimizedIndex {
     }
 
     _pruneLeastPopularConcepts(targetReduction = 0.1) {
-        const concepts = Array.from(this.conceptPopularity.entries())
-            .sort((a, b) => a[1] - b[1]);
+        const concepts = Array.from(this.conceptPopularity.entries()).sort(
+            (a, b) => a[1] - b[1]
+        );
 
         const pruneCount = Math.floor(concepts.length * targetReduction);
         if (pruneCount === 0) return;

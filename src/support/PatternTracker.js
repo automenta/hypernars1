@@ -23,14 +23,16 @@ class PatternTracker {
     }
 
     getFrequentPatterns(minSupport) {
-        return Array.from(this.patterns.values()).filter(p => p.support >= minSupport);
+        return Array.from(this.patterns.values()).filter(
+            (p) => p.support >= minSupport
+        );
     }
 
     getPatternTruth(pattern) {
         const frequency = pattern.support / pattern.occurrences;
         const confidence = pattern.totalPriority / pattern.occurrences;
-        return {frequency, confidence};
+        return { frequency, confidence };
     }
 }
 
-export {PatternTracker};
+export { PatternTracker };

@@ -12,7 +12,7 @@ export default {
                 // This test assumes a goal can be posted with a temporal qualifier.
                 nar.goal('presentation_ready', {
                     before: 'conference_starts',
-                    priority: 0.95
+                    priority: 0.95,
                 });
 
                 nar.run(20);
@@ -20,11 +20,13 @@ export default {
             assert: (nar) => {
                 // Check if the goal 'presentation_ready' is active and has a temporal constraint.
                 const goal = nar.goals.getActive('presentation_ready');
-                return goal &&
+                return (
+                    goal &&
                     goal.temporalConstraint &&
                     goal.temporalConstraint.type === 'before' &&
-                    goal.temporalConstraint.target === 'conference_starts';
-            }
+                    goal.temporalConstraint.target === 'conference_starts'
+                );
+            },
         },
         {
             name: 'Create a goal to maintain a state for a duration',
@@ -36,7 +38,7 @@ export default {
                 // This assumes a goal can be tied to maintaining a state.
                 nar.goal('maintain(system_online)', {
                     during: 'work_hours',
-                    priority: 0.9
+                    priority: 0.9,
                 });
 
                 nar.run(20);
@@ -44,11 +46,13 @@ export default {
             assert: (nar) => {
                 // Check if the maintenance goal is active with the correct temporal scope.
                 const goal = nar.goals.getActive('maintain(system_online)');
-                return goal &&
+                return (
+                    goal &&
                     goal.temporalConstraint &&
                     goal.temporalConstraint.type === 'during' &&
-                    goal.temporalConstraint.target === 'work_hours';
-            }
+                    goal.temporalConstraint.target === 'work_hours'
+                );
+            },
         },
         {
             name: 'System prioritizes goal nearing deadline',
@@ -57,21 +61,25 @@ export default {
                 nar.setTime('2025-11-30T23:00:00Z');
 
                 // Add another, less urgent goal.
-                nar.goal('organize_desktop', {priority: 0.5});
+                nar.goal('organize_desktop', { priority: 0.5 });
 
                 nar.run(50);
             },
             assert: (nar) => {
                 // The 'presentation_ready' goal should have a much higher budget/priority now
                 // because its deadline is imminent.
-                const presentationGoal = nar.goals.getActive('presentation_ready');
+                const presentationGoal =
+                    nar.goals.getActive('presentation_ready');
                 const desktopGoal = nar.goals.getActive('organize_desktop');
 
                 // The budget/urgency of the presentation goal should be significantly higher.
-                return presentationGoal &&
+                return (
+                    presentationGoal &&
                     desktopGoal &&
-                    presentationGoal.budget.total() > desktopGoal.budget.total() * 2;
-            }
-        }
-    ]
+                    presentationGoal.budget.total() >
+                        desktopGoal.budget.total() * 2
+                );
+            },
+        },
+    ],
 };

@@ -1,6 +1,7 @@
 export default {
     name: '25. Advanced Concept Formation',
-    description: 'Tests if the system can generalize from specific examples to form a new, more abstract concept/rule.',
+    description:
+        'Tests if the system can generalize from specific examples to form a new, more abstract concept/rule.',
     skipped: false,
     steps: [
         {
@@ -20,13 +21,15 @@ export default {
             },
         },
         {
-            comment: 'Step 2: Run the system for enough cycles to perform induction.',
+            comment:
+                'Step 2: Run the system for enough cycles to perform induction.',
             action: (nar) => {
                 nar.run(200);
             },
         },
         {
-            comment: 'Step 3: Assert that the system has formed a general rule.',
+            comment:
+                'Step 3: Assert that the system has formed a general rule.',
             action: (nar) => {
                 // No action, just assert.
             },
@@ -36,18 +39,22 @@ export default {
                 const belief = nar.getBeliefs(generalRuleId)[0];
 
                 if (!belief) {
-                    logs.push('[ASSERT FAILED] The general rule "<mammal --> has_fur>" was not formed.');
+                    logs.push(
+                        '[ASSERT FAILED] The general rule "<mammal --> has_fur>" was not formed.'
+                    );
                     return false;
                 }
 
                 // The confidence should be reasonably high after seeing multiple examples.
                 if (belief.truth.confidence < 0.5) {
-                    logs.push(`[ASSERT FAILED] Confidence in the general rule is too low. Confidence: ${belief.truth.confidence}`);
+                    logs.push(
+                        `[ASSERT FAILED] Confidence in the general rule is too low. Confidence: ${belief.truth.confidence}`
+                    );
                     return false;
                 }
 
                 return true;
-            }
-        }
-    ]
+            },
+        },
+    ],
 };

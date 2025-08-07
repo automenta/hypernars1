@@ -1,4 +1,4 @@
-import {getArgId, hash} from '../support/utils.js';
+import { getArgId, hash } from '../support/utils.js';
 
 export class Propagation {
     constructor(nar) {
@@ -9,10 +9,12 @@ export class Propagation {
         const hyperedge = this.nar.state.hypergraph.get(event.target);
 
         if (hyperedge) {
-            hyperedge.args.forEach(arg => this._propagateToTerm(hyperedge, arg, event));
+            hyperedge.args.forEach((arg) =>
+                this._propagateToTerm(hyperedge, arg, event)
+            );
         } else if (typeof event.target === 'string') {
-            (this.nar.state.index.byArg.get(event.target) || new Set()).forEach(id =>
-                this._propagateToHyperedge(id, event)
+            (this.nar.state.index.byArg.get(event.target) || new Set()).forEach(
+                (id) => this._propagateToHyperedge(id, event)
             );
         }
     }
@@ -20,11 +22,15 @@ export class Propagation {
     _propagateToTerm(hyperedge, term, originalEvent) {
         this.propagate({
             target: getArgId(term),
-            activation: originalEvent.activation * hyperedge.getTruthExpectation(),
+            activation:
+                originalEvent.activation * hyperedge.getTruthExpectation(),
             budget: originalEvent.budget.scale(this.nar.config.budgetDecay),
             pathHash: originalEvent.pathHash ^ hash(String(getArgId(term))),
             pathLength: originalEvent.pathLength + 1,
-            derivationPath: [...originalEvent.derivationPath, 'structural_propagation']
+            derivationPath: [
+                ...originalEvent.derivationPath,
+                'structural_propagation',
+            ],
         });
     }
 
@@ -35,23 +41,33 @@ export class Propagation {
             budget: originalEvent.budget.scale(this.nar.config.budgetDecay),
             pathHash: originalEvent.pathHash ^ hash(String(hyperedgeId)),
             pathLength: originalEvent.pathLength + 1,
-            derivationPath: [...originalEvent.derivationPath, 'procedural_propagation']
+            derivationPath: [
+                ...originalEvent.derivationPath,
+                'procedural_propagation',
+            ],
         });
     }
 
     propagate(event) {
-        if (event.budget.priority < this.nar.config.budgetThreshold ||
+        if (
+            event.budget.priority < this.nar.config.budgetThreshold ||
             event.pathLength > this.nar.config.maxPathLength ||
-            this._hasLoop(event.target, event.pathHash)) return;
+            this._hasLoop(event.target, event.pathHash)
+        )
+            return;
 
         // Track usage for concept formation
         if (this.nar.conceptFormation && this.nar.conceptFormation.trackUsage) {
-            this.nar.conceptFormation.trackUsage(event.target, event.activation, event.budget);
+            this.nar.conceptFormation.trackUsage(
+                event.target,
+                event.activation,
+                event.budget
+            );
         }
 
         this.nar.state.eventQueue.push({
             ...event,
-            activation: Math.min(event.activation, 1.0)
+            activation: Math.min(event.activation, 1.0),
         });
     }
 
@@ -64,7 +80,9 @@ export class Propagation {
 
     updateActivation(id, activation) {
         const currentActivation = this.nar.state.activations.get(id) || 0;
-        const newActivation = (1 - this.nar.config.decay) * currentActivation + this.nar.config.decay * activation;
+        const newActivation =
+            (1 - this.nar.config.decay) * currentActivation +
+            this.nar.config.decay * activation;
         this.nar.state.activations.set(id, newActivation);
     }
 }

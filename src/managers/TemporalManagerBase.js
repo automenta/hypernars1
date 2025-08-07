@@ -35,11 +35,15 @@ export class TemporalManagerBase {
     }
 
     processEventWithUncertainty(eventId, timeEstimate, uncertainty) {
-        throw new Error("Method 'processEventWithUncertainty()' must be implemented.");
+        throw new Error(
+            "Method 'processEventWithUncertainty()' must be implemented."
+        );
     }
 
     describeTemporalRelationship(event1, event2) {
-        throw new Error("Method 'describeTemporalRelationship()' must be implemented.");
+        throw new Error(
+            "Method 'describeTemporalRelationship()' must be implemented."
+        );
     }
 
     queryTimeWindow(start, end, options = {}) {
@@ -50,14 +54,13 @@ export class TemporalManagerBase {
         throw new Error("Method 'predict()' must be implemented.");
     }
 
-    adjustTemporalHorizon() {
-    }
+    adjustTemporalHorizon() {}
 
     getContext() {
         return {
             timestamp: Date.now(),
             currentPeriod: 'present',
-            season: 'unknown'
+            season: 'unknown',
         };
     }
 }

@@ -1,9 +1,11 @@
 export default {
     name: '43. Hypothesis Generation (Abduction)',
-    description: 'Tests if the system can generate potential explanations for an observed event.',
+    description:
+        'Tests if the system can generate potential explanations for an observed event.',
     steps: [
         {
-            comment: 'Provide background knowledge (causes of fever) and then present the observation (fever).',
+            comment:
+                'Provide background knowledge (causes of fever) and then present the observation (fever).',
             action: (nar) => {
                 // Clear logs to isolate the generated questions.
                 if (nar.logs) nar.logs.length = 0;
@@ -22,12 +24,16 @@ export default {
                 // When observing an event that is the consequence of known implications,
                 // the system should perform abduction by asking questions about the possible antecedents.
                 // It should become curious about whether the patient has the flu OR an infection.
-                const askedAboutFlu = logs.some(log => log.includes('<flu?>'));
-                const askedAboutInfection = logs.some(log => log.includes('<infection?>'));
+                const askedAboutFlu = logs.some((log) =>
+                    log.includes('<flu?>')
+                );
+                const askedAboutInfection = logs.some((log) =>
+                    log.includes('<infection?>')
+                );
 
                 // The system should generate both hypotheses.
                 return askedAboutFlu && askedAboutInfection;
-            }
-        }
-    ]
+            },
+        },
+    ],
 };

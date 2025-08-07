@@ -1,4 +1,5 @@
-import {clamp} from './utils.js';
+import { describe, it, expect } from '@jest/globals';
+import { clamp } from './utils.js';
 
 describe('clamp', () => {
     it('should not alter a number within the bounds', () => {
