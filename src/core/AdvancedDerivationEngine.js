@@ -68,6 +68,31 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         this.registerRule('TemporalRelation', event => this.nar.state.hypergraph.get(event.target)?.type === 'TemporalRelation', (h, e, r) => this._deriveTransitiveTemporalRelation(h, e, r));
     }
 
+    _addBeliefAndPropagate(options, event) {
+        const { type, args, truth, budgetFactor, activationFactor, derivationSuffix, premises } = options;
+        const { activation, budget, pathHash, pathLength, derivationPath } = event;
+
+        const targetId = id(type, args);
+
+        if (truth) {
+            this.nar.api.addHyperedge(type, args, {
+                truth,
+                budget: budget.scale(budgetFactor),
+                premises: premises,
+                derivedBy: derivationSuffix
+            });
+        }
+
+        this.nar.propagation.propagate({
+            target: targetId,
+            activation: activation * activationFactor,
+            budget: budget.scale(budgetFactor),
+            pathHash: pathHash ^ hash(String(targetId)),
+            pathLength: pathLength + 1,
+            derivationPath: [...derivationPath, derivationSuffix]
+        });
+    }
+
     _memoKey(type, args, pathHash) {
         return `${id(type, args)}|${pathHash}`;
     }
@@ -203,14 +228,15 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         if (this.nar.state.index.derivationCache.has(cacheKey)) return;
         this.nar.state.index.derivationCache.set(cacheKey, true);
 
-        this._propagate({
-            target: id('Inheritance', [subject, predicate]),
+        this._addBeliefAndPropagate({
+            type: 'Inheritance',
+            args: [subject, predicate],
             truth: TruthValue.transitive(premise1.getTruth(), premise2.getTruth()),
             budgetFactor: 0.7,
             activationFactor: 1.0,
             derivationSuffix: 'transitivity',
             premises: [premise1.id, premise2.id]
-        });
+        }, event);
 
         const currentHyperedge = this.nar.state.hypergraph.get(id('Inheritance', [subject, predicate]));
 
@@ -230,31 +256,33 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         });
 
 
-        this._propagate({
-            target: id('Similarity', [subject, predicate]),
+        this._addBeliefAndPropagate({
+            type: 'Similarity',
+            args: [subject, predicate],
             budgetFactor: 0.6,
             activationFactor: 1.0,
             derivationSuffix: ruleName,
             truth: new TruthValue(1.0, 0.9) // Default truth for similarity
-        });
+        }, event);
 
-        this._derivePropertyInheritance(subject, predicateId, activation, budget, pathHash, pathLength, derivationPath, ruleName);
+        this._derivePropertyInheritance(subject, predicateId, event, ruleName);
 
         this._findAndDeriveInductionFromInheritance(subject, predicateId, ruleName, event);
     }
 
 
-    _derivePropertyInheritance(subject, predicateId, activation, budget, pathHash, pathLength, derivationPath, ruleName) {
+    _derivePropertyInheritance(subject, predicateId, event, ruleName) {
         if (this.nar.state.hypergraph.has(id('Instance', [subject, 'entity']))) {
             (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(propId => {
                 const property = this.nar.state.hypergraph.get(propId);
                 if (property?.type === 'Property') {
-                    this._propagate({
-                        target: id('Property', [subject, property.args[1]]),
+                    this._addBeliefAndPropagate({
+                        type: 'Property',
+                        args: [subject, property.args[1]],
                         budgetFactor: 0.5,
                         activationFactor: 0.6,
                         derivationSuffix: 'property_derivation'
-                    });
+                    }, event);
                 }
             });
         }

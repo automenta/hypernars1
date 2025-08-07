@@ -146,6 +146,7 @@ export class NAR extends EventEmitter {
         this.explain = this.explanationSystem.explain.bind(this.explanationSystem);
         this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
         this.addGoal = this.goalManager.addGoal.bind(this.goalManager);
+        this.getBelief = this.api.getBelief.bind(this.api);
     }
 
     createSandbox(options = {}) {

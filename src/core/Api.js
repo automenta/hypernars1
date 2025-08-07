@@ -253,6 +253,16 @@ export class Api {
      * @param {string} hyperedgeId The ID of the hyperedge.
      * @returns {Array} An array of belief objects, or an empty array if not found.
      */
+    /**
+     * Retrieves the strongest belief associated with a given hyperedge.
+     * @param {string} hyperedgeId The ID of the hyperedge.
+     * @returns {Object|null} The strongest belief object, or null if not found.
+     */
+    getBelief(hyperedgeId) {
+        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+        return hyperedge ? hyperedge.getStrongestBelief() : null;
+    }
+
     getBeliefs(hyperedgeId) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         return hyperedge ? hyperedge.beliefs : [];
