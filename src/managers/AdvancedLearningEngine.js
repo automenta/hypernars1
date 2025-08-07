@@ -55,7 +55,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
             this.experienceBuffer.shift();
         }
 
-        const isSignificant = options.important || (outcome.accuracy !== undefined && Math.abs(outcome.accuracy) < this.config.significantExperienceAccuracyThreshold);
+        const isSignificant = options.important || (outcome.accuracy !== undefined && (outcome.accuracy < this.config.failureAnalysisAccuracyThreshold || outcome.accuracy > this.config.reinforcementAccuracyThreshold));
         if (isSignificant) {
             this._processSignificantExperience(experience);
         }
@@ -122,21 +122,24 @@ export class AdvancedLearningEngine extends LearningEngineBase {
     _analyzeFailure(experience) {
         if (!experience.derivationPath || experience.derivationPath.length < 2) return;
 
-        const problematicStep = experience.derivationPath[experience.derivationPath.length - 2];
-        if (!problematicStep) return;
+        const conclusionStep = experience.derivationPath[0];
+        const premiseStep = experience.derivationPath[1]; // In this simplified model, we penalize the direct premise
 
-        const hyperedge = this.nar.state.hypergraph.get(problematicStep.id);
+        // 1. Penalize the rule that led to the failure by updating its productivity
+        const ruleName = conclusionStep.derivedBy;
+        if (ruleName) {
+            this._updateRuleProductivity(ruleName, false);
+            this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, 'failure', {penalty: 0.2});
+        }
+
+        // 2. Penalize the premise that was used by lowering its confidence
+        if (!premiseStep) return;
+        const hyperedge = this.nar.state.hypergraph.get(premiseStep.id);
         if (hyperedge) {
             const belief = hyperedge.getStrongestBelief();
             if (belief) {
                 belief.truth.confidence *= (1 - this.learningRate * this.config.failurePenaltyMultiplier);
             }
-        }
-
-        const ruleName = problematicStep.derivedBy;
-        if (ruleName) {
-            this._updateRuleProductivity(ruleName, false);
-            this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, 'failure', {penalty: 0.2});
         }
     }
 
@@ -246,13 +249,20 @@ export class AdvancedLearningEngine extends LearningEngineBase {
     }
 
     _discoverPatterns() {
+        // This method is defensive to handle inconsistencies in how experience data is structured.
         const patternCandidates = this.experienceBuffer
-            .filter(e => e.success && e.premises && e.premises.length > 0)
-            .map(e => ({
-                premises: e.premises,
-                conclusion: e.conclusion,
-                success: e.success
-            }));
+            .filter(e => {
+                const success = e.success || e.outcome?.success;
+                const premises = e.premises || e.context?.premises;
+                return success && premises && premises.length > 0;
+            })
+            .map(e => {
+                return {
+                    premises: e.premises || e.context.premises,
+                    conclusion: e.conclusion || e.context.conclusion,
+                    success: e.success || e.outcome.success,
+                };
+            });
 
         patternCandidates.forEach(candidate => {
             const signature = this._patternSignature(candidate);
@@ -270,8 +280,8 @@ export class AdvancedLearningEngine extends LearningEngineBase {
     }
 
     _patternSignature(pattern) {
-        const premiseTypes = pattern.premises.map(p => this.nar.state.hypergraph.get(p)?.type || 'Term').sort().join(',');
-        const conclusionType = this.nar.state.hypergraph.get(pattern.conclusion)?.type || 'Term';
+        const premiseTypes = pattern.premises.map(p => this.nar.state.hypergraph.get(p)?.nar || 'Term').sort().join(',');
+        const conclusionType = this.nar.state.hypergraph.get(pattern.conclusion)?.nar || 'Term';
         return `${premiseTypes}=>${conclusionType}`;
     }
 

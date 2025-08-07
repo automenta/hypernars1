@@ -69,16 +69,19 @@ describe('AdvancedLearningEngine', () => {
         it('should record an experience and add it to the buffer', () => {
             engine.recordExperience({context: 'test'}, {success: true});
             expect(engine.experienceBuffer.length).toBe(1);
-            expect(engine.experienceBuffer[0].context).toBe('test');
+            // The first argument is stored as the 'context' property. The test passes {context: 'test'}.
+            // So the assertion needs to check experience.context.context.
+            expect(engine.experienceBuffer[0].context.context).toBe('test');
         });
 
         it('should prune the experience buffer when it exceeds max size', () => {
-            mockNar.config.advancedLearningEngine.experienceBufferMaxSize = 5;
+            // The config is copied at instantiation, so we need to modify it on the engine directly.
+            engine.config.experienceBufferMaxSize = 5;
             for (let i = 0; i < 10; i++) {
                 engine.recordExperience({context: `test${i}`}, {success: true});
             }
             expect(engine.experienceBuffer.length).toBe(5);
-            expect(engine.experienceBuffer[0].context).toBe('test5');
+            expect(engine.experienceBuffer[0].context.context).toBe('test5');
         });
 
         it('should process significant experiences based on accuracy', () => {
@@ -164,8 +167,10 @@ describe('AdvancedLearningEngine', () => {
         });
 
         it('should discover patterns from successful experiences', () => {
-            const experience = {success: true, premises: ['p1', 'p2'], conclusion: 'c1'};
-            engine.recordExperience(experience, {success: true});
+            const experienceData = {success: true, premises: ['p1', 'p2'], conclusion: 'c1'};
+            // Pass experience-specific data via the `options` parameter so it becomes
+            // top-level properties on the experience object, which _discoverPatterns expects.
+            engine.recordExperience({/* no context */}, {success: true}, experienceData);
 
             engine._discoverPatterns();
 
