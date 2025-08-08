@@ -1139,203 +1139,212 @@ class ExplanationSystem {
  * NAL statement creation with automatic context handling
  * @example nal('<bird --> flyer>. %0.8;0.75% @context:ornithology')
  */
-nal(statement, options = {}) {
-  // Parse context if specified
-  let context = null;
-  let cleanStatement = statement;
-  
-  const contextMatch = statement.match(/@(context:[^ ]+)/);
-  if (contextMatch) {
-    context = contextMatch[1].replace('context:', '');
-    cleanStatement = statement.replace(contextMatch[0], '').trim();
-  }
-  
-  // Parse and add the statement
-  const result = this.expressionEvaluator.parseAndAdd(cleanStatement, options);
-  
-  // Apply context if specified
-  if (context) {
-    this._applyContext(result, context, options);
-  }
-  
-  return result;
+nal(statement, options = {})
+{
+    // Parse context if specified
+    let context = null;
+    let cleanStatement = statement;
+
+    const contextMatch = statement.match(/@(context:[^ ]+)/);
+    if (contextMatch) {
+        context = contextMatch[1].replace('context:', '');
+        cleanStatement = statement.replace(contextMatch[0], '').trim();
+    }
+
+    // Parse and add the statement
+    const result = this.expressionEvaluator.parseAndAdd(cleanStatement, options);
+
+    // Apply context if specified
+    if (context) {
+        this._applyContext(result, context, options);
+    }
+
+    return result;
 }
 
 /**
  * Create a contextualized rule that only applies in specific situations
  * @example contextualRule('when(raining, driving)', 'turn_on(headlights)', 'weather:rainy')
  */
-contextualRule(premise, conclusion, contextId, options = {}) {
-  // Create the base rule
-  const ruleId = this.implication(premise, conclusion, options);
-  
-  // Associate with context
-  this._addContextAssociation(ruleId, contextId);
-  
-  // Create context-specific version of premises if needed
-  this._createContextSpecificPremises(premise, contextId);
-  
-  return ruleId;
+contextualRule(premise, conclusion, contextId, options = {})
+{
+    // Create the base rule
+    const ruleId = this.implication(premise, conclusion, options);
+
+    // Associate with context
+    this._addContextAssociation(ruleId, contextId);
+
+    // Create context-specific version of premises if needed
+    this._createContextSpecificPremises(premise, contextId);
+
+    return ruleId;
 }
 
 /**
  * Create a multi-step temporal sequence with automatic timing
  * @example temporalSequence('wake_up', 'brush_teeth', 'have_breakfast', { interval: 5 })
  */
-temporalSequence(...terms) {
-  const options = (typeof terms[terms.length - 1] === 'object') ? 
-    terms.pop() : { interval: 2 };
-    
-  const { interval = 2, unit = 'minutes', timestamp = Date.now() } = options;
-  const stepInterval = unit === 'minutes' ? interval * 60000 : 
-                      unit === 'hours' ? interval * 3600000 : interval;
-  
-  // Add temporal links
-  for (let i = 0; i < terms.length - 1; i++) {
-    this.after(
-      terms[i], 
-      terms[i + 1], 
-      timestamp + (i * stepInterval)
-    );
-  }
-  
-  // Create a sequence identifier
-  return this._id('Sequence', terms);
+temporalSequence(...terms)
+{
+    const options = (typeof terms[terms.length - 1] === 'object') ?
+        terms.pop() : {interval: 2};
+
+    const {interval = 2, unit = 'minutes', timestamp = Date.now()} = options;
+    const stepInterval = unit === 'minutes' ? interval * 60000 :
+        unit === 'hours' ? interval * 3600000 : interval;
+
+    // Add temporal links
+    for (let i = 0; i < terms.length - 1; i++) {
+        this.after(
+            terms[i],
+            terms[i + 1],
+            timestamp + (i * stepInterval)
+        );
+    }
+
+    // Create a sequence identifier
+    return this._id('Sequence', terms);
 }
 
 /**
  * Create a probabilistic rule with uncertainty handling
  * @example probabilisticRule('bird($x)', 'flyer($x)', 0.85, 0.75)
  */
-probabilisticRule(premise, conclusion, frequency, confidence, options = {}) {
-  // Parse variables
-  const variables = this._extractVariables(premise);
-  const ruleId = this.implication(premise, conclusion, {
-    ...options,
-    truth: new TruthValue(frequency, confidence)
-  });
-  
-  // Store variable information for later use
-  if (variables.length > 0) {
-    this._storeRuleVariables(ruleId, variables);
-  }
-  
-  return ruleId;
+probabilisticRule(premise, conclusion, frequency, confidence, options = {})
+{
+    // Parse variables
+    const variables = this._extractVariables(premise);
+    const ruleId = this.implication(premise, conclusion, {
+        ...options,
+        truth: new TruthValue(frequency, confidence)
+    });
+
+    // Store variable information for later use
+    if (variables.length > 0) {
+        this._storeRuleVariables(ruleId, variables);
+    }
+
+    return ruleId;
 }
 
 /**
  * Add a constraint between variables in a rule
  * @example addRuleConstraint('rule:123', '$x', 'instance_of(bird)')
  */
-addRuleConstraint(ruleId, variable, constraint) {
-  if (!this.ruleConstraints.has(ruleId)) {
-    this.ruleConstraints.set(ruleId, new Map());
-  }
-  this.ruleConstraints.get(ruleId).set(variable, constraint);
+addRuleConstraint(ruleId, variable, constraint)
+{
+    if (!this.ruleConstraints.has(ruleId)) {
+        this.ruleConstraints.set(ruleId, new Map());
+    }
+    this.ruleConstraints.get(ruleId).set(variable, constraint);
 }
 
 /**
  * Create a context-aware question that considers situational factors
  * @example contextualQuestion('<$x --> hazard>?', { context: 'driving' })
  */
-contextualQuestion(question, options = {}) {
-  // Apply context to the question
-  const contextualized = this._applyContextToQuestion(question, options.context);
-  
-  // Process the contextualized question
-  return this.nalq(contextualized, options);
+contextualQuestion(question, options = {})
+{
+    // Apply context to the question
+    const contextualized = this._applyContextToQuestion(question, options.context);
+
+    // Process the contextualized question
+    return this.nalq(contextualized, options);
 }
 
 /**
  * Create a compound concept with semantic enrichment
  * @example enrichedCompound('Product', 'car', 'red', { attributes: { color: 'red' } })
  */
-enrichedCompound(type, ...args) {
-  const options = (typeof args[args.length - 1] === 'object' && !Array.isArray(args[args.length - 1])) ? 
-    args.pop() : {};
-    
-  const compoundId = this.compound(type, ...args);
-  
-  // Add semantic attributes
-  if (options.attributes) {
-    Object.entries(options.attributes).forEach(([attr, value]) => {
-      this.inheritance(
-        compoundId,
-        `Attribute(${attr},${value})`,
-        { truth: TruthValue.certain().scale(0.9) }
-      );
-    });
-  }
-  
-  // Add relationships to related concepts
-  if (options.relationships) {
-    options.relationships.forEach(rel => {
-      this[rel.type](compoundId, rel.target, { 
-        truth: rel.truth || TruthValue.certain().scale(0.8) 
-      });
-    });
-  }
-  
-  return compoundId;
+enrichedCompound(type, ...args)
+{
+    const options = (typeof args[args.length - 1] === 'object' && !Array.isArray(args[args.length - 1])) ?
+        args.pop() : {};
+
+    const compoundId = this.compound(type, ...args);
+
+    // Add semantic attributes
+    if (options.attributes) {
+        Object.entries(options.attributes).forEach(([attr, value]) => {
+            this.inheritance(
+                compoundId,
+                `Attribute(${attr},${value})`,
+                {truth: TruthValue.certain().scale(0.9)}
+            );
+        });
+    }
+
+    // Add relationships to related concepts
+    if (options.relationships) {
+        options.relationships.forEach(rel => {
+            this[rel.type](compoundId, rel.target, {
+                truth: rel.truth || TruthValue.certain().scale(0.8)
+            });
+        });
+    }
+
+    return compoundId;
 }
 
 /**
  * Create a belief with explicit source citation
  * @example citedBelief('<penguin --> flyer>. %0.1;0.8%', { source: 'biology_textbook', page: 42 })
  */
-citedBelief(statement, citation) {
-  const beliefId = this.nal(statement);
-  
-  // Store citation information
-  this._storeCitation(beliefId, citation);
-  
-  // Create provenance link
-  if (citation.source) {
-    this.inheritance(
-      beliefId,
-      `Source(${citation.source})`,
-      { truth: TruthValue.certain().scale(0.95) }
-    );
-    
-    if (citation.page) {
-      this.inheritance(
-        beliefId,
-        `Page(${citation.page})`,
-        { truth: TruthValue.certain().scale(0.9) }
-      );
+citedBelief(statement, citation)
+{
+    const beliefId = this.nal(statement);
+
+    // Store citation information
+    this._storeCitation(beliefId, citation);
+
+    // Create provenance link
+    if (citation.source) {
+        this.inheritance(
+            beliefId,
+            `Source(${citation.source})`,
+            {truth: TruthValue.certain().scale(0.95)}
+        );
+
+        if (citation.page) {
+            this.inheritance(
+                beliefId,
+                `Page(${citation.page})`,
+                {truth: TruthValue.certain().scale(0.9)}
+            );
+        }
     }
-  }
-  
-  return beliefId;
+
+    return beliefId;
 }
 
 /**
  * Create a conditional rule with exception handling
  * @example robustRule('bird($x)', 'flyer($x)', '!penguin($x)', { frequency: 0.85 })
  */
-robustRule(premise, conclusion, exception, options = {}) {
-  // Create the base rule
-  const baseRule = this.implication(premise, conclusion, {
-    ...options,
-    truth: options.truth || new TruthValue(0.9, 0.8)
-  });
-  
-  // Create the exception rule
-  const exceptionRule = this.implication(
-    `${exception} && ${premise}`, 
-    `!${conclusion}`,
-    {
-      ...options,
-      truth: new TruthValue(0.95, 0.85)
-    }
-  );
-  
-  // Link the rules for proper exception handling
-  this.equivalence(baseRule, `!${exceptionRule}`, {
-    truth: TruthValue.certain().scale(0.7)
-  });
-  
-  return { baseRule, exceptionRule };
+robustRule(premise, conclusion, exception, options = {})
+{
+    // Create the base rule
+    const baseRule = this.implication(premise, conclusion, {
+        ...options,
+        truth: options.truth || new TruthValue(0.9, 0.8)
+    });
+
+    // Create the exception rule
+    const exceptionRule = this.implication(
+        `${exception} && ${premise}`,
+        `!${conclusion}`,
+        {
+            ...options,
+            truth: new TruthValue(0.95, 0.85)
+        }
+    );
+
+    // Link the rules for proper exception handling
+    this.equivalence(baseRule, `!${exceptionRule}`, {
+        truth: TruthValue.certain().scale(0.7)
+    });
+
+    return {baseRule, exceptionRule};
 }
 ```
 

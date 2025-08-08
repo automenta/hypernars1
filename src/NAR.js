@@ -35,16 +35,26 @@ import {ConceptFormation} from './managers/ConceptFormation.js';
 
 
 const MODULE_DEFINITIONS = [
-    { name: 'ExpressionEvaluator', simple: ExpressionEvaluator, advanced: AdvancedExpressionEvaluator },
-    { name: 'DerivationEngine', simple: SimpleDerivationEngine, advanced: AdvancedDerivationEngine, base: DerivationEngineBase },
-    { name: 'MemoryManager', simple: SimpleMemoryManager, advanced: AdvancedMemoryManager, base: MemoryManagerBase },
-    { name: 'ContradictionManager', simple: SimpleContradictionManager, advanced: AdvancedContradictionManager, base: ContradictionManagerBase },
-    { name: 'LearningEngine', simple: SimpleLearningEngine, advanced: AdvancedLearningEngine, base: LearningEngineBase },
-    { name: 'TemporalManager', simple: SimpleTemporalManager, advanced: TemporalReasoner, base: TemporalManagerBase },
-    { name: 'CognitiveExecutive', simple: CognitiveExecutive },
-    { name: 'ExplanationSystem', simple: ExplanationSystem },
-    { name: 'GoalManager', simple: GoalManager, base: GoalManagerBase },
-    { name: 'ConceptFormation', simple: ConceptFormation },
+    {name: 'ExpressionEvaluator', simple: ExpressionEvaluator, advanced: AdvancedExpressionEvaluator},
+    {
+        name: 'DerivationEngine',
+        simple: SimpleDerivationEngine,
+        advanced: AdvancedDerivationEngine,
+        base: DerivationEngineBase
+    },
+    {name: 'MemoryManager', simple: SimpleMemoryManager, advanced: AdvancedMemoryManager, base: MemoryManagerBase},
+    {
+        name: 'ContradictionManager',
+        simple: SimpleContradictionManager,
+        advanced: AdvancedContradictionManager,
+        base: ContradictionManagerBase
+    },
+    {name: 'LearningEngine', simple: SimpleLearningEngine, advanced: AdvancedLearningEngine, base: LearningEngineBase},
+    {name: 'TemporalManager', simple: SimpleTemporalManager, advanced: TemporalReasoner, base: TemporalManagerBase},
+    {name: 'CognitiveExecutive', simple: CognitiveExecutive},
+    {name: 'ExplanationSystem', simple: ExplanationSystem},
+    {name: 'GoalManager', simple: GoalManager, base: GoalManagerBase},
+    {name: 'ConceptFormation', simple: ConceptFormation},
 ];
 
 
@@ -83,12 +93,12 @@ export class NAR extends EventEmitter {
     }
 
     _initConfig(config) {
-        this.config = { ...DEFAULT_CONFIG, ...config };
+        this.config = {...DEFAULT_CONFIG, ...config};
         this.config.ruleConfig = this.config.ruleConfig || {};
     }
 
     _initializeCoreComponents(config) {
-        this.state = new State({ ...this.config, useStructuralIndex: config.useAdvanced });
+        this.state = new State({...this.config, useStructuralIndex: config.useAdvanced});
         this.propagation = new Propagation(this);
         this.questionHandler = new QuestionHandler(this);
         this.system = new System(this);

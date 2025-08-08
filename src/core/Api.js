@@ -182,7 +182,7 @@ export class Api {
         if (!this.nar.contradictionManager.contradictions) {
             return [];
         }
-        this.nar._log('debug', 'Contradictions map state (before filter):', {map: Array.from(this.nar.contradictionManager.contradictions.keys())});
+        //this.nar._log('debug', 'Contradictions map state (before filter):', {map: Array.from(this.nar.contradictionManager.contradictions.keys())});
         return Array.from(this.nar.contradictionManager.contradictions.entries())
             .filter(([, data]) => !data.resolved)
             .map(([id, data]) => ({id, ...data}));
@@ -312,7 +312,7 @@ export class Api {
 
         if (revisionResult.needsUpdate) {
             this.nar.contradictionManager.detectContradiction(termId);
-            this.nar._log('debug', `Checking for inter-edge contradictions. Manager has method: ${!!this.nar.contradictionManager.detectAndResolveInterEdgeContradictions}`);
+            //this.nar._log('debug', `Checking for inter-edge contradictions. Manager has method: ${!!this.nar.contradictionManager.detectAndResolveInterEdgeContradictions}`);
             if (this.nar.contradictionManager.detectAndResolveInterEdgeContradictions) {
                 this.nar.contradictionManager.detectAndResolveInterEdgeContradictions(hyperedge);
             }

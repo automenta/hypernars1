@@ -172,7 +172,11 @@ describe('AdvancedDerivationEngine', () => {
             const h1 = createMockHyperedge('h1', 'Inheritance', ['A', 'B']);
             createMockHyperedge('h2', 'Inheritance', ['B', 'C']);
 
-            const event = {target: generateId('Inheritance', ['A', 'B']), budget: {scale: jest.fn().mockReturnThis()}, pathLength: 1};
+            const event = {
+                target: generateId('Inheritance', ['A', 'B']),
+                budget: {scale: jest.fn().mockReturnThis()},
+                pathLength: 1
+            };
             engine._deriveInheritance(h1, event, 'Inheritance');
 
             expect(mockNar.api.addHyperedge).toHaveBeenCalledWith('Inheritance', ['A', 'C'], expect.any(Object));

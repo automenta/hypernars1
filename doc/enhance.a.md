@@ -166,71 +166,78 @@ Added critical meta-reasoning capabilities that were missing from the original i
  * Meta-reasoning system for self-monitoring and optimization
  */
 meta: {
-  /**
-   * Configure reasoning strategy based on context
-   * @param {Object} config - Strategy configuration
-   * @param {string} config.context - When to apply (e.g., 'high-uncertainty')
-   * @param {string} config.strategy - Which strategy to use
-   * @param {number} config.priority - Priority of this configuration
-   */
-  configureStrategy(config) {
-    if (!this.meta.strategies) this.meta.strategies = [];
-    this.meta.strategies.push(config);
-    this.meta.strategies.sort((a, b) => b.priority - a.priority);
-  },
-  
-  /**
-   * Get current reasoning strategy based on context
-   * @returns {string} Active strategy name
-   */
-  getActiveStrategy() {
-    const context = this._assessReasoningContext();
-    const strategy = this.meta.strategies?.find(s => 
-      context.includes(s.context) || s.context === 'default');
-    return strategy ? strategy.strategy : 'balanced';
-  },
-  
-  /**
-   * Self-monitor reasoning performance and adapt
-   */
-  selfMonitor() {
-    // Track metrics
-    const metrics = {
-      inferenceRate: this._calculateInferenceRate(),
-      contradictionRate: this._calculateContradictionRate(),
-      resourceUtilization: this._calculateResourceUtilization(),
-      questionResponseTime: this._calculateQuestionResponseTime()
-    };
-    
-    // Detect issues
-    const issues = [];
-    if (metrics.contradictionRate > 0.3) {
-      issues.push('high-contradictions');
+    /**
+     * Configure reasoning strategy based on context
+     * @param {Object} config - Strategy configuration
+     * @param {string} config.context - When to apply (e.g., 'high-uncertainty')
+     * @param {string} config.strategy - Which strategy to use
+     * @param {number} config.priority - Priority of this configuration
+     */
+    configureStrategy(config)
+    {
+        if (!this.meta.strategies) this.meta.strategies = [];
+        this.meta.strategies.push(config);
+        this.meta.strategies.sort((a, b) => b.priority - a.priority);
     }
-    if (metrics.inferenceRate < 0.1) {
-      issues.push('low-inference-rate');
+,
+
+    /**
+     * Get current reasoning strategy based on context
+     * @returns {string} Active strategy name
+     */
+    getActiveStrategy()
+    {
+        const context = this._assessReasoningContext();
+        const strategy = this.meta.strategies?.find(s =>
+            context.includes(s.context) || s.context === 'default');
+        return strategy ? strategy.strategy : 'balanced';
     }
-    
-    // Adapt if needed
-    if (issues.length > 0) {
-      this._adaptReasoning(issues, metrics);
+,
+
+    /**
+     * Self-monitor reasoning performance and adapt
+     */
+    selfMonitor()
+    {
+        // Track metrics
+        const metrics = {
+            inferenceRate: this._calculateInferenceRate(),
+            contradictionRate: this._calculateContradictionRate(),
+            resourceUtilization: this._calculateResourceUtilization(),
+            questionResponseTime: this._calculateQuestionResponseTime()
+        };
+
+        // Detect issues
+        const issues = [];
+        if (metrics.contradictionRate > 0.3) {
+            issues.push('high-contradictions');
+        }
+        if (metrics.inferenceRate < 0.1) {
+            issues.push('low-inference-rate');
+        }
+
+        // Adapt if needed
+        if (issues.length > 0) {
+            this._adaptReasoning(issues, metrics);
+        }
+
+        return {
+            metrics,
+            issues,
+            strategy: this.meta.getActiveStrategy()
+        };
     }
-    
-    return {
-      metrics,
-      issues,
-      strategy: this.meta.getActiveStrategy()
-    };
-  },
-  
-  /**
-   * Get reasoning trace for debugging
-   * @param {number} [depth=5] - How deep to trace
-   * @returns {Array} Trace history
-   */
-  getTrace(depth = 5) {
-    return [...this.meta.trace].slice(-depth);
-  }
+,
+
+    /**
+     * Get reasoning trace for debugging
+     * @param {number} [depth=5] - How deep to trace
+     * @returns {Array} Trace history
+     */
+    getTrace(depth = 5)
+    {
+        return [...this.meta.trace].slice(-depth);
+    }
 }
 ```
 
@@ -493,73 +500,78 @@ derivation: {
  * Enhanced macro functions with context awareness
  */
 macros: {
-  /**
-   * NAL statement creation with context awareness
-   * @param {string} statement - NAL statement
-   * @param {Object} [options] - Options including context
-   */
-  nal(statement, options = {}) {
-    // Add temporal context if available
-    if (!options.timestamp && this.temporal) {
-      options.timestamp = Date.now();
+    /**
+     * NAL statement creation with context awareness
+     * @param {string} statement - NAL statement
+     * @param {Object} [options] - Options including context
+     */
+    nal(statement, options = {})
+    {
+        // Add temporal context if available
+        if (!options.timestamp && this.temporal) {
+            options.timestamp = Date.now();
+        }
+
+        // Add source context
+        if (!options.source && this.meta) {
+            options.source = this.meta.getActiveStrategy();
+        }
+
+        return this.expressionEvaluator.parseAndAdd(statement, options);
     }
-    
-    // Add source context
-    if (!options.source && this.meta) {
-      options.source = this.meta.getActiveStrategy();
+,
+
+    /**
+     * Context-aware question handling
+     * @param {string} question - Question to ask
+     * @param {Object} [options] - Options including context
+     */
+    nalq(question, options = {})
+    {
+        // Determine urgency based on question type
+        if (!options.urgency) {
+            options.urgency = this._assessQuestionUrgency(question);
+        }
+
+        // Adjust timeout based on urgency
+        if (!options.timeout) {
+            options.timeout = this.config.questionTimeout *
+                (1.5 - Math.min(1.0, options.urgency));
+        }
+
+        return this.expressionEvaluator.parseQuestion(question, options);
     }
-    
-    return this.expressionEvaluator.parseAndAdd(statement, options);
-  },
-  
-  /**
-   * Context-aware question handling
-   * @param {string} question - Question to ask
-   * @param {Object} [options] - Options including context
-   */
-  nalq(question, options = {}) {
-    // Determine urgency based on question type
-    if (!options.urgency) {
-      options.urgency = this._assessQuestionUrgency(question);
+,
+
+    /**
+     * Create contextual temporal sequence
+     * @param {...string} terms - Terms to sequence
+     * @param {Object} [options] - Options including temporal context
+     */
+    seq(...terms)
+    {
+        const options = (typeof terms[terms.length - 1] === 'object') ?
+            terms.pop() : {};
+        const timestamp = options.timestamp || Date.now();
+
+        // Add temporal context
+        const context = options.context || this.temporal?.getContext?.() || {};
+
+        terms.slice(0, -1).forEach((term, i) => {
+            const stepTimestamp = timestamp + (i * (options.interval || 1000));
+            this.after(term, terms[i + 1], stepTimestamp);
+
+            // Add contextual information
+            if (context.period) {
+                this._addTemporalContext(term, context.period, stepTimestamp);
+            }
+            if (context.location) {
+                this._addLocationContext(term, context.location);
+            }
+        });
+
+        return this._id('Sequence', terms);
     }
-    
-    // Adjust timeout based on urgency
-    if (!options.timeout) {
-      options.timeout = this.config.questionTimeout * 
-        (1.5 - Math.min(1.0, options.urgency));
-    }
-    
-    return this.expressionEvaluator.parseQuestion(question, options);
-  },
-  
-  /**
-   * Create contextual temporal sequence
-   * @param {...string} terms - Terms to sequence
-   * @param {Object} [options] - Options including temporal context
-   */
-  seq(...terms) {
-    const options = (typeof terms[terms.length-1] === 'object') ? 
-      terms.pop() : {};
-    const timestamp = options.timestamp || Date.now();
-    
-    // Add temporal context
-    const context = options.context || this.temporal?.getContext?.() || {};
-    
-    terms.slice(0, -1).forEach((term, i) => {
-      const stepTimestamp = timestamp + (i * (options.interval || 1000));
-      this.after(term, terms[i + 1], stepTimestamp);
-      
-      // Add contextual information
-      if (context.period) {
-        this._addTemporalContext(term, context.period, stepTimestamp);
-      }
-      if (context.location) {
-        this._addLocationContext(term, context.location);
-      }
-    });
-    
-    return this._id('Sequence', terms);
-  }
 }
 ```
 
