@@ -27,7 +27,7 @@ describe('QuestionHandler', () => {
         const answerPromise = questionHandler.ask(question, {minExpectation: 0.8});
 
         // The question is pending, no answer yet
-        expect(nar.state.questionPromises.size).toBe(1);
+        expect(nar.questionHandler.questionPromises.size).toBe(1);
 
         // Add a belief that answers the question
         nar.inheritance('sky', 'blue', {truth: new TruthValue(1.0, 0.9)});
@@ -44,7 +44,7 @@ describe('QuestionHandler', () => {
         });
 
         // The question should be removed from the pending list
-        expect(nar.state.questionPromises.size).toBe(0);
+        expect(nar.questionHandler.questionPromises.size).toBe(0);
     });
 
     it('should reject the promise on timeout', async () => {

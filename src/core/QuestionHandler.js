@@ -4,6 +4,7 @@ export class QuestionHandler {
     constructor(nar) {
         this.nar = nar;
         this.responseTimes = [];
+        this.questionPromises = new Map();
     }
 
     ask(question, options = {}) {
@@ -12,7 +13,7 @@ export class QuestionHandler {
 
         return new Promise((resolve, reject) => {
             const timer = setTimeout(() => {
-                this.nar.state.questionPromises.delete(questionId);
+                this.questionPromises.delete(questionId);
                 this.nar.learningEngine.recordExperience(
                     {derivationPath: ['timeout'], target: questionId},
                     {success: false}
@@ -20,14 +21,16 @@ export class QuestionHandler {
                 reject(new Error(`Question timed out after ${timeout}ms: ${question}`));
             }, timeout);
 
-            this.nar.state.questionPromises.set(questionId, {
+            const promiseData = {
                 resolve,
                 reject,
                 timer,
                 options,
                 answered: false,
-                startTime: Date.now()
-            });
+                startTime: Date.now(),
+                parsedQuestion: null // Will be populated by _processQuestion
+            };
+            this.questionPromises.set(questionId, promiseData);
             this._processQuestion(question, questionId);
         });
     }
@@ -38,40 +41,18 @@ export class QuestionHandler {
 
     _processQuestion(question, questionId) {
         try {
-            const {type, args, options} = this.nar.expressionEvaluator.parse(question.replace('?', ''));
+            const parsedQuestion = this.nar.expressionEvaluator.parse(question.replace('?', ''));
+            const promise = this.questionPromises.get(questionId);
+            if (promise) {
+                promise.parsedQuestion = parsedQuestion;
+            }
 
-            if (type === 'Inheritance') {
-                const subjectArg = args[0];
-                const predicateArg = args[1];
-
-                // Safely get the string representation of the arguments
-                const subject = (subjectArg && subjectArg.args) ? subjectArg.args[0] : subjectArg;
-                const predicate = (predicateArg && predicateArg.args) ? predicateArg.args[0] : predicateArg;
-
-                if (typeof subject === 'string' && subject.startsWith('$')) {
-                    this.nar.state.index.byArg.get(predicate)?.forEach(hyperedgeId => {
-                        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-                        if (hyperedge?.type === 'Inheritance' && hyperedge.args[1] === predicate) {
-                            this._answerQuestion(questionId, {
-                                type: 'Inheritance',
-                                args: [hyperedge.args[0], predicate],
-                                truth: hyperedge.getTruth()
-                            });
-                        }
-                    });
-                } else if (typeof predicate === 'string' && predicate.startsWith('$')) {
-                    this.nar.state.index.byArg.get(subject)?.forEach(hyperedgeId => {
-                        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-                        if (hyperedge?.type === 'Inheritance' && hyperedge.args[0] === subject) {
-                            this._answerQuestion(questionId, {
-                                type: 'Inheritance',
-                                args: [subject, hyperedge.args[1]],
-                                truth: hyperedge.getTruth()
-                            });
-                        }
-                    });
-                } else {
-                    const hyperedgeId = id('Inheritance', [subject, predicate]);
+            switch (parsedQuestion.type) {
+                case 'Inheritance':
+                    this._processInheritanceQuestion(parsedQuestion, questionId);
+                    break;
+                default:
+                    const hyperedgeId = id(parsedQuestion.type, parsedQuestion.args);
                     const budget = this.nar.memoryManager.allocateResources({type: 'question'}, {
                         importance: 1.0,
                         urgency: 1.0
@@ -84,21 +65,56 @@ export class QuestionHandler {
                         pathLength: 0,
                         derivationPath: []
                     });
-                }
+                    break;
             }
-
         } catch (e) {
-            const promise = this.nar.state.questionPromises.get(questionId);
+            const promise = this.questionPromises.get(questionId);
             if (promise) {
                 clearTimeout(promise.timer);
-                this.nar.state.questionPromises.delete(questionId);
+                this.questionPromises.delete(questionId);
                 promise.reject(e);
             }
         }
     }
 
+    _processInheritanceQuestion({args}, questionId) {
+        const subject = (args[0] && args[0].args) ? args[0].args[0] : args[0];
+        const predicate = (args[1] && args[1].args) ? args[1].args[0] : args[1];
+
+        if (typeof subject === 'string' && subject.startsWith('$')) {
+            this._handleVariableQuestion(questionId, predicate, 1, (hyperedge) => [hyperedge.args[0], predicate]);
+        } else if (typeof predicate === 'string' && predicate.startsWith('$')) {
+            this._handleVariableQuestion(questionId, subject, 0, (hyperedge) => [subject, hyperedge.args[1]]);
+        } else {
+            const hyperedgeId = id('Inheritance', [subject, predicate]);
+            const budget = this.nar.memoryManager.allocateResources({type: 'question'}, {importance: 1.0, urgency: 1.0});
+            this.nar.propagation.propagate({
+                target: hyperedgeId,
+                activation: 1.0,
+                budget: budget,
+                pathHash: hash(String(hyperedgeId)),
+                pathLength: 0,
+                derivationPath: []
+            });
+        }
+    }
+
+    _handleVariableQuestion(questionId, constantTerm, termIndex, answerBuilder) {
+        const relatedHyperedges = this.nar.state.index.byArg.get(constantTerm) || new Set();
+        relatedHyperedges.forEach(hyperedgeId => {
+            const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
+            if (hyperedge?.type === 'Inheritance' && hyperedge.args[termIndex] === constantTerm) {
+                this._answerQuestion(questionId, {
+                    type: 'Inheritance',
+                    args: answerBuilder(hyperedge),
+                    truth: hyperedge.getTruth()
+                });
+            }
+        });
+    }
+
     _answerQuestion(questionId, answer) {
-        const promise = this.nar.state.questionPromises.get(questionId);
+        const promise = this.questionPromises.get(questionId);
         if (!promise) return;
 
         if (!promise.answered) {
@@ -112,7 +128,7 @@ export class QuestionHandler {
         if (promise.options && promise.options.minExpectation &&
             answer.truth.expectation() >= promise.options.minExpectation) {
             clearTimeout(promise.timer);
-            this.nar.state.questionPromises.delete(questionId);
+            this.questionPromises.delete(questionId);
             this.responseTimes.push(Date.now() - promise.startTime);
             promise.resolve(answer);
             return;
@@ -133,10 +149,10 @@ export class QuestionHandler {
         const bestAnswer = answers.sort((a, b) =>
             b.truth.expectation() - a.truth.expectation())[0];
 
-        const promise = this.nar.state.questionPromises.get(questionId);
+        const promise = this.questionPromises.get(questionId);
         if (promise) {
             clearTimeout(promise.timer);
-            this.nar.state.questionPromises.delete(questionId);
+            this.questionPromises.delete(questionId);
             this.responseTimes.push(Date.now() - promise.startTime);
             promise.resolve(bestAnswer);
         }
@@ -154,25 +170,20 @@ export class QuestionHandler {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) return;
 
-        this.nar.state.questionPromises.forEach((promise, questionId) => {
-            const questionPattern = questionId.replace(/^Question\(|\)\|.*$/g, '');
-            const cleanPattern = questionPattern.endsWith('?') ? questionPattern.slice(0, -1) : questionPattern;
+        this.questionPromises.forEach((promise, questionId) => {
+            if (!promise.parsedQuestion) return;
 
-            try {
-                const parsedQuestion = this.nar.expressionEvaluator.parse(cleanPattern);
-                const questionHyperedgeId = id(parsedQuestion.type, parsedQuestion.args.map(a => a.args[0]));
+            const parsedQuestion = promise.parsedQuestion;
+            const questionHyperedgeId = id(parsedQuestion.type, parsedQuestion.args.map(a => (a && a.args) ? a.args[0] : a));
 
-                if (questionHyperedgeId === hyperedgeId) {
-                    this._answerQuestion(questionId, {
-                        type: hyperedge.type,
-                        args: hyperedge.args,
-                        truth: belief.truth,
-                        derivationPath: belief.premises,
-                    });
-                    this.nar.learningEngine.recordSuccess?.(hyperedgeId);
-                }
-            } catch (e) {
-                // Ignore parsing errors for patterns that don't match
+            if (questionHyperedgeId === hyperedgeId) {
+                this._answerQuestion(questionId, {
+                    type: hyperedge.type,
+                    args: hyperedge.args,
+                    truth: belief.truth,
+                    derivationPath: belief.premises,
+                });
+                this.nar.learningEngine.recordSuccess?.(hyperedgeId);
             }
         });
     }

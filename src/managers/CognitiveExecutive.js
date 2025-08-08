@@ -234,7 +234,7 @@ export class CognitiveExecutive {
 
     _adjustReasoningFocus(metrics) {
         const oldFocus = this.currentFocus;
-        if (this.nar.state.questionPromises.size > 0) this.currentFocus = 'question-answering';
+        if (this.nar.questionHandler.questionPromises.size > 0) this.currentFocus = 'question-answering';
         else if (metrics.contradictionRate > this.config.HIGH_CONTRADICTION_ALLOCATION_THRESHOLD) this.currentFocus = 'contradiction-resolution';
         else this.currentFocus = 'default';
 
@@ -278,7 +278,7 @@ export class CognitiveExecutive {
         if (!lastMetric) return context;
 
         if (lastMetric.contradictionRate > this.config.HIGH_UNCERTAINTY_THRESHOLD) context.push('high-uncertainty');
-        if (this.nar.state.questionPromises.size > 0) context.push('question-answering');
+        if (this.nar.questionHandler.questionPromises.size > 0) context.push('question-answering');
         return context;
     }
 
@@ -288,7 +288,7 @@ export class CognitiveExecutive {
             .map(([id]) => id)
             .sort()
             .slice(0, this.config.ACTIVE_CONCEPT_COUNT);
-        const recentQuestions = [...this.nar.state.questionPromises.keys()]
+        const recentQuestions = [...this.nar.questionHandler.questionPromises.keys()]
             .slice(-this.config.RECENT_QUESTION_COUNT)
             .map(q => q.replace(/^.+?\((.+?)\|.+$/, '$1'));
         return hash(`${activeConcepts.join('|')}~${recentQuestions.join('|')}`);
@@ -301,5 +301,55 @@ export class CognitiveExecutive {
         }
         const successRate = stats.successes / stats.attempts;
         return this.config.MIN_RULE_PRIORITY + successRate;
+    }
+
+    tick() {
+        if (this.nar.state.currentStep % this.nar.config.questionResolutionInterval === 0) {
+            this._resolveQuestions();
+        }
+
+        this.nar.state.stepsSinceMaintenance++;
+        if (this.nar.state.stepsSinceMaintenance >= this.nar.config.memoryMaintenanceInterval) {
+            this._runMaintenance();
+            this.nar.state.stepsSinceMaintenance = 0;
+        }
+
+        this.nar.state.stepsSinceCleanup++;
+        if (this.nar.state.stepsSinceCleanup >= this.nar.config.cleanupInterval) {
+            this._cleanup();
+            this.nar.state.stepsSinceCleanup = 0;
+        }
+    }
+
+    _resolveQuestions() {
+        // Fix: Iterate over the correct question promises map in the handler
+        for (const questionId of this.nar.questionHandler.questionPromises.keys()) {
+            this.nar.questionHandler._resolveQuestion(questionId);
+        }
+    }
+
+    _runMaintenance() {
+        this.nar.memoryManager.maintainMemory();
+        this.nar.contradictionManager.resolveContradictions();
+        this.selfMonitor();
+        this.nar.learningEngine.applyLearning();
+        this.nar.temporalManager.adjustTemporalHorizon?.();
+        this.nar.goalManager?.processGoals();
+    }
+
+    _cleanup() {
+        if (Math.random() < this.nar.config.cleanupProbability) {
+            for (const [id, cache] of this.nar.state.pathCache) {
+                if (cache.size > this.nar.config.maxPathCacheSize) {
+                    this.nar.state.pathCache.set(id, new Set([...cache].slice(-this.nar.config.pathCacheTruncationSize)));
+                }
+            }
+
+            for (const [questionId, answers] of this.nar.state.index.questionCache) {
+                if (answers.length > this.nar.config.maxQuestionCacheSize) {
+                    this.nar.state.index.questionCache.set(questionId, answers.slice(-this.nar.config.questionCacheTruncationSize));
+                }
+            }
+        }
     }
 }

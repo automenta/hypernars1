@@ -1,7 +1,7 @@
 import {EventEmitter} from 'events';
 import {State} from './core/State.js';
 import {Api} from './core/Api.js';
-import {System} from './core/System.js';
+import {SystemV2} from './core/SystemV2.js';
 import {Propagation} from './core/Propagation.js';
 import {QuestionHandler} from './core/QuestionHandler.js';
 import {ExpressionEvaluator} from './evaluator/ExpressionEvaluator.js';
@@ -27,7 +27,7 @@ import {TemporalManagerBase} from './managers/TemporalManagerBase.js';
 import {SimpleTemporalManager} from './managers/SimpleTemporalManager.js';
 import {TemporalReasoner} from './managers/TemporalReasoner.js';
 
-import {CognitiveExecutive} from './managers/CognitiveExecutive.js';
+import {CognitiveExecutiveV2} from './managers/CognitiveExecutiveV2.js';
 import {ExplanationSystem} from './managers/ExplanationSystem.js';
 import {GoalManagerBase} from './managers/GoalManagerBase.js';
 import {GoalManager} from './managers/GoalManager.js';
@@ -51,7 +51,7 @@ const MODULE_DEFINITIONS = [
     },
     {name: 'LearningEngine', simple: SimpleLearningEngine, advanced: AdvancedLearningEngine, base: LearningEngineBase},
     {name: 'TemporalManager', simple: SimpleTemporalManager, advanced: TemporalReasoner, base: TemporalManagerBase},
-    {name: 'CognitiveExecutive', simple: CognitiveExecutive},
+    {name: 'CognitiveExecutive', simple: CognitiveExecutiveV2},
     {name: 'ExplanationSystem', simple: ExplanationSystem},
     {name: 'GoalManager', simple: GoalManager, base: GoalManagerBase},
     {name: 'ConceptFormation', simple: ConceptFormation},
@@ -101,7 +101,7 @@ export class NAR extends EventEmitter {
         this.state = new State({...this.config, useStructuralIndex: config.useAdvanced});
         this.propagation = new Propagation(this);
         this.questionHandler = new QuestionHandler(this);
-        this.system = new System(this);
+        this.system = new SystemV2(this);
     }
 
     _initializeModules(config) {
