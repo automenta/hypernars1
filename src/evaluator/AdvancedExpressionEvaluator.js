@@ -218,8 +218,7 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (!hyperedge) {
             // If the constraint is about the term not existing, this might be valid
-            if (constraints.exists === 'false') return true;
-            return false;
+            return constraints.exists === 'false';
         }
 
         for (const [key, value] of Object.entries(constraints)) {

@@ -1,5 +1,5 @@
-import { id } from '../../support/utils.js';
-import { TruthValue } from '../../support/TruthValue.js';
+import {id} from '../../support/utils.js';
+import {TruthValue} from '../../support/TruthValue.js';
 
 export class ConceptFormer {
     constructor(learningEngine) {

@@ -1,6 +1,6 @@
-import { id } from '../../support/utils.js';
-import { TruthValue } from '../../support/TruthValue.js';
-import { Budget } from '../../support/Budget.js';
+import {id} from '../../support/utils.js';
+import {TruthValue} from '../../support/TruthValue.js';
+import {Budget} from '../../support/Budget.js';
 
 export class PatternMiner {
     constructor(learningEngine) {

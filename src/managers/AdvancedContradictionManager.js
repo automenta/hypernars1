@@ -4,10 +4,10 @@ import {Hyperedge} from '../support/Hyperedge.js';
 import {Budget} from '../support/Budget.js';
 import {id} from '../support/utils.js';
 import {config} from '../config/index.js';
+import {ContradictionStrategyFactory} from './contradictionStrategies/ContradictionStrategyFactory.js';
 
 const defaultConfig = config.advancedContradictionManager;
 
-import { ContradictionStrategyFactory } from './contradictionStrategies/ContradictionStrategyFactory.js';
 export class AdvancedContradictionManager extends ContradictionManagerBase {
     constructor(nar) {
         super(nar);
@@ -201,7 +201,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         if (!contradiction) return null;
         if (contradiction.resolved) return contradiction.resolvedValue;
 
-        const strategy = this.strategyFactory.getStrategy(strategyName);
+        var strategy = this.strategyFactory.getStrategy(strategyName);
         if (!strategy) {
             // Fallback to default if strategy not found
             strategy = this.strategyFactory.getStrategy('default');

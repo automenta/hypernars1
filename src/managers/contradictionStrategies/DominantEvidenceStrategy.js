@@ -1,4 +1,4 @@
-import { TruthValue } from '../../support/TruthValue.js';
+import {TruthValue} from '../../support/TruthValue.js';
 
 export class DominantEvidenceStrategy {
     constructor(manager) {

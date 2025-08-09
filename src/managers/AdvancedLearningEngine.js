@@ -3,12 +3,11 @@ import {TruthValue} from '../support/TruthValue.js';
 import {Budget} from '../support/Budget.js';
 import {LearningEngineBase} from './LearningEngineBase.js';
 import {config} from '../config/index.js';
+import {PatternMiner} from './learningComponents/PatternMiner.js';
+import {ConceptFormer} from './learningComponents/ConceptFormer.js';
+import {RuleAdaptor} from './learningComponents/RuleAdaptor.js';
 
 const defaultConfig = config.advancedLearningEngine;
-
-import { PatternMiner } from './learningComponents/PatternMiner.js';
-import { ConceptFormer } from './learningComponents/ConceptFormer.js';
-import { RuleAdaptor } from './learningComponents/RuleAdaptor.js';
 
 export class AdvancedLearningEngine extends LearningEngineBase {
     constructor(nar) {

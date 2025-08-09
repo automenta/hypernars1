@@ -1,9 +1,9 @@
-import { DominantEvidenceStrategy } from './DominantEvidenceStrategy.js';
-import { MergeStrategy } from './MergeStrategy.js';
-import { SpecializationStrategy } from './SpecializationStrategy.js';
-import { EvidenceWeightedStrategy } from './EvidenceWeightedStrategy.js';
-import { RecencyBiasedStrategy } from './RecencyBiasedStrategy.js';
-import { SourceReliabilityStrategy } from './SourceReliabilityStrategy.js';
+import {DominantEvidenceStrategy} from './DominantEvidenceStrategy.js';
+import {MergeStrategy} from './MergeStrategy.js';
+import {SpecializationStrategy} from './SpecializationStrategy.js';
+import {EvidenceWeightedStrategy} from './EvidenceWeightedStrategy.js';
+import {RecencyBiasedStrategy} from './RecencyBiasedStrategy.js';
+import {SourceReliabilityStrategy} from './SourceReliabilityStrategy.js';
 
 const strategies = {
     'dominant_evidence': DominantEvidenceStrategy,

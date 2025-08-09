@@ -1,5 +1,5 @@
-import { TruthValue } from '../../support/TruthValue.js';
-import { Budget } from '../../support/Budget.js';
+import {TruthValue} from '../../support/TruthValue.js';
+import {Budget} from '../../support/Budget.js';
 
 export class SourceReliabilityStrategy {
     constructor(manager) {

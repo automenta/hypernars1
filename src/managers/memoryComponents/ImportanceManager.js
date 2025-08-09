@@ -1,4 +1,4 @@
-import { extractTerms } from '../../support/termExtraction.js';
+import {extractTerms} from '../../support/termExtraction.js';
 
 export class ImportanceManager {
     constructor(memoryManager) {

@@ -1,13 +1,12 @@
 import {MemoryManagerBase} from './MemoryManagerBase.js';
 import {OptimizedIndex} from './OptimizedIndex.js';
 import {Budget} from '../support/Budget.js';
-import {extractTerms} from '../support/termExtraction.js';
 import {config} from '../config/index.js';
+import {ForgettingManager} from './memoryComponents/ForgettingManager.js';
+import {ImportanceManager} from './memoryComponents/ImportanceManager.js';
 
 const defaultConfig = config.advancedMemoryManager;
 
-import { ForgettingManager } from './memoryComponents/ForgettingManager.js';
-import { ImportanceManager } from './memoryComponents/ImportanceManager.js';
 export class AdvancedMemoryManager extends MemoryManagerBase {
     constructor(nar) {
         super(nar);
