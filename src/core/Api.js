@@ -1,435 +1,161 @@
 import {TruthValue} from '../support/TruthValue.js';
-import {Budget} from '../support/Budget.js';
-import {Hyperedge} from '../support/Hyperedge.js';
-import {id} from '../support/utils.js';
+import {MacroApi} from './api-components/MacroApi.js';
+import {TemporalApi} from './api-components/TemporalApi.js';
+import {ContradictionApi} from './api-components/ContradictionApi.js';
+import {GoalApi} from './api-components/GoalApi.js';
+import {CognitiveApi} from './api-components/CognitiveApi.js';
+import {StructuralApi} from './api-components/StructuralApi.js';
+import {BeliefApi} from './api-components/BeliefApi.js';
+import {CoreApi} from './api-components/CoreApi.js';
 
 export class Api {
     constructor(nar) {
         this.nar = nar;
         this.TruthValue = TruthValue;
-        this.contradictionManager = nar.contradictionManager;
+
+        this.macro = new MacroApi(nar, this);
+        this.temporal = new TemporalApi(nar);
+        this.contradiction = new ContradictionApi(nar);
+        this.goal = new GoalApi(nar);
+        this.cognitive = new CognitiveApi(nar);
+        this.structural = new StructuralApi(nar, this);
+        this.belief = new BeliefApi(nar);
+        this.core = new CoreApi(nar);
     }
 
-    /* ===== ENHANCED MACRO FUNCTIONS (from enhance.b.md) ===== */
-
-    /**
-     * NAL statement creation with automatic context handling.
-     * @example nal('<bird --> flyer>. %0.8;0.75% @context:ornithology')
-     */
     nal(statement, options = {}) {
-        let context = null;
-        let cleanStatement = statement;
-
-        // Add temporal and source context from spec `a`
-        if (!options.timestamp && this.nar.temporalManager) {
-            options.timestamp = Date.now();
-        }
-        if (!options.source && this.nar.metaReasoner) {
-            options.source = this.nar.metaReasoner.getActiveStrategy();
-        }
-
-        const contextMatch = statement.match(/@context:([^ ]+)/);
-        if (contextMatch) {
-            context = contextMatch[1];
-            cleanStatement = statement.replace(contextMatch[0], '').trim();
-        }
-
-        const result = this.nar.expressionEvaluator.parseAndAdd(cleanStatement, options);
-
-        if (result && context) {
-            // Assuming a general way to associate context. This might need a dedicated manager.
-            this.addHyperedge('hasContext', [result, context], {truth: TruthValue.certain()});
-        }
-
-        return result;
+        return this.macro.nal(statement, options);
     }
 
     nalq(question, options = {}) {
-        // Logic from spec `a` to add urgency and adjust timeout
-        if (!options.urgency) {
-            options.urgency = this._assessQuestionUrgency(question);
-        }
-        if (!options.timeout && this.nar.config) {
-            options.timeout = this.nar.config.questionTimeout * (1.5 - Math.min(1.0, options.urgency || 0.5));
-        }
-        return this.nar.expressionEvaluator.parseQuestion(question, options);
+        return this.macro.nalq(question, options);
     }
 
-    /**
-     * Create a contextual temporal sequence.
-     * From spec `a`.
-     */
     seq(...terms) {
-        const options = (typeof terms[terms.length - 1] === 'object') ? terms.pop() : {};
-        const timestamp = options.timestamp || Date.now();
-
-        // Add temporal context
-        const context = options.context || this.nar.temporalManager?.getContext?.() || {};
-
-        terms.slice(0, -1).forEach((term, i) => {
-            const nextTerm = terms[i + 1];
-            const stepTimestamp = timestamp + (i * (options.interval || 1000));
-
-            // Use the temporal manager to assert the relationship
-            this.nar.temporalManager.relate(term, nextTerm, 'before', {
-                truth: options.truth || new TruthValue(0.9, 0.9),
-                timestamp: stepTimestamp
-            });
-
-            // Add contextual information (with placeholder helpers)
-            if (context.period) {
-                this._addTemporalContext(term, context.period, stepTimestamp);
-            }
-            if (context.location) {
-                this._addLocationContext(term, context.location);
-            }
-        });
-
-        return id('Sequence', terms);
+        return this.macro.seq(...terms);
     }
 
-    /**
-     * Create a contextualized rule that only applies in specific situations.
-     */
     contextualRule(premise, conclusion, contextId, options = {}) {
-        const ruleId = this.implication(premise, conclusion, options);
-        this.addHyperedge('hasContext', [ruleId, contextId], {truth: TruthValue.certain()});
-        return ruleId;
+        return this.macro.contextualRule(premise, conclusion, contextId, options);
     }
 
-    /**
-     * Create a multi-step temporal sequence with automatic timing.
-     * @example temporalSequence('wake_up', 'brush_teeth', 'have_breakfast', { interval: 5, unit: 'minutes' })
-     */
     temporalSequence(...terms) {
-        const options = (typeof terms[terms.length - 1] === 'object') ? terms.pop() : {};
-        const {interval = 2, unit = 'minutes', timestamp = Date.now()} = options;
-
-        const stepInterval = unit === 'minutes' ? interval * 60000 :
-            unit === 'hours' ? interval * 3600000 :
-                interval * 1000; // Default to seconds
-
-        for (let i = 0; i < terms.length - 1; i++) {
-            // Use the temporal reasoner's constraint system
-            this.nar.temporalManager.addConstraint(terms[i], terms[i + 1], 'before', {
-                truth: options.truth || new TruthValue(0.9, 0.9)
-            });
-        }
-
-        return id('Sequence', terms);
+        return this.macro.temporalSequence(...terms);
     }
 
-    /**
-     * Create a probabilistic rule with uncertainty handling.
-     */
     probabilisticRule(premise, conclusion, frequency, confidence, options = {}) {
-        return this.implication(premise, conclusion, {
-            ...options,
-            truth: new TruthValue(frequency, confidence)
-        });
+        return this.macro.probabilisticRule(premise, conclusion, frequency, confidence, options);
     }
 
-    /**
-     * Create a belief with explicit source citation.
-     */
     citedBelief(statement, citation) {
-        const beliefId = this.nal(statement);
-        if (citation.source) {
-            this.addHyperedge('hasSource', [beliefId, `Source(${citation.source})`], {truth: TruthValue.certain()});
-        }
-        return beliefId;
+        return this.macro.citedBelief(statement, citation);
     }
 
-    /**
-     * Create a conditional rule with exception handling.
-     */
     robustRule(premise, conclusion, exception, options = {}) {
-        const baseRule = this.implication(premise, conclusion, {
-            ...options,
-            truth: options.truth || new TruthValue(0.9, 0.8)
-        });
-
-        const exceptionPremise = id('Conjunction', [exception, premise]);
-        const negatedConclusion = id('Negation', [conclusion]);
-
-        const exceptionRule = this.implication(exceptionPremise, negatedConclusion, {
-            ...options,
-            truth: new TruthValue(0.95, 0.85)
-        });
-
-        return {baseRule, exceptionRule};
+        return this.macro.robustRule(premise, conclusion, exception, options);
     }
 
-    /* ===== PUBLIC API: TEMPORAL OPERATIONS ===== */
     temporalInterval(term, start, end, options = {}) {
-        return this.nar.temporalManager.interval(term, start, end, options);
+        return this.temporal.temporalInterval(term, start, end, options);
     }
 
     temporalConstraint(event1, event2, relation, options = {}) {
-        return this.nar.temporalManager.addConstraint(event1, event2, relation, options);
+        return this.temporal.temporalConstraint(event1, event2, relation, options);
     }
 
     inferTemporalRelationship(event1, event2) {
-        return this.nar.temporalManager.inferRelationship(event1, event2);
+        return this.temporal.inferTemporalRelationship(event1, event2);
     }
 
     projectTemporal(term, milliseconds) {
-        return this.nar.temporalManager.project(term, milliseconds);
+        return this.temporal.projectTemporal(term, milliseconds);
     }
 
-    /* ===== PUBLIC API: CONTRADICTION MANAGEMENT ===== */
     getContradictions() {
-        if (!this.nar.contradictionManager.contradictions) {
-            return [];
-        }
-        //this.nar._log('debug', 'Contradictions map state (before filter):', {map: Array.from(this.nar.contradictionManager.contradictions.keys())});
-        return Array.from(this.nar.contradictionManager.contradictions.entries())
-            .filter(([, data]) => !data.resolved)
-            .map(([id, data]) => ({id, ...data}));
-    }
-
-    /* ===== PUBLIC API: GOAL MANAGEMENT ===== */
-    addGoal(description, utility, constraints = {}, options = {}) {
-        return this.nar.goalManager.addGoal(description, utility, constraints, options);
-    }
-
-    getGoals() {
-        return this.nar.goalManager.getActiveGoals();
+        return this.contradiction.getContradictions();
     }
 
     analyzeContradiction(hyperedgeId) {
-        return this.nar.contradictionManager.analyze(hyperedgeId);
+        return this.contradiction.analyzeContradiction(hyperedgeId);
     }
 
     resolveContradiction(hyperedgeId, strategy, options) {
-        return this.nar.contradictionManager.manualResolve(hyperedgeId, strategy, options);
+        return this.contradiction.resolveContradiction(hyperedgeId, strategy, options);
     }
 
-    /* ===== PUBLIC API: META-REASONING / COGNITIVE EXECUTIVE ===== */
+    addGoal(description, utility, constraints = {}, options = {}) {
+        return this.goal.addGoal(description, utility, constraints, options);
+    }
+
+    getGoals() {
+        return this.goal.getGoals();
+    }
+
     getTrace(depth) {
-        return this.nar.cognitiveExecutive.getTrace(depth);
+        return this.cognitive.getTrace(depth);
     }
 
     configureStrategy(config) {
-        return this.nar.cognitiveExecutive.configureStrategy(config);
+        return this.cognitive.configureStrategy(config);
     }
 
     getActiveStrategy() {
-        return this.nar.cognitiveExecutive.getActiveStrategy();
+        return this.cognitive.getActiveStrategy();
     }
 
     getMetrics() {
-        const history = this.nar.cognitiveExecutive.metricsHistory;
-        return history[history.length - 1] || null;
+        return this.cognitive.getMetrics();
     }
 
     getFocus() {
-        return this.nar.cognitiveExecutive.currentFocus;
+        return this.cognitive.getFocus();
     }
 
-    /* ===== PUBLIC API: STRUCTURAL OPERATIONS ===== */
     term(name, options = {}) {
-        return this.addHyperedge('Term', [name], options);
+        return this.structural.term(name, options);
     }
 
     inheritance(subject, predicate, options = {}) {
-        return this.addHyperedge('Inheritance', [subject, predicate], options);
+        return this.structural.inheritance(subject, predicate, options);
     }
 
     similarity(term1, term2, options = {}) {
-        return this.addHyperedge('Similarity', [term1, term2], options);
+        return this.structural.similarity(term1, term2, options);
     }
 
     implication(premise, conclusion, options = {}) {
-        return this.addHyperedge('Implication', [premise, conclusion], options);
+        return this.structural.implication(premise, conclusion, options);
     }
 
     equivalence(premise, conclusion, options = {}) {
-        return this.addHyperedge('Equivalence', [premise, conclusion], options);
+        return this.structural.equivalence(premise, conclusion, options);
     }
 
-    /**
-     * Retrieves all beliefs associated with a given hyperedge.
-     * @param {string} hyperedgeId The ID of the hyperedge.
-     * @returns {Array} An array of belief objects, or an empty array if not found.
-     */
-    /**
-     * Retrieves the strongest belief associated with a given hyperedge.
-     * @param {string} hyperedgeId The ID of the hyperedge.
-     * @returns {Object|null} The strongest belief object, or null if not found.
-     */
     getBelief(hyperedgeId) {
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        return hyperedge ? hyperedge.getStrongestBelief() : null;
+        return this.belief.getBelief(hyperedgeId);
     }
 
     getBeliefs(hyperedgeId) {
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        return hyperedge ? hyperedge.beliefs : [];
+        return this.belief.getBeliefs(hyperedgeId);
     }
 
     queryBelief(pattern) {
-        const parsedPattern = this.nar.expressionEvaluator.parse(pattern);
-        const hyperedgeId = this.nar.expressionEvaluator._getParsedStructureId(parsedPattern);
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        return hyperedge ? hyperedge.getStrongestBelief() : null;
+        return this.belief.queryBelief(pattern);
     }
 
-    /* ===== CORE: ADDING KNOWLEDGE ===== */
     addHyperedge(type, args, options = {}) {
-        const {truth, budget, priority, premises = [], derivedBy} = options;
-        const termId = id(type, args);
-        let hyperedge = this.nar.state.hypergraph.get(termId);
-
-        if (!hyperedge) {
-            hyperedge = new Hyperedge(this.nar, termId, type, args);
-            this.nar.state.hypergraph.set(termId, hyperedge);
-            if (this.nar.state.index.structural) {
-                this.nar.state.index.structural.addToIndex(hyperedge);
-            } else {
-                this.nar.state.index.addToIndex(hyperedge);
-            }
-        }
-
-        const finalTruth = truth || new TruthValue(1.0, 0.9);
-        let finalBudget = budget;
-
-        if (finalBudget && !(finalBudget instanceof Budget)) {
-            finalBudget = new Budget(finalBudget.priority, finalBudget.durability, finalBudget.quality);
-        } else if (!finalBudget) {
-            finalBudget = this.nar.memoryManager.allocateResources({type: 'revision'}, {importance: priority});
-        }
-
-        // Delegate revision and contradiction handling to the hyperedge itself
-        const revisionResult = hyperedge.revise({
-            truth: finalTruth,
-            budget: finalBudget,
-            beliefCapacity: this.nar.config.beliefCapacity,
-            premises,
-            context: options.context,
-            derivedBy
-        });
-
-        if (revisionResult.needsUpdate) {
-            this.nar.contradictionManager.detectContradictions(termId);
-            //this.nar._log('debug', `Checking for inter-edge contradictions. Manager has method: ${!!this.nar.contradictionManager.detectAndResolveInterEdgeContradictions}`);
-            if (this.nar.contradictionManager.detectAndResolveInterEdgeContradictions) {
-                this.nar.contradictionManager.detectAndResolveInterEdgeContradictions(hyperedge);
-            }
-            this.nar.emit('revision', {hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget});
-            this.nar.propagation.propagate({
-                target: termId,
-                activation: 1.0,
-                budget: finalBudget,
-                pathHash: 0,
-                pathLength: 0,
-                derivationPath: []
-            });
-            this.nar.questionHandler.checkQuestionAnswers(termId, hyperedge.getStrongestBelief());
-        }
-
-        return termId;
+        return this.core.addHyperedge(type, args, options);
     }
 
-    // --- Placeholder helpers for enhanced macros ---
-
-    _assessQuestionUrgency(question) {
-        // Placeholder: more complex logic would analyze question structure
-        if (question.includes('?')) {
-            return 0.7; // High urgency for direct questions
-        }
-        return 0.4; // Lower urgency for goal-like queries
-    }
-
-    _addTemporalContext(term, period, timestamp) {
-        // Placeholder: creates a hyperedge linking the term to a temporal period
-        this.addHyperedge('inPeriod', [term, period], {
-            truth: TruthValue.certain(),
-            timestamp
-        });
-    }
-
-    _addLocationContext(term, location) {
-        // Placeholder: creates a hyperedge linking the term to a location
-        this.addHyperedge('atLocation', [term, location], {
-            truth: TruthValue.certain()
-        });
-    }
-
-    /**
-     * Revises a belief on an existing hyperedge.
-     * This is a more direct way to update a belief than addHyperedge.
-     * @param {string} hyperedgeId The ID of the hyperedge to revise.
-     * @param {Object} options Options including truth and budget.
-     */
-    /**
-     * Reports the outcome of an action or reasoning process to the Learning Engine.
-     * This is the primary mechanism for providing external feedback to the system.
-     * @param {Object} context - The context in which the action/reasoning occurred (e.g., { operation: 'action', action: 'move_forward' }).
-     * @param {Object} outcome - Details about the outcome (e.g., { success: true, consequence: 'reached_destination' }).
-     * @param {Object} [options={}] - Additional details like the derivation path that led to the action.
-     */
     outcome(context, outcome, options = {}) {
-        this.nar.learningEngine.recordExperience(context, outcome, options);
+        return this.core.outcome(context, outcome, options);
     }
 
     revise(hyperedgeId, options = {}) {
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        if (!hyperedge) {
-            this.nar._log('warn', `revise called on non-existent hyperedge: ${hyperedgeId}`);
-            return;
-        }
-
-        const {truth, budget} = options;
-        const strongestBelief = hyperedge.getStrongestBelief();
-
-        const finalTruth = truth || strongestBelief?.truth;
-        let finalBudget = budget || strongestBelief?.budget;
-
-        if (!finalTruth || !finalBudget) {
-            // Cannot revise without both truth and budget
-            return;
-        }
-
-        if (finalBudget && !(finalBudget instanceof Budget)) {
-            finalBudget = new Budget(finalBudget.priority, finalBudget.durability, finalBudget.quality);
-        }
-
-        const revisionResult = hyperedge.revise({
-            truth: finalTruth,
-            budget: finalBudget,
-            beliefCapacity: this.nar.config.beliefCapacity,
-            premises: strongestBelief?.premises, // Carry over premises
-            derivedBy: 'revision'
-        });
-
-        if (revisionResult.needsUpdate) {
-            this.nar.contradictionManager.detectContradictions(hyperedgeId);
-            this.nar.emit('revision', {hyperedgeId, newTruth: finalTruth, newBudget: finalBudget});
-            this.nar.propagation.propagate({
-                target: hyperedgeId,
-                activation: 1.0,
-                budget: finalBudget,
-                pathHash: 0,
-                pathLength: 0,
-                derivationPath: []
-            });
-        }
+        return this.core.revise(hyperedgeId, options);
     }
 
     removeHyperedge(hyperedgeId) {
-        const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        if (hyperedge) {
-            this.nar.state.hypergraph.delete(hyperedgeId);
-            if (this.nar.state.index.structural) {
-                this.nar.state.index.structural.removeFromIndex(hyperedge);
-            } else {
-                this.nar.state.index.removeFromIndex(hyperedge);
-            }
-            this.nar.state.activations.delete(hyperedgeId);
-            this.nar.emit('knowledge-pruned', {hyperedgeId, type: hyperedge.type});
-            return true;
-        }
-        return false;
+        return this.core.removeHyperedge(hyperedgeId);
     }
 }
