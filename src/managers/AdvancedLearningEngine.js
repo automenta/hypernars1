@@ -6,13 +6,14 @@ import {config} from '../config/index.js';
 import {PatternMiner} from './learningComponents/PatternMiner.js';
 import {ConceptFormer} from './learningComponents/ConceptFormer.js';
 import {RuleAdaptor} from './learningComponents/RuleAdaptor.js';
+import {mergeConfig} from "../support/utils.js";
 
 const defaultConfig = config.advancedLearningEngine;
 
 export class AdvancedLearningEngine extends LearningEngineBase {
     constructor(nar) {
         super(nar);
-        this.config = {...defaultConfig, ...nar.config.advancedLearningEngine};
+        this.config = mergeConfig(defaultConfig, nar.config.advancedLearningEngine);
         this.experienceBuffer = [];
         this.patternMemory = new Map();
         this.learningRate = this.config.learningRate;
@@ -24,7 +25,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
 
     recordExperience(context, outcome, options = {}) {
         const experience = {
-            id: `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+            id: `${this.config.experienceIdPrefix}${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
             timestamp: Date.now(),
             context,
             outcome,
@@ -87,8 +88,8 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         const existingMapping = this.nar.state.hypergraph.get(consequenceMappingId);
 
         const newTruth = existingMapping
-            ? TruthValue.revise(existingMapping.getTruth(), new TruthValue(success ? 1.0 : 0.0, this.config.actionConsequenceConfidence))
-            : new TruthValue(success ? 0.8 : 0.2, this.config.actionConsequenceConfidence);
+            ? TruthValue.revise(existingMapping.getTruth(), new TruthValue(success ? this.config.newTruthSuccessFreq : this.config.newTruthFailureFreq, this.config.actionConsequenceConfidence))
+            : new TruthValue(success ? this.config.initialTruthSuccessFreq : this.config.initialTruthFailureFreq, this.config.actionConsequenceConfidence);
 
         this.nar.api.addHyperedge('ActionConsequence', [actionId, consequence], {
             truth: newTruth,
@@ -110,7 +111,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         const ruleName = conclusionStep.derivedBy;
         if (ruleName) {
             this.ruleAdaptor.updateRuleProductivity(ruleName, false);
-            this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, 'failure', {penalty: 0.2});
+            this.nar.metaReasoner.updateStrategyEffectiveness(ruleName, 'failure', {penalty: this.config.failurePenalty});
         }
 
         // 2. Penalize the premise that was used by lowering its confidence
@@ -132,8 +133,8 @@ export class AdvancedLearningEngine extends LearningEngineBase {
             if (hyperedge) {
                 const belief = hyperedge.getStrongestBelief();
                 if (belief) {
-                    const boost = (1 + this.learningRate) * Math.pow(0.95, experience.derivationPath.length - 1 - index);
-                    belief.truth.confidence = Math.min(0.99, belief.truth.confidence * boost);
+                    const boost = (1 + this.learningRate) * Math.pow(this.config.reinforcementDecay, experience.derivationPath.length - 1 - index);
+                    belief.truth.confidence = Math.min(this.config.maxConfidence, belief.truth.confidence * boost);
                 }
             }
         });
@@ -154,19 +155,19 @@ export class AdvancedLearningEngine extends LearningEngineBase {
         }
 
         const currentTruth = belief.truth;
-        const newConfidence = Math.max(0.01, Math.min(0.99, currentTruth.confidence * adjustmentFactor));
+        const newConfidence = Math.max(this.config.minConfidence, Math.min(this.config.maxConfidence, currentTruth.confidence * adjustmentFactor));
 
         let newDoubt;
         if (wasSuccessful) {
-            newDoubt = Math.max(0, (currentTruth.doubt || 0) - this.learningRate * 0.1);
+            newDoubt = Math.max(0, (currentTruth.doubt || 0) - this.learningRate * this.config.doubtReductionFactor);
         } else {
-            newDoubt = Math.min(1.0, (currentTruth.doubt || 0) + this.learningRate * 0.5);
+            newDoubt = Math.min(1.0, (currentTruth.doubt || 0) + this.learningRate * this.config.doubtIncreaseFactor);
         }
 
         const newTruth = new TruthValue(currentTruth.frequency, newConfidence, currentTruth.priority, newDoubt);
 
         const newBudget = new Budget(
-            Math.min(1.0, belief.budget.priority * 1.01),
+            Math.min(1.0, belief.budget.priority * this.config.budgetPriorityBoost),
             belief.budget.durability,
             belief.budget.quality
         );
@@ -193,7 +194,7 @@ export class AdvancedLearningEngine extends LearningEngineBase {
             this.nar.derivationEngine.evaluateRules?.();
         }
 
-        if (this.experienceBuffer.length > this.config.experienceBufferMaxSize * 0.5) {
+        if (this.experienceBuffer.length > this.config.experienceBufferMaxSize * this.config.experienceBufferPruneThreshold) {
             this.experienceBuffer = this.experienceBuffer.slice(-this.config.experienceBufferPruneSize);
         }
     }

@@ -4,13 +4,14 @@ import {Budget} from '../support/Budget.js';
 import {config} from '../config/index.js';
 import {ForgettingManager} from './memoryComponents/ForgettingManager.js';
 import {ImportanceManager} from './memoryComponents/ImportanceManager.js';
+import {mergeConfig} from "../support/utils.js";
 
 const defaultConfig = config.advancedMemoryManager;
 
 export class AdvancedMemoryManager extends MemoryManagerBase {
     constructor(nar) {
         super(nar);
-        this.config = {...defaultConfig, ...nar.config.advancedMemoryManager};
+        this.config = mergeConfig(defaultConfig, nar.config.advancedMemoryManager);
 
         this.index = new OptimizedIndex(nar);
         nar.state.index = this.index;
@@ -94,27 +95,15 @@ export class AdvancedMemoryManager extends MemoryManagerBase {
     pruneLowValuePaths() {
         const threshold = this.config.lowValuePathPruningThreshold;
         const eventQueue = this.nar.state.eventQueue;
-        if (!eventQueue || eventQueue.heap.length === 0) {
+        if (!eventQueue || eventQueue.length === 0) {
             return 0;
         }
 
-        const originalSize = eventQueue.heap.length;
-        const pathsToKeep = [];
-        for (const event of eventQueue.heap) {
-            if (event.budget.total() >= threshold) {
-                pathsToKeep.push(event);
-            }
-        }
-
-        const prunedCount = originalSize - pathsToKeep.length;
+        const originalSize = eventQueue.length;
+        eventQueue.filter(event => event.budget.total() >= threshold);
+        const prunedCount = originalSize - eventQueue.length;
 
         if (prunedCount > 0) {
-            eventQueue.heap = pathsToKeep;
-
-            for (let i = Math.floor(eventQueue.heap.length / 2) - 1; i >= 0; i--) {
-                eventQueue._siftDown(i);
-            }
-
             this.nar.emit('pruning', {
                 type: 'low-value-paths',
                 count: prunedCount

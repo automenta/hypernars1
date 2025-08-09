@@ -47,3 +47,7 @@ export function stringifyAST(astNode) {
             return `${astNode.type}(${args})`;
     }
 }
+
+export function mergeConfig(defaultConfig, userConfig) {
+    return {...defaultConfig, ...userConfig};
+}

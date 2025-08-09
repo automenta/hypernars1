@@ -114,4 +114,59 @@ describe('PriorityQueue', () => {
             expect(pq.pop()).toBe(highPrio);
         });
     });
+
+    describe('filter', () => {
+        it('should remove items that do not satisfy the predicate', () => {
+            const pq = new PriorityQueue();
+            pq.push(lowPriorityItem);
+            pq.push(highPriorityItem);
+            pq.push(midPriorityItem);
+
+            pq.filter(item => item.budget.priority > 0.3);
+
+            expect(pq.length).toBe(2);
+            expect(pq.peek()).toBe(highPriorityItem);
+        });
+
+        it('should correctly re-heapify the queue after filtering', () => {
+            const pq = new PriorityQueue();
+            pq.push(lowPriorityItem); // 0.1
+            pq.push(highPriorityItem); // 0.9
+            pq.push(midPriorityItem); // 0.5
+            pq.push({id: 'high2', budget: {priority: 0.95}});
+            pq.push({id: 'low2', budget: {priority: 0.05}});
+
+            // Filter out the highest priority item
+            pq.filter(item => item.id !== 'high2');
+
+            expect(pq.length).toBe(4);
+            expect(pq.pop()).toBe(highPriorityItem);
+            expect(pq.pop()).toBe(midPriorityItem);
+            expect(pq.pop()).toBe(lowPriorityItem);
+            expect(pq.pop()).toStrictEqual({id: 'low2', budget: {priority: 0.05}});
+        });
+
+        it('should handle filtering that results in an empty queue', () => {
+            const pq = new PriorityQueue();
+            pq.push(lowPriorityItem);
+            pq.push(midPriorityItem);
+
+            pq.filter(() => false);
+
+            expect(pq.length).toBe(0);
+            expect(pq.peek()).toBeUndefined();
+        });
+
+        it('should do nothing if all items satisfy the predicate', () => {
+            const pq = new PriorityQueue();
+            pq.push(lowPriorityItem);
+            pq.push(highPriorityItem);
+            pq.push(midPriorityItem);
+
+            pq.filter(() => true);
+
+            expect(pq.length).toBe(3);
+            expect(pq.peek()).toBe(highPriorityItem);
+        });
+    });
 });

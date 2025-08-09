@@ -23,6 +23,17 @@ export class PriorityQueue {
         return top;
     }
 
+    filter(predicate) {
+        const initialSize = this.heap.length;
+        this.heap = this.heap.filter(predicate);
+
+        if (this.heap.length < initialSize) {
+            for (let i = Math.floor(this.heap.length / 2) - 1; i >= 0; i--) {
+                this._siftDown(i);
+            }
+        }
+    }
+
     _siftUp() {
         let idx = this.heap.length - 1;
         while (idx > 0) {

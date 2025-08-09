@@ -4,6 +4,7 @@ import {Api} from './core/Api.js';
 import {System} from './core/System.js';
 import {Propagation} from './core/Propagation.js';
 import {QuestionHandler} from './core/QuestionHandler.js';
+import {StateSerializer} from './core/StateSerializer.js';
 import {ExpressionEvaluator} from './evaluator/ExpressionEvaluator.js';
 import {AdvancedExpressionEvaluator} from './evaluator/AdvancedExpressionEvaluator.js';
 
@@ -32,30 +33,7 @@ import {ExplanationSystem} from './managers/ExplanationSystem.js';
 import {GoalManagerBase} from './managers/GoalManagerBase.js';
 import {GoalManager} from './managers/GoalManager.js';
 import {ConceptFormation} from './managers/ConceptFormation.js';
-
-
-const MODULE_DEFINITIONS = [
-    {name: 'ExpressionEvaluator', simple: ExpressionEvaluator, advanced: AdvancedExpressionEvaluator},
-    {
-        name: 'DerivationEngine',
-        simple: SimpleDerivationEngine,
-        advanced: AdvancedDerivationEngine,
-        base: DerivationEngineBase
-    },
-    {name: 'MemoryManager', simple: SimpleMemoryManager, advanced: AdvancedMemoryManager, base: MemoryManagerBase},
-    {
-        name: 'ContradictionManager',
-        simple: SimpleContradictionManager,
-        advanced: AdvancedContradictionManager,
-        base: ContradictionManagerBase
-    },
-    {name: 'LearningEngine', simple: SimpleLearningEngine, advanced: AdvancedLearningEngine, base: LearningEngineBase},
-    {name: 'TemporalManager', simple: SimpleTemporalManager, advanced: TemporalReasoner, base: TemporalManagerBase},
-    {name: 'CognitiveExecutive', simple: CognitiveExecutive},
-    {name: 'ExplanationSystem', simple: ExplanationSystem},
-    {name: 'GoalManager', simple: GoalManager, base: GoalManagerBase},
-    {name: 'ConceptFormation', simple: ConceptFormation},
-];
+import {MODULE_DEFINITIONS} from './core/moduleDefinitions.js';
 
 
 const DEFAULT_CONFIG = {
@@ -102,6 +80,7 @@ export class NAR extends EventEmitter {
         this.propagation = new Propagation(this);
         this.questionHandler = new QuestionHandler(this);
         this.system = new System(this);
+        this.serializer = new StateSerializer(this);
     }
 
     _initializeModules(config) {
@@ -209,42 +188,11 @@ export class NAR extends EventEmitter {
     }
 
     saveState() {
-        const hypergraphData = Array.from(this.state.hypergraph.values()).map(h => h.toJSON());
-        const stateData = {
-            version: '1.0',
-            timestamp: Date.now(),
-            config: this.config,
-            currentStep: this.state.currentStep,
-            hypergraph: hypergraphData,
-        };
-        return JSON.stringify(stateData, null, 2);
+        return this.serializer.saveState();
     }
 
     loadState(jsonString) {
-        const stateData = JSON.parse(jsonString);
-
-        if (!stateData.version || !stateData.hypergraph) {
-            throw new Error('Invalid or unsupported state file.');
-        }
-
-        this.clearState();
-        this.config = Object.assign(this.config, stateData.config);
-        this.state.currentStep = stateData.currentStep || 0;
-
-        for (const edgeData of stateData.hypergraph) {
-            if (!edgeData.beliefs || edgeData.beliefs.length === 0) continue;
-
-            for (const beliefData of edgeData.beliefs) {
-                const options = {
-                    truth: new this.api.TruthValue(beliefData.truth.frequency, beliefData.truth.confidence, beliefData.truth.priority),
-                    budget: new this.api.Budget(beliefData.budget.priority, beliefData.budget.durability, beliefData.budget.quality),
-                    premises: beliefData.premises,
-                    derivedBy: beliefData.derivedBy,
-                    timestamp: beliefData.timestamp,
-                };
-                this.api.addHyperedge(edgeData.type, edgeData.args, options);
-            }
-        }
+        return this.serializer.loadState(jsonString);
     }
 
     _log(level, message, details = {}) {
