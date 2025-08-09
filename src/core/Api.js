@@ -311,7 +311,7 @@ export class Api {
         });
 
         if (revisionResult.needsUpdate) {
-            this.nar.contradictionManager.detectContradiction(termId);
+            this.nar.contradictionManager.detectContradictions(termId);
             //this.nar._log('debug', `Checking for inter-edge contradictions. Manager has method: ${!!this.nar.contradictionManager.detectAndResolveInterEdgeContradictions}`);
             if (this.nar.contradictionManager.detectAndResolveInterEdgeContradictions) {
                 this.nar.contradictionManager.detectAndResolveInterEdgeContradictions(hyperedge);
@@ -404,7 +404,7 @@ export class Api {
         });
 
         if (revisionResult.needsUpdate) {
-            this.nar.contradictionManager.detectContradiction(hyperedgeId);
+            this.nar.contradictionManager.detectContradictions(hyperedgeId);
             this.nar.emit('revision', {hyperedgeId, newTruth: finalTruth, newBudget: finalBudget});
             this.nar.propagation.propagate({
                 target: hyperedgeId,

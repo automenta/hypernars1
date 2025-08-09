@@ -1,5 +1,5 @@
 import {GoalManagerBase} from './GoalManagerBase.js';
-import {id} from '../support/utils.js';
+import {id, stringifyAST} from '../support/utils.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {Goal} from '../support/Goal.js';
 
@@ -123,7 +123,7 @@ export class GoalManager extends GoalManagerBase {
             if (parsedGoal.type === 'Conjunction' && parsedGoal.args.length > 1) {
                 this.nar.emit('goal-decomposed', {goalId: goal.id, subgoals: parsedGoal.args});
                 parsedGoal.args.forEach((subgoalAst, i) => {
-                    const subgoalDescription = this._stringifyAST(subgoalAst);
+                    const subgoalDescription = stringifyAST(subgoalAst);
                     if (subgoalDescription) {
                         this.addGoal(subgoalDescription, goal.utility * this.config.subgoalUtilityFactor, goal.constraints, {
                             priority: goal.priority * this.config.subgoalPriorityFactor,
@@ -137,30 +137,6 @@ export class GoalManager extends GoalManagerBase {
             }
         } catch (e) {
             this.nar.emit('goal-stalled', {goalId: goal.id, reason: 'parse_error', error: e.message});
-        }
-    }
-
-    _stringifyAST(astNode) {
-        if (typeof astNode === 'string') {
-            return astNode;
-        }
-        if (!astNode || !astNode.type) {
-            return null;
-        }
-
-        const args = astNode.args.map(arg => this._stringifyAST(arg)).join(', ');
-
-        switch (astNode.type) {
-            case 'Term':
-                return astNode.args[0];
-            case 'Inheritance':
-                return `<${this._stringifyAST(astNode.args[0])} --> ${this._stringifyAST(astNode.args[1])}>.`;
-            case 'Implication':
-                return `<${this._stringifyAST(astNode.args[0])} ==> ${this._stringifyAST(astNode.args[1])}>.`;
-            case 'Conjunction':
-                return `(&&, ${args})`;
-            default:
-                return `${astNode.type}(${args})`;
         }
     }
 

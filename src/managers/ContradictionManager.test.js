@@ -32,7 +32,7 @@ describe('AdvancedContradictionManager', () => {
         nar.contradictionManager.addEvidence(termId, belief2.id, {source: 'B', strength: 0.2});
 
         // Resolve the contradiction
-        nar.contradictionManager.detectContradiction(termId);
+        nar.contradictionManager.detectContradictions(termId);
         const result = nar.contradictionManager.manualResolve(termId, 'dominant_evidence');
 
         expect(result).not.toBeNull();
@@ -60,7 +60,7 @@ describe('AdvancedContradictionManager', () => {
         nar.contradictionManager.addEvidence(termId, belief2.id, {source: 'SourceB', strength: 0.78});
 
         // Resolve the contradiction
-        nar.contradictionManager.detectContradiction(termId);
+        nar.contradictionManager.detectContradictions(termId);
         const result = nar.contradictionManager.manualResolve(termId, 'specialize');
 
         // Assert that the resolution was 'specialized'
@@ -131,7 +131,7 @@ describe('AdvancedContradictionManager', () => {
         let belief1_2 = hyperedge1.beliefs.find(b => b.truth.frequency === 0.3);
         nar.contradictionManager.addEvidence(termId1, belief1_1.id, {source: 'A', strength: 0.7});
         nar.contradictionManager.addEvidence(termId1, belief1_2.id, {source: 'B', strength: 0.5});
-        nar.contradictionManager.detectContradiction(termId1);
+        nar.contradictionManager.detectContradictions(termId1);
 
         // Concept 2: Strong contradiction
         const termId2 = id('Term', ['e']);
@@ -142,7 +142,7 @@ describe('AdvancedContradictionManager', () => {
         let belief2_2 = hyperedge2.beliefs.find(b => b.truth.frequency === 0.2);
         nar.contradictionManager.addEvidence(termId2, belief2_1.id, {source: 'C', strength: 0.8});
         nar.contradictionManager.addEvidence(termId2, belief2_2.id, {source: 'D', strength: 0.78});
-        nar.contradictionManager.detectContradiction(termId2);
+        nar.contradictionManager.detectContradictions(termId2);
 
         // Run the global resolution
         nar.contradictionManager.resolveContradictions();

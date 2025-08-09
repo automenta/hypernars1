@@ -11,12 +11,6 @@ export class SimpleMemoryManager extends MemoryManagerBase {
         return new Budget(0.5, 0.5, 0.5);
     }
 
-    addToIndex(hyperedge) {
-    }
-
-    removeFromIndex(hyperedge) {
-    }
-
     maintainMemory() {
     }
 

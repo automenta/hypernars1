@@ -32,13 +32,4 @@ describe('SimpleMemoryManager', () => {
     it('should not throw an error when updateRelevance is called', () => {
         expect(() => memoryManager.updateRelevance('some_id', 'test')).not.toThrow();
     });
-
-    // These methods are deprecated/stubs, but we test them for completeness
-    it('should not throw an error when addToIndex is called', () => {
-        expect(() => memoryManager.addToIndex({})).not.toThrow();
-    });
-
-    it('should not throw an error when removeFromIndex is called', () => {
-        expect(() => memoryManager.removeFromIndex({})).not.toThrow();
-    });
 });

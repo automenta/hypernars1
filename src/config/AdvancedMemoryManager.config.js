@@ -1,0 +1,38 @@
+export const advancedMemoryManagerConfig = {
+    forgettingThreshold: 0.1,
+    forgettingCheckSampleSize: 200,
+    minConceptsForForgetting: 1000,
+    retentionScoreImportanceWeight: 0.6,
+    retentionScoreActivationWeight: 0.3,
+    retentionScorePopularityWeight: 0.1,
+    popularityNormalizationFactor: 100,
+    importanceDecayFactor: 0.995,
+    importanceActivationWeight: 0.2,
+    importanceQuestionWeight: 0.2,
+    importanceSuccessWeight: 0.1,
+    importanceContextWeight: 0.3,
+    importanceGoalWeight: 0.4,
+    beliefCapacityAdjustmentThresholdHigh: 10000,
+    beliefCapacityAdjustmentThresholdLow: 5000,
+    beliefCapacityAdjustmentFactor: 0.95,
+    maxBeliefCapacity: 12,
+    minBeliefCapacity: 4,
+    basePriority: {
+        question: 0.9,
+        'critical-event': 0.95,
+        derivation: 0.6,
+        revision: 0.7,
+        default: 0.5
+    },
+    urgencyPriorityFactor: 0.3,
+    importancePriorityFactor: 0.2,
+    resourceAvailabilityUsageFactor: 0.7,
+    resourceAvailabilityMin: 0.1,
+    durability: {
+        high: 0.9,
+        low: 0.6
+    },
+    qualityAvailabilityFactor: 0.8,
+    eventQueueUsageNormalization: 1000,
+    lowValuePathPruningThreshold: 0.2,
+};

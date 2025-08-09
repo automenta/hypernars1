@@ -23,3 +23,27 @@ export function getArgId(arg) {
 export function hash(str) {
     return [...str].reduce((h, c) => ((h << 5) - h + c.codePointAt(0)) >>> 0, 0);
 }
+
+export function stringifyAST(astNode) {
+    if (typeof astNode === 'string') {
+        return astNode;
+    }
+    if (!astNode || !astNode.type) {
+        return null;
+    }
+
+    const args = astNode.args.map(arg => stringifyAST(arg)).join(', ');
+
+    switch (astNode.type) {
+        case 'Term':
+            return astNode.args[0];
+        case 'Inheritance':
+            return `<${stringifyAST(astNode.args[0])} --> ${stringifyAST(astNode.args[1])}>.`;
+        case 'Implication':
+            return `<${stringifyAST(astNode.args[0])} ==> ${stringifyAST(astNode.args[1])}>.`;
+        case 'Conjunction':
+            return `(&&, ${args})`;
+        default:
+            return `${astNode.type}(${args})`;
+    }
+}

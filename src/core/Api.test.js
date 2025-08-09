@@ -28,7 +28,7 @@ const createMockNar = () => ({
         allocateResources: jest.fn((_, params) => new Budget(params.importance || 0.5, 0.5, 0.5)),
     },
     contradictionManager: {
-        detectContradiction: jest.fn(),
+        detectContradictions: jest.fn(),
     },
     propagation: {
         propagate: jest.fn(),
@@ -131,7 +131,7 @@ describe('Api', () => {
             api.revise(id, {truth: newTruth});
 
             expect(reviseSpy).toHaveBeenCalledWith(expect.objectContaining({truth: newTruth}));
-            expect(nar.contradictionManager.detectContradiction).toHaveBeenCalledWith(id);
+            expect(nar.contradictionManager.detectContradictions).toHaveBeenCalledWith(id);
             expect(nar.emit).toHaveBeenCalledWith('revision', expect.any(Object));
         });
 

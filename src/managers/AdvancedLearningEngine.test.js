@@ -62,7 +62,7 @@ describe('AdvancedLearningEngine', () => {
         mockNar.derivationEngine.rules.clear();
         engine.experienceBuffer = [];
         engine.patternMemory.clear();
-        engine.ruleProductivity.clear();
+        engine.ruleAdaptor.ruleProductivity.clear();
     });
 
     describe('Experience Handling', () => {
@@ -112,8 +112,8 @@ describe('AdvancedLearningEngine', () => {
 
             engine._analyzeFailure(experience);
 
-            expect(engine.ruleProductivity.get('TestRule').successes).toBe(0);
-            expect(engine.ruleProductivity.get('TestRule').attempts).toBe(1);
+            expect(engine.ruleAdaptor.ruleProductivity.get('TestRule').successes).toBe(0);
+            expect(engine.ruleAdaptor.ruleProductivity.get('TestRule').attempts).toBe(1);
             expect(premiseEdge.getStrongestBelief().truth.confidence).toBeLessThan(0.8);
         });
 
@@ -140,9 +140,9 @@ describe('AdvancedLearningEngine', () => {
     describe('Rule Adaptation', () => {
         it('should disable a rule if its effectiveness is below the threshold', () => {
             mockNar.derivationEngine.rules.set('BadRule', {enabled: true});
-            engine.ruleProductivity.set('BadRule', {successes: 0, attempts: 10});
+            engine.ruleAdaptor.ruleProductivity.set('BadRule', {successes: 0, attempts: 10});
 
-            engine._adaptDerivationRules();
+            engine.ruleAdaptor.adaptDerivationRules();
 
             expect(mockNar.derivationEngine.rules.get('BadRule').enabled).toBe(false);
             expect(mockNar.emit).toHaveBeenCalledWith('rule-disabled', expect.any(Object));
@@ -150,9 +150,9 @@ describe('AdvancedLearningEngine', () => {
 
         it('should re-enable a rule if its effectiveness improves', () => {
             mockNar.derivationEngine.rules.set('GoodRule', {enabled: false});
-            engine.ruleProductivity.set('GoodRule', {successes: 8, attempts: 10});
+            engine.ruleAdaptor.ruleProductivity.set('GoodRule', {successes: 8, attempts: 10});
 
-            engine._adaptDerivationRules();
+            engine.ruleAdaptor.adaptDerivationRules();
 
             expect(mockNar.derivationEngine.rules.get('GoodRule').enabled).toBe(true);
             expect(mockNar.emit).toHaveBeenCalledWith('rule-enabled', expect.any(Object));
@@ -172,7 +172,7 @@ describe('AdvancedLearningEngine', () => {
             // top-level properties on the experience object, which _discoverPatterns expects.
             engine.recordExperience({/* no context */}, {success: true}, experienceData);
 
-            engine._discoverPatterns();
+            engine.patternMiner.discoverPatterns();
 
             const signature = 'Inheritance,Inheritance=>Inheritance';
             expect(engine.patternMemory.has(signature)).toBe(true);
@@ -187,7 +187,7 @@ describe('AdvancedLearningEngine', () => {
                 totalCount: 4
             });
 
-            engine._createRulesFromPatterns();
+            engine.patternMiner.createRulesFromPatterns();
 
             const expectedPremiseId = id('Conjunction', ['p1', 'p2']);
             expect(mockNar.api.implication).toHaveBeenCalledWith(expectedPremiseId, 'c1', expect.any(Object));
@@ -200,9 +200,9 @@ describe('AdvancedLearningEngine', () => {
                 totalCount: 5,
                 successCount: 4,
             });
-            jest.spyOn(engine, '_getTermsFromSignature').mockReturnValue(['TypeA', 'TypeB']);
+            jest.spyOn(engine.conceptFormer, '_getTermsFromSignature').mockReturnValue(['TypeA', 'TypeB']);
 
-            engine._formNewConcepts();
+            engine.conceptFormer.formNewConcepts();
 
             const conceptId = id('Concept', ['TypeA', 'TypeB']);
             expect(mockNar.api.addHyperedge).toHaveBeenCalledWith('Concept', ['TypeA', 'TypeB'], expect.any(Object));
