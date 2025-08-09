@@ -102,7 +102,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
 
     detectContradiction(hyperedgeId) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        if (!hyperedge || hyperedge.beliefs.length < 2) {
+        if (!hyperedge || !hyperedge.beliefs || hyperedge.beliefs.length < 2) {
             if (this.contradictions.has(hyperedgeId)) {
                 this.contradictions.delete(hyperedgeId);
                 this.nar.emit('contradiction-resolved', {hyperedgeId, reason: 'belief_pruned'});
@@ -111,17 +111,17 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         }
 
         const contradictoryPairs = [];
-        for (let i = 0; i < hyperedge.beliefs.length; i++) {
-            for (let j = i + 1; j < hyperedge.beliefs.length; j++) {
-                if (this._areContradictory(hyperedge.beliefs[i].truth, hyperedge.beliefs[j].truth)) {
-                    contradictoryPairs.push({
-                        belief1: hyperedge.beliefs[i],
-                        belief2: hyperedge.beliefs[j],
-                        severity: this._contradictionSeverity(hyperedge.beliefs[i].truth, hyperedge.beliefs[j].truth)
-                    });
-                }
+        // Use the helper method from the base class to find all contradictory pairs.
+        this._iterateBeliefPairs(hyperedge, (belief1, belief2) => {
+            if (this._areContradictory(belief1.truth, belief2.truth)) {
+                contradictoryPairs.push({
+                    belief1: belief1,
+                    belief2: belief2,
+                    severity: this._contradictionSeverity(belief1.truth, belief2.truth)
+                });
             }
-        }
+            return false; // Always return false to ensure we check all pairs.
+        });
 
         if (contradictoryPairs.length > 0) {
             this.contradictions.set(hyperedgeId, {

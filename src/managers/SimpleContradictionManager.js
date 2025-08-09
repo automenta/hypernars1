@@ -8,28 +8,24 @@ export class SimpleContradictionManager extends ContradictionManagerBase {
 
     detectContradictions(hyperedgeId) {
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
-        if (!hyperedge || hyperedge.beliefs.length < 2) {
+        if (!hyperedge) {
             return false;
         }
 
-        const beliefs = hyperedge.beliefs;
-        for (let i = 0; i < beliefs.length; i++) {
-            for (let j = i + 1; j < beliefs.length; j++) {
-                const belief1 = beliefs[i];
-                const belief2 = beliefs[j];
+        // Use the helper method from the base class to iterate over belief pairs.
+        return this._iterateBeliefPairs(hyperedge, (belief1, belief2) => {
+            const freqDiff = Math.abs(belief1.truth.frequency - belief2.truth.frequency);
 
-                const freqDiff = Math.abs(belief1.truth.frequency - belief2.truth.frequency);
-
-                if (freqDiff > this.contradictionThreshold && belief1.truth.confidence > 0.5 && belief2.truth.confidence > 0.5) {
-                    this.nar.emit('contradiction-detected', {
-                        hyperedgeId,
-                        contradictions: [{belief1, belief2}]
-                    });
-                    return true;
-                }
+            // The original logic for what constitutes a contradiction.
+            if (freqDiff > this.contradictionThreshold && belief1.truth.confidence > 0.5 && belief2.truth.confidence > 0.5) {
+                this.nar.emit('contradiction-detected', {
+                    hyperedgeId,
+                    contradictions: [{belief1, belief2}]
+                });
+                return true; // Return true to stop the iteration.
             }
-        }
-        return false;
+            return false; // Return false to continue to the next pair.
+        });
     }
 
     resolveContradictions() {
