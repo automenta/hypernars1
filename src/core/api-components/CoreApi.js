@@ -109,6 +109,10 @@ export class CoreApi {
     }
 
     removeHyperedge(hyperedgeId) {
+        if (hyperedgeId.includes('tweety')) {
+            console.log(`Removing hyperedge: ${hyperedgeId}`);
+            console.trace();
+        }
         const hyperedge = this.nar.state.hypergraph.get(hyperedgeId);
         if (hyperedge) {
             this.nar.state.hypergraph.delete(hyperedgeId);

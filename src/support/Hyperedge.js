@@ -19,24 +19,50 @@ export class Hyperedge {
             derivedBy = null
         } = options;
 
-        const newBelief = {
-            id: `Belief_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            truth,
-            budget,
-            premises: premises || [],
-            context,
-            derivedBy,
-            timestamp: Date.now()
-        };
+        // Attempt to find an existing belief with the same premises
+        const existingBelief = this.beliefs.find(b =>
+            this.arePremisesEqual(b.premises, premises || [])
+        );
 
-        this.beliefs.push(newBelief);
+        if (existingBelief) {
+            // Update existing belief
+            existingBelief.truth = truth;
+            existingBelief.budget = budget;
+            existingBelief.timestamp = Date.now();
+            existingBelief.derivedBy = derivedBy; // Update derivation path
+        } else {
+            // Add as a new belief
+            const newBelief = {
+                id: `Belief_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                truth,
+                budget,
+                premises: premises || [],
+                context,
+                derivedBy,
+                timestamp: Date.now()
+            };
+            this.beliefs.push(newBelief);
+        }
+
         this.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
 
         if (this.beliefs.length > beliefCapacity) {
+            if (this.id.includes('tweety')) {
+                console.log(`Truncating beliefs for ${this.id}. Before: ${this.beliefs.length}, Capacity: ${beliefCapacity}`);
+            }
             this.beliefs.length = beliefCapacity;
         }
 
         return {newBelief: this.getStrongestBelief(), needsUpdate: true};
+    }
+
+    arePremisesEqual(premisesA, premisesB) {
+        if (premisesA.length !== premisesB.length || premisesA.length === 0) {
+            return false;
+        }
+        const idsA = premisesA.map(p => p.id).sort();
+        const idsB = premisesB.map(p => p.id).sort();
+        return idsA.every((id, index) => id === idsB[index]);
     }
 
     getStrongestBelief() {

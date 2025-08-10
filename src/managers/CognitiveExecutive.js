@@ -259,6 +259,10 @@ export class CognitiveExecutive {
         candidates.sort((a, b) => a.value - b.value);
         const pruneCount = Math.min(this.config.MAX_PRUNE_CANDIDATES, Math.ceil(candidates.length * this.config.PRUNE_CANDIDATE_RATIO));
         for (let i = 0; i < pruneCount; i++) {
+            if (candidates[i].id.includes('tweety')) {
+                console.log(`Pruning hyperedge: ${candidates[i].id}`);
+                console.trace();
+            }
             this.nar.api.removeHyperedge(candidates[i].id);
         }
     }

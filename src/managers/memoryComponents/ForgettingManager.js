@@ -8,6 +8,10 @@ export class ForgettingManager {
     }
 
     selectivelyForget() {
+        if (this.nar.config.disableForgetting) {
+            return;
+        }
+
         const totalConcepts = this.nar.state.hypergraph.size;
         if (totalConcepts < this.config.minConceptsForForgetting) return;
 

@@ -241,15 +241,29 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
     }
 
     _applyResolution(hyperedge, contradiction, resolution, strategyName) {
-        if (!resolution || !hyperedge) return 'failure';
+        if (!resolution || !hyperedge) {
+            return 'failure';
+        }
 
         contradiction.resolved = true;
         contradiction.resolutionStrategy = strategyName;
         contradiction.resolvedValue = resolution;
 
-        const newBeliefs = resolution.updatedBeliefs || (resolution.primaryBelief ? [resolution.primaryBelief] : (resolution.newBelief ? [resolution.newBelief] : null));
-        if (newBeliefs) {
-            hyperedge.beliefs = newBeliefs;
+        // Execute the declarative resolution plan
+        if (resolution.revisions) {
+            resolution.revisions.forEach(rev => {
+                const belief = hyperedge.beliefs.find(b => b.id === rev.beliefId);
+                if (belief) {
+                    belief.truth = rev.newTruth;
+                    belief.budget = rev.newBudget;
+                    belief.timestamp = Date.now();
+                }
+            });
+        }
+
+        if (resolution.deletions) {
+            const deletionIds = new Set(resolution.deletions.map(d => d.beliefId));
+            hyperedge.beliefs = hyperedge.beliefs.filter(b => !deletionIds.has(b.id));
         }
 
         this.nar.emit('contradiction-resolved', {

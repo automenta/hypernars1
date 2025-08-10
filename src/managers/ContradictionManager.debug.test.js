@@ -1,38 +1,60 @@
-import {describe, expect, it} from '@jest/globals';
+import {describe, it, expect, beforeEach} from '@jest/globals';
 import {NAR} from '../NAR.js';
-import {TruthValue} from '../support/TruthValue.js';
-import {Budget} from '../support/Budget.js';
-import {id} from '../support/utils.js';
-import {AdvancedContradictionManager} from './AdvancedContradictionManager.js';
 
-const config = {
-    modules: {
-        ContradictionManager: AdvancedContradictionManager
-    }
-};
+describe('AdvancedContradictionManager new resolution mechanism', () => {
+    let nar;
 
-describe('ContradictionManager Debug', () => {
-    it.skip('should correctly select and execute the merge strategy', () => {
-        const nar = new NAR(config);
-        const term = id('Inheritance', ['bat', 'mammal']);
+    beforeEach(() => {
+        nar = new NAR({
+            useAdvanced: true,
+            advancedContradictionManager: {
+                // High thresholds to prevent automatic strategy selection
+                dominantEvidenceFactor: 1000,
+                sourceReliabilityDifferenceThreshold: 1000,
+            }
+        });
+    });
 
-        nar.api.inheritance('bat', 'mammal', {truth: new TruthValue(0.9, 0.8), budget: new Budget(0.8, 0.9, 0.9)});
-        nar.api.inheritance('bat', 'mammal', {truth: new TruthValue(0.85, 0.85), budget: new Budget(0.78, 0.9, 0.9)});
+    it('should correctly execute a merge resolution plan', () => {
+        const statement = '<tweety --> flyer>.';
 
-        const hyperedge = nar.state.hypergraph.get(term);
-        const belief1 = hyperedge.beliefs.find(b => b.truth.frequency === 0.9);
-        const belief2 = hyperedge.beliefs.find(b => b.truth.frequency === 0.85);
-        nar.contradictionManager.addEvidence(term, belief1.id, {source: 'default', strength: 0.8});
-        nar.contradictionManager.addEvidence(term, belief2.id, {source: 'default', strength: 0.78});
+        // Use the parser to get the canonical ID for the hyperedge
+        const parsed = nar.expressionEvaluator.parse(statement);
+        const hyperedgeId = nar.expressionEvaluator._getParsedStructureId(parsed);
 
-        nar.contradictionManager.detectContradiction(term);
+        // 1. Add two contradictory beliefs to the same hyperedge
+        nar.nal(`${statement} %0.9;0.9%`);
+        nar.nal(`${statement} %0.1;0.9%`);
 
-        const contradictionData = nar.contradictionManager.contradictions.get(term);
-        const strategyName = nar.contradictionManager._selectResolutionStrategy(term, contradictionData);
+        const hyperedge = nar.state.hypergraph.get(hyperedgeId);
+        expect(hyperedge).toBeDefined();
+        expect(hyperedge.beliefs.length).toBe(2);
 
-        expect(strategyName).toBe('merge');
+        const belief1_original = hyperedge.beliefs[0];
+        const belief2_original = hyperedge.beliefs[1];
 
-        const result = nar.contradictionManager.manualResolve(term, 'merge');
-        expect(result).not.toBeNull();
+        // 2. Manually trigger contradiction detection and resolution
+        nar.contradictionManager.detectContradictions(hyperedgeId);
+        const resolution = nar.contradictionManager.manualResolve(hyperedgeId, 'merge');
+
+        // 3. Assert the resolution plan is what we expect from the planner
+        expect(resolution.reason).toBe('merged');
+        expect(resolution.revisions.length).toBe(1);
+        expect(resolution.deletions.length).toBe(1);
+
+        // 4. Assert that the hyperedge was modified correctly by the executor
+        expect(hyperedge.beliefs.length).toBe(1);
+
+        const winningBelief = hyperedge.beliefs[0];
+
+        // 5. Assert that the belief was revised in-place (object identity is preserved)
+        const originalWinner = belief1_original.truth.expectation() > belief2_original.truth.expectation() ? belief1_original : belief2_original;
+        expect(winningBelief.id).toBe(originalWinner.id);
+
+        // 6. Assert the truth value was revised as expected
+        // The revision formula for confidence is c = 1 - (1-c1)(1-c2)
+        // For c1=0.9, c2=0.9, the result is 1 - (0.1*0.1) = 0.99
+        expect(winningBelief.truth.frequency).toBeCloseTo(0.5);
+        expect(winningBelief.truth.confidence).toBeCloseTo(0.99);
     });
 });

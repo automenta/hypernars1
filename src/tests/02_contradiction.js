@@ -7,6 +7,7 @@ export default {
         {
             comment: 'Establish the initial belief that Tweety is a flyer.',
             action: (nar) => {
+                nar.config.cognitiveExecutive.LOW_BELIEF_STRENGTH_PRUNE_THRESHOLD = 0.0;
                 nar.nal('(tweety --> flyer). %0.8;0.7%');
                 nar.run(10);
             },

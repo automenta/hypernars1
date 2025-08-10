@@ -15,19 +15,22 @@ export class DominantEvidenceStrategy {
         const strongest = beliefsWithEvidence[0];
         const otherBeliefs = beliefsWithEvidence.slice(1);
 
-        const modifiedBeliefs = otherBeliefs.map(item => {
-            const modifiedBelief = {...item.belief};
-            modifiedBelief.truth = new TruthValue(
-                modifiedBelief.truth.frequency,
-                modifiedBelief.truth.confidence * this.manager.config.weakenConfidenceFactor,
-                modifiedBelief.truth.priority * this.manager.config.weakenPriorityFactor,
-                Math.min(1.0, (modifiedBelief.truth.doubt || 0) + this.manager.config.weakenDoubtFactor)
+        const revisions = otherBeliefs.map(item => {
+            const newTruth = new TruthValue(
+                item.belief.truth.frequency,
+                item.belief.truth.confidence * this.manager.config.weakenConfidenceFactor,
+                item.belief.truth.priority * this.manager.config.weakenPriorityFactor,
+                Math.min(1.0, (item.belief.truth.doubt || 0) + this.manager.config.weakenDoubtFactor)
             );
-            return modifiedBelief;
+            // Weaken the budget as well
+            const newBudget = item.belief.budget.scale(this.manager.config.weakenBudgetFactor || 0.5);
+            return {beliefId: item.belief.id, newTruth, newBudget};
         });
 
-        const newBeliefs = [strongest.belief, ...modifiedBeliefs];
-
-        return {reason: 'dominant_evidence', primaryBelief: strongest.belief, updatedBeliefs: newBeliefs};
+        return {
+            reason: 'dominant_evidence',
+            revisions: revisions,
+            deletions: [] // No deletions in this strategy
+        };
     }
 }
