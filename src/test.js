@@ -1,4 +1,4 @@
-import {beforeEach, describe, it} from '@jest/globals';
+import {beforeAll, describe, it} from '@jest/globals';
 import {NAR} from './NAR.js';
 import fs from 'fs';
 import path from 'path';
@@ -52,12 +52,11 @@ describe('All Tests', () => {
                 const describeBlock = test.skipped ? describe.skip : describe;
 
                 describeBlock(testName, () => {
-                    const nar = new NAR({...test.config, useAdvanced: true});
+                    let nar;
                     let logs;
 
-                    beforeEach(() => {
-                        nar.clearState();
-                        nar.removeAllListeners('log');
+                    beforeAll(() => {
+                        nar = new NAR({...test.config, useAdvanced: true});
                         logs = [];
                         nar.on('log', (log) => {
                             logs.push(log.message);

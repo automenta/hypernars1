@@ -73,6 +73,14 @@ export class NAR extends EventEmitter {
     _initConfig(config) {
         this.config = {...DEFAULT_CONFIG, ...config};
         this.config.ruleConfig = this.config.ruleConfig || {};
+
+        // Create nested config objects for each module to allow for module-specific overrides.
+        for (const moduleDef of MODULE_DEFINITIONS) {
+            const instanceName = moduleDef.name.charAt(0).toLowerCase() + moduleDef.name.slice(1);
+            // If the incoming config already has a nested object for the module, use it.
+            // Otherwise, initialize an empty object. This prevents errors when trying to access properties on it.
+            this.config[instanceName] = this.config[instanceName] || {};
+        }
     }
 
     _initializeCoreComponents(config) {

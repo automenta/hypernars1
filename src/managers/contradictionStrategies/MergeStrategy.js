@@ -27,11 +27,10 @@ export class MergeStrategy {
         return {
             reason: 'merged',
             revisions: [
-                {beliefId: belief1.belief.id, newTruth: mergedTruth, newBudget: mergedBudget}
+                {beliefId: belief1.belief.id, newTruth: mergedTruth, newBudget: mergedBudget},
+                {beliefId: belief2.belief.id, newTruth: mergedTruth, newBudget: mergedBudget.scale(0.9)}
             ],
-            deletions: [
-                {beliefId: belief2.belief.id}
-            ]
+            deletions: []
         };
     }
 }

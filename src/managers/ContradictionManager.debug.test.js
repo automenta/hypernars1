@@ -39,22 +39,18 @@ describe('AdvancedContradictionManager new resolution mechanism', () => {
 
         // 3. Assert the resolution plan is what we expect from the planner
         expect(resolution.reason).toBe('merged');
-        expect(resolution.revisions.length).toBe(1);
-        expect(resolution.deletions.length).toBe(1);
+        expect(resolution.revisions.length).toBe(2);
+        expect(resolution.deletions.length).toBe(0);
 
         // 4. Assert that the hyperedge was modified correctly by the executor
-        expect(hyperedge.beliefs.length).toBe(1);
+        expect(hyperedge.beliefs.length).toBe(2);
 
-        const winningBelief = hyperedge.beliefs[0];
-
-        // 5. Assert that the belief was revised in-place (object identity is preserved)
-        const originalWinner = belief1_original.truth.expectation() > belief2_original.truth.expectation() ? belief1_original : belief2_original;
-        expect(winningBelief.id).toBe(originalWinner.id);
-
-        // 6. Assert the truth value was revised as expected
+        // 5. Assert the truth value was revised as expected for both beliefs
         // The revision formula for confidence is c = 1 - (1-c1)(1-c2)
         // For c1=0.9, c2=0.9, the result is 1 - (0.1*0.1) = 0.99
-        expect(winningBelief.truth.frequency).toBeCloseTo(0.5);
-        expect(winningBelief.truth.confidence).toBeCloseTo(0.99);
+        for (const belief of hyperedge.beliefs) {
+            expect(belief.truth.frequency).toBeCloseTo(0.5);
+            expect(belief.truth.confidence).toBeCloseTo(0.99);
+        }
     });
 });

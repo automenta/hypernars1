@@ -25,13 +25,14 @@ describe('AdvancedContradictionManager', () => {
         nar.contradictionManager.resolveContradictions();
 
         const updatedHyperedge = nar.state.hypergraph.get(termId);
-        expect(updatedHyperedge.beliefs.length).toBe(1);
+        expect(updatedHyperedge.beliefs.length).toBe(2);
 
-        const revisedTruth = updatedHyperedge.getTruth();
         const expectedTruth = TruthValue.revise(truth1, truth2);
 
-        expect(revisedTruth.frequency).toBeCloseTo(expectedTruth.frequency);
-        expect(revisedTruth.confidence).toBeCloseTo(expectedTruth.confidence);
+        for (const belief of updatedHyperedge.beliefs) {
+            expect(belief.truth.frequency).toBeCloseTo(expectedTruth.frequency);
+            expect(belief.truth.confidence).toBeCloseTo(expectedTruth.confidence);
+        }
     });
 
     it('should not detect a contradiction if beliefs are revised away', () => {

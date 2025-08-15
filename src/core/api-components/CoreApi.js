@@ -11,6 +11,9 @@ export class CoreApi {
     addHyperedge(type, args, options = {}) {
         const {truth, budget, priority, premises = [], derivedBy} = options;
         const termId = id(type, args);
+        if (termId.includes('tweety')) {
+            console.log(`CoreApi.addHyperedge: Adding/getting hyperedge with id: ${termId}`);
+        }
         let hyperedge = this.nar.state.hypergraph.get(termId);
 
         if (!hyperedge) {
@@ -47,10 +50,17 @@ export class CoreApi {
                 this.nar.contradictionManager.detectAndResolveInterEdgeContradictions(hyperedge);
             }
             this.nar.emit('revision', {hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget});
+
+            // Boost budget for meta-learning beliefs to ensure they are processed
+            let budgetForPropagation = finalBudget;
+            if (type === 'Inheritance' && args[0].startsWith('Term(*,')) {
+                budgetForPropagation = new Budget(1.0, 1.0, 1.0);
+            }
+
             this.nar.propagation.propagate({
                 target: termId,
                 activation: 1.0,
-                budget: finalBudget,
+                budget: budgetForPropagation,
                 pathHash: 0,
                 pathLength: 0,
                 derivationPath: []

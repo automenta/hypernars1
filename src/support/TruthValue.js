@@ -10,7 +10,12 @@ export class TruthValue {
 
     static revise(t1, t2) {
         const totalPriority = t1.priority + t2.priority;
-        const revisedFrequency = (t1.frequency * t1.priority + t2.frequency * t2.priority) / totalPriority;
+        let revisedFrequency;
+        if (totalPriority === 0) {
+            revisedFrequency = (t1.frequency + t2.frequency) / 2;
+        } else {
+            revisedFrequency = (t1.frequency * t1.priority + t2.frequency * t2.priority) / totalPriority;
+        }
         const revisedConfidence = 1 - (1 - t1.confidence) * (1 - t2.confidence);
         const doubt1 = t1.doubt || 0;
         const doubt2 = t2.doubt || 0;

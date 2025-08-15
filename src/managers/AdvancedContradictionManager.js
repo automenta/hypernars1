@@ -136,12 +136,15 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                         const revisedTruth = TruthValue.resolveContradiction(belief1.truth, belief2.truth);
                         const revisedBudget = belief1.budget.merge(belief2.budget).scale(0.9); // Scale budget down slightly after any contradiction
 
-                        hyperedge.revise({
-                            truth: revisedTruth,
-                            budget: revisedBudget,
-                            premises: [belief1.id, belief2.id],
-                            derivedBy: 'inter_edge_contradiction_resolution'
-                        });
+                        // Revise the original belief directly instead of adding a new one
+                        belief1.truth = revisedTruth;
+                        belief1.budget = revisedBudget;
+                        belief1.premises = [belief1.id, belief2.id];
+                        belief1.derivedBy = 'inter_edge_contradiction_resolution';
+                        belief1.timestamp = Date.now();
+
+                        // Re-sort beliefs since budget has changed
+                        hyperedge.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
 
                         // Weaken the other hyperedge's belief
                         otherHyperedge.revise({

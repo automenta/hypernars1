@@ -11,6 +11,7 @@ import {ImplicationRule} from './derivation-rules/ImplicationRule.js';
 import {EquivalenceRule} from './derivation-rules/EquivalenceRule.js';
 import {ConjunctionRule} from './derivation-rules/ConjunctionRule.js';
 import {TemporalRelationRule} from './derivation-rules/TemporalRelationRule.js';
+import {MetaLearningRule} from './derivation-rules/MetaLearningRule.js';
 
 const defaultConfig = advancedDerivationEngineConfig;
 
@@ -69,6 +70,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         this.registerRule(new EquivalenceRule(this.nar, this.config));
         this.registerRule(new ConjunctionRule(this.nar, this.config));
         this.registerRule(new TemporalRelationRule(this.nar, this.config));
+        this.registerRule(new MetaLearningRule(this.nar, this.config));
     }
 
     applyDerivationRules(event) {
