@@ -145,9 +145,11 @@ export class TemporalReasoner extends TemporalManagerBase {
 
         // Add to hypergraph and propagate
         const hyperedgeId = this.nar.api.addHyperedge('TemporalRelation', [event1, event2, relation], options);
-        // Pass the hyperedgeId to the propagation logic
-        constraint.id = hyperedgeId;
-        this._propagateConstraint(constraint);
+        if (hyperedgeId) {
+            // Pass the hyperedgeId to the propagation logic
+            constraint.id = hyperedgeId;
+            this._propagateConstraint(constraint);
+        }
 
         return hyperedgeId;
     }

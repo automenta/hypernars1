@@ -70,7 +70,7 @@ export class Api {
       const stepTimestamp = timestamp + (i * (options.interval || 1000));
 
       // Use the temporal manager to assert the relationship
-      this.nar.temporalManager.relate(term, nextTerm, 'before', {
+      this.nar.temporalManager.addConstraint(term, nextTerm, 'before', {
           truth: options.truth || new TruthValue(0.9, 0.9),
           timestamp: stepTimestamp
       });
@@ -133,10 +133,18 @@ export class Api {
    */
   citedBelief(statement, citation) {
     const beliefId = this.nal(statement);
-    if (citation.source) {
-        this.addHyperedge('hasSource', [beliefId, `Source(${citation.source})`], { truth: TruthValue.certain() });
+    if (!citation || typeof citation !== 'object') {
+        return beliefId;
     }
-    return beliefId;
+
+    // Create a structured citation concept
+    const citationParts = Object.entries(citation).map(([key, value]) => `has_${key}(${value})`);
+    const citationId = this.addHyperedge('Citation', citationParts, { truth: TruthValue.certain() });
+
+    // Link the belief to its citation
+    this.addHyperedge('hasCitation', [beliefId, citationId], { truth: TruthValue.certain() });
+
+    return { beliefId, citationId };
   }
 
   /**
@@ -155,6 +163,9 @@ export class Api {
       ...options,
       truth: new TruthValue(0.95, 0.85)
     });
+
+    // Link the rules to make the exception relationship explicit
+    this.addHyperedge('isExceptionTo', [exceptionRule, baseRule], { truth: TruthValue.certain() });
 
     return { baseRule, exceptionRule };
   }
@@ -231,18 +242,35 @@ export class Api {
         finalBudget = this.nar.memoryManager.allocateResources({ type: 'revision' }, { importance: priority });
     }
 
-    // Delegate revision and contradiction handling to the hyperedge itself
-    const revisionResult = hyperedge.revise({
-        truth: finalTruth,
-        budget: finalBudget,
-        beliefCapacity: this.nar.config.beliefCapacity,
-        premises,
-        context: options.context,
-        derivedBy
-    });
+    // Use enhanced contradiction handling if available
+    let revisionResult;
+    if (typeof this.nar.contradictionManager.reviseWithContradictionHandling === 'function') {
+        const newBelief = {
+            truth: finalTruth,
+            budget: finalBudget,
+            premises,
+            context: options.context,
+            derivedBy,
+            timestamp: Date.now()
+        };
+        revisionResult = this.nar.contradictionManager.reviseWithContradictionHandling(hyperedge, newBelief);
+    } else {
+        // Fallback to the original revision logic
+        const rawResult = hyperedge.revise({
+            truth: finalTruth,
+            budget: finalBudget,
+            beliefCapacity: this.nar.config.beliefCapacity,
+            premises,
+            context: options.context,
+            derivedBy
+        });
+        revisionResult = { updated: rawResult.needsUpdate };
+        if (rawResult.needsUpdate) {
+            this.nar.contradictionManager.detectContradiction(termId);
+        }
+    }
 
-    if (revisionResult.needsUpdate) {
-        this.nar.contradictionManager.detectContradiction(termId);
+    if (revisionResult.updated) {
         this.nar.emit('revision', { hyperedgeId: termId, newTruth: finalTruth, newBudget: finalBudget });
         this.nar.propagation.propagate({
             target: termId,
@@ -261,11 +289,16 @@ export class Api {
   // --- Placeholder helpers for enhanced macros ---
 
   _assessQuestionUrgency(question) {
-    // Placeholder: more complex logic would analyze question structure
-    if (question.includes('?')) {
-        return 0.7; // High urgency for direct questions
+    const q = question.toLowerCase();
+    // Keywords that imply higher urgency
+    const urgentKeywords = ['what is', 'is there', 'why', 'who', 'when', 'where', 'how'];
+    if (q.endsWith('?') || urgentKeywords.some(kw => q.startsWith(kw))) {
+        return 0.8; // High urgency for direct questions
     }
-    return 0.4; // Lower urgency for goal-like queries
+    if (q.startsWith('<') && q.includes('-->')) {
+        return 0.4; // Lower urgency for goal-like queries
+    }
+    return 0.5; // Default urgency
   }
 
   _addTemporalContext(term, period, timestamp) {

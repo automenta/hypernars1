@@ -67,6 +67,27 @@ export class ExplanationSystem {
         }
     }
 
+    /**
+     * Generates a justification for a belief, highlighting key evidence.
+     * This is a direct entry point for the justification format.
+     * @param {string} hyperedgeId - The ID of the concept to justify.
+     * @returns {string} The formatted justification.
+     */
+    justify(hyperedgeId) {
+        return this.explain(hyperedgeId, { format: 'justification' });
+    }
+
+    /**
+     * Generates a counterfactual explanation.
+     * This is a direct entry point for the counterfactual perspective.
+     * @param {string} hyperedgeId - The ID of the original concept.
+     * @param {Object} options - Must include an 'alternative' premise.
+     * @returns {string} The formatted counterfactual explanation.
+     */
+    counterfactual(hyperedgeId, options) {
+        return this.explain(hyperedgeId, { ...options, perspective: 'counterfactual' });
+    }
+
     _formatCausalExplanation(path) {
         let explanation = "The belief that ";
         const conclusion = path[path.length - 1];
@@ -127,27 +148,27 @@ export class ExplanationSystem {
             explanation += `The conclusion still holds, but its confidence changes to ${this._formatConfidence(newTruth)}.`;
         } else {
             explanation += "The original conclusion no longer holds.\n";
-            // Fulfill the TODO: find the most prominent new conclusions.
-            const newConclusions = Array.from(sandbox.state.hypergraph.values())
-                .filter(h => h.getTruthExpectation() > 0.6 && h.id !== hyperedgeId)
-                .sort((a, b) => b.getTruthExpectation() - a.getTruthExpectation())
-                .slice(0, 5); // Increase slice to have a higher chance of getting the desired term
 
-            if (newConclusions.length > 0) {
+            // Find the most prominent new conclusions, looking for the specific one if provided.
+            const newConclusions = Array.from(sandbox.state.hypergraph.values())
+                .filter(h => h.getTruthExpectation() > 0.6 && h.id !== hyperedgeId && !h.id.startsWith('Question'))
+                .sort((a, b) => b.getTruthExpectation() - a.getTruthExpectation());
+
+            const specificConclusionId = options.specificConclusion;
+            const specificConclusion = specificConclusionId ? newConclusions.find(c => c.id === specificConclusionId) : null;
+
+            const otherProminent = newConclusions
+                .filter(c => c.id !== specificConclusionId)
+                .slice(0, specificConclusion ? 4 : 5);
+
+            const finalConclusions = specificConclusion ? [specificConclusion, ...otherProminent] : otherProminent;
+
+            if (finalConclusions.length > 0) {
                 explanation += "Instead, the following new conclusions are now prominent:\n";
-                newConclusions.forEach(c => {
+                finalConclusions.forEach(c => {
                     explanation += `  - ${this._formatHyperedge(c)} (Confidence: ${this._formatConfidence(c.getTruth())})\n`;
                 });
-            }
-
-            // Also, directly check if the specific conclusion we are interested in exists
-            const specificConclusion = Array.from(sandbox.state.hypergraph.values()).find(h => h.id === 'Inheritance(Term(A), Term(D))');
-            if (specificConclusion) {
-                if (newConclusions.length === 0) {
-                    explanation += "Instead, the following new conclusions are now prominent:\n";
-                }
-                explanation += `  - ${this._formatHyperedge(specificConclusion)} (Confidence: ${this._formatConfidence(specificConclusion.getTruth())})\n`;
-            } else if (newConclusions.length === 0) {
+            } else {
                 explanation += "No prominent alternative conclusions were reached in the simulation.";
             }
         }

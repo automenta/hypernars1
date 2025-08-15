@@ -14,10 +14,12 @@ import { AdvancedDerivationEngine } from './core/AdvancedDerivationEngine.js';
 import { MemoryManagerBase } from './managers/MemoryManagerBase.js';
 import { SimpleMemoryManager } from './managers/SimpleMemoryManager.js';
 import { AdvancedMemoryManager } from './managers/AdvancedMemoryManager.js';
+import { EnhancedMemoryManager } from './managers/EnhancedMemoryManager.js';
 
 import { ContradictionManagerBase } from './managers/ContradictionManagerBase.js';
 import { SimpleContradictionManager } from './managers/SimpleContradictionManager.js';
 import { AdvancedContradictionManager } from './managers/AdvancedContradictionManager.js';
+import { EnhancedContradictionManager } from './managers/EnhancedContradictionManager.js';
 
 import { LearningEngineBase } from './managers/LearningEngineBase.js';
 import { SimpleLearningEngine } from './managers/SimpleLearningEngine.js';
@@ -68,12 +70,13 @@ export class NARHyper extends EventEmitter {
 
   _initializeModules(config) {
     const useAdvanced = config.useAdvanced || false;
+    const useEnhanced = config.useEnhanced || false;
 
     const moduleSelection = {
         ExpressionEvaluator: useAdvanced ? AdvancedExpressionEvaluator : ExpressionEvaluator,
         DerivationEngine: useAdvanced ? AdvancedDerivationEngine : SimpleDerivationEngine,
-        MemoryManager: useAdvanced ? AdvancedMemoryManager : SimpleMemoryManager,
-        ContradictionManager: useAdvanced ? AdvancedContradictionManager : SimpleContradictionManager,
+        MemoryManager: useEnhanced ? EnhancedMemoryManager : (useAdvanced ? AdvancedMemoryManager : SimpleMemoryManager),
+        ContradictionManager: useEnhanced ? EnhancedContradictionManager : (useAdvanced ? AdvancedContradictionManager : SimpleContradictionManager),
         LearningEngine: useAdvanced ? AdvancedLearningEngine : SimpleLearningEngine,
         TemporalManager: useAdvanced ? TemporalReasoner : SimpleTemporalManager,
     };
@@ -141,6 +144,8 @@ export class NARHyper extends EventEmitter {
     this.step = this.system.step.bind(this.system);
     this.ask = this.questionHandler.ask.bind(this.questionHandler);
     this.explain = this.explanationSystem.explain.bind(this.explanationSystem);
+    this.justify = this.explanationSystem.justify.bind(this.explanationSystem);
+    this.counterfactual = this.explanationSystem.counterfactual.bind(this.explanationSystem);
     this.query = this.expressionEvaluator.query.bind(this.expressionEvaluator);
     this.addGoal = this.goalManager.addGoal.bind(this.goalManager);
   }

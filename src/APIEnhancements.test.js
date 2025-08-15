@@ -79,4 +79,47 @@ describe('API Enhancements', () => {
         expect(strategy).toBeDefined();
         expect(strategy.strategy).toBe('test_strategy');
     });
+
+    it('robustRule should create a base rule and an exception rule', () => {
+        const nar = new NARHyper({ useAdvanced: true, logLevel: 'error' });
+        const { baseRule, exceptionRule } = nar.api.robustRule(
+            'Inheritance(Term(X),Term(bird))',
+            'Inheritance(Term(X),Term(flyer))',
+            'Inheritance(Term(X),Term(penguin))'
+        );
+
+        const base = nar.state.hypergraph.get(baseRule);
+        const exception = nar.state.hypergraph.get(exceptionRule);
+
+        expect(base).toBeDefined();
+        expect(base.type).toBe('Implication');
+
+        expect(exception).toBeDefined();
+        expect(exception.type).toBe('Implication');
+
+        // Check that the exception rule is linked to the base rule
+        const exceptionLink = nar.state.hypergraph.get(`isExceptionTo(${exceptionRule},${baseRule})`);
+        expect(exceptionLink).toBeDefined();
+    });
+
+    it('citedBelief should create a structured citation', () => {
+        const nar = new NARHyper({ useAdvanced: true, logLevel: 'error' });
+        const statement = '<penguin --> flyer>. %0.1;0.9%';
+        const citation = { source: 'biology_textbook', page: 42 };
+
+        const { beliefId, citationId } = nar.api.citedBelief(statement, citation);
+
+        const belief = nar.state.hypergraph.get(beliefId);
+        expect(belief).toBeDefined();
+        expect(belief.getStrongestBelief().truth.frequency).toBe(0.1);
+
+        const citationHyperedge = nar.state.hypergraph.get(citationId);
+        expect(citationHyperedge).toBeDefined();
+        expect(citationHyperedge.type).toBe('Citation');
+        expect(citationHyperedge.args).toContain('has_source(biology_textbook)');
+        expect(citationHyperedge.args).toContain('has_page(42)');
+
+        const link = nar.state.hypergraph.get(`hasCitation(${beliefId},${citationId})`);
+        expect(link).toBeDefined();
+    });
 });
