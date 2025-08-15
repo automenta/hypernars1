@@ -169,4 +169,12 @@ export class QuestionHandler {
       this.nar.learningEngine.recordSuccess?.(hyperedgeId);
     }
   }
+
+  clearAllQuestions() {
+    // Use a copy of the keys since _cleanupQuestion modifies the map
+    const questionIds = [...this.nar.state.questionPromises.keys()];
+    questionIds.forEach(questionId => {
+      this._cleanupQuestion(questionId);
+    });
+  }
 }

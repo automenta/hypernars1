@@ -489,15 +489,14 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
         // More nuanced contradiction detection based on `enhance.b.md`
         const freqDiff = Math.abs(truth1.frequency - truth2.frequency);
         const confDiff = Math.abs(truth1.confidence - truth2.confidence);
+
+        const contradictionThreshold = this.nar.config.contradictionThreshold || 0.5;
+
+        // A contradiction occurs if frequencies are very different, or if both frequency and confidence show moderate divergence.
         const avgConfidence = (truth1.confidence + truth2.confidence) / 2;
+        const isContradiction = (freqDiff > contradictionThreshold || (freqDiff > 0.2 && confDiff > 0.3)) && avgConfidence > 0.5;
 
-        // A strong contradiction occurs if frequencies are very different and confidence is high.
-        const isStrongContradiction = freqDiff > (this.nar.config.contradictionThreshold || 0.7) && avgConfidence > 0.6;
-
-        // A moderate contradiction can occur with smaller frequency differences if confidence is also divergent.
-        const isModerateContradiction = freqDiff > 0.3 && confDiff > 0.4 && avgConfidence > 0.5;
-
-        return isStrongContradiction || isModerateContradiction;
+        return isContradiction;
     }
 
     _contradictionSeverity(truth1, truth2) {

@@ -1,25 +1,13 @@
-import { TrieIndex } from '../support/TrieIndex.js';
-import { StructuralIndex } from '../support/StructuralIndex.js';
-import { LRUMap } from '../support/LRUMap.js';
 import { PriorityQueue } from '../support/PriorityQueue.js';
+import { OptimizedIndex } from '../managers/OptimizedIndex.js';
 
 export class State {
-  constructor(config) {
-    this.config = config;
+  constructor(nar) {
+    this.nar = nar;
+    this.config = nar.config;
 
     this.hypergraph = new Map();
-    this.index = {
-      byType: new Map(),
-      byArg: new TrieIndex(),
-      temporal: new Map(),
-      compound: new Map(),
-      derivationCache: new LRUMap(this.config.derivationCacheSize),
-      questionCache: new Map(),
-      byPrefix: new Map(),
-      byWord: new Map(),
-      byNgram: new Map(),
-      structural: new StructuralIndex(),
-    };
+    this.index = new OptimizedIndex(nar);
     this.eventQueue = new PriorityQueue((a, b) => b.budget.priority - a.budget.priority);
     this.pathCache = new Map();
     this.activations = new Map();
@@ -32,7 +20,7 @@ export class State {
     this.sourceReliability = new Map();
 
     this.distributed = {
-        nodeId: config.nodeId || `node-${Math.random().toString(36).substr(2, 9)}`,
+        nodeId: this.config.nodeId || `node-${Math.random().toString(36).substr(2, 9)}`,
         cluster: new Set([this.nodeId]),
         knowledgePartition: new Map(),
         pendingRequests: new Map(),

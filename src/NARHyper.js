@@ -55,7 +55,7 @@ export class NARHyper extends EventEmitter {
     }, config);
     this.config.ruleConfig = this.config.ruleConfig || {};
 
-    this.state = new State(this.config);
+    this.state = new State(this);
     this.propagation = new Propagation(this);
     this.questionHandler = new QuestionHandler(this);
     this.system = new System(this);
@@ -169,8 +169,12 @@ export class NARHyper extends EventEmitter {
     return sandbox;
   }
 
+  clear() {
+    this.questionHandler.clearAllQuestions();
+  }
+
   clearState() {
-    this.state = new State(this.config);
+    this.state = new State(this);
     this._initializeModules(this.config);
     this.api = new Api(this);
     this._exposeApi();
