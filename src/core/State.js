@@ -24,7 +24,8 @@ export class State {
     this.pathCache = new Map();
     this.activations = new Map();
     this.temporalLinks = new Map();
-    this.questionPromises = new Map();
+    this.questionPromises = new Map(); // questionId -> { resolve, reject, timer, options, answered, startTime, targetId }
+    this.questionsByTarget = new Map(); // targetId -> [questionId, ...]
     this.memoization = new Map();
     this.currentStep = 0;
     this.stepsSinceMaintenance = 0;
