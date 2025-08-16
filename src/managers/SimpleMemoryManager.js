@@ -2,8 +2,8 @@ import {MemoryManagerBase} from './MemoryManagerBase.js';
 import {Budget} from '../support/Budget.js';
 
 export class SimpleMemoryManager extends MemoryManagerBase {
-    constructor(nar) {
-        super(nar);
+    constructor(nar, config) {
+        super(nar, config);
     }
 
     allocateResources(task, context = {}) {

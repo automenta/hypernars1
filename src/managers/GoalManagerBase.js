@@ -1,9 +1,10 @@
 export class GoalManagerBase {
-    constructor(nar) {
+    constructor(nar, config) {
         if (this.constructor === GoalManagerBase) {
             throw new Error("Abstract classes can't be instantiated.");
         }
         this.nar = nar;
+        this.config = config;
     }
 
     addGoal(description, utility, constraints = {}, options = {}) {

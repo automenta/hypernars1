@@ -1,8 +1,8 @@
 import {TemporalManagerBase} from './TemporalManagerBase.js';
 
 export class SimpleTemporalManager extends TemporalManagerBase {
-    constructor(nar) {
-        super(nar);
+    constructor(nar, config) {
+        super(nar, config);
         this.intervals = new Map();
     }
 

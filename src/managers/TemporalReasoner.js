@@ -20,9 +20,9 @@ const defaultConfig = {
 };
 
 export class TemporalReasoner extends TemporalManagerBase {
-    constructor(nar) {
-        super(nar);
-        this.config = {...defaultConfig, ...nar.config.temporalReasoner};
+    constructor(nar, config) {
+        super(nar, config);
+        this.config = {...defaultConfig, ...config};
         this._isAdvanced = true;
         this.temporalConstraints = new Map();
         this.timepoints = new Map();

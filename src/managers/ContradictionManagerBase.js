@@ -1,9 +1,10 @@
 export class ContradictionManagerBase {
-    constructor(nar) {
+    constructor(nar, config) {
         if (this.constructor === ContradictionManagerBase) {
             throw new Error("Abstract classes can't be instantiated.");
         }
         this.nar = nar;
+        this.config = config;
     }
 
     detectContradictions(hyperedgeId) {
@@ -12,6 +13,10 @@ export class ContradictionManagerBase {
 
     resolveContradictions() {
         throw new Error("Method 'resolveContradictions()' must be implemented.");
+    }
+
+    detectAndResolveInterEdgeContradictions(hyperedge) {
+        // Base implementation can be a no-op
     }
 
     /**

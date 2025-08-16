@@ -20,9 +20,9 @@ const STRATEGY = {
 };
 
 export class AdvancedContradictionManager extends ContradictionManagerBase {
-    constructor(nar) {
-        super(nar);
-        this.config = {...defaultConfig, ...nar.config.advancedContradictionManager};
+    constructor(nar, config) {
+        super(nar, config);
+        this.config = {...defaultConfig, ...config};
         this.contradictions = new Map();
         this.strategyFactory = new ContradictionStrategyFactory(this);
 

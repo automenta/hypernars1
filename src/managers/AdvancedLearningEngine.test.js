@@ -55,7 +55,7 @@ describe('AdvancedLearningEngine', () => {
     let engine;
 
     beforeEach(() => {
-        engine = new AdvancedLearningEngine(mockNar);
+        engine = new AdvancedLearningEngine(mockNar, mockNar.config.advancedLearningEngine);
 
         jest.clearAllMocks();
         mockNar.state.hypergraph.clear();

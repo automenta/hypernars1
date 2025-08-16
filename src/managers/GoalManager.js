@@ -13,9 +13,9 @@ const defaultConfig = {
 };
 
 export class GoalManager extends GoalManagerBase {
-    constructor(nar) {
-        super(nar);
-        this.config = {...defaultConfig, ...nar.config.goalManager};
+    constructor(nar, config) {
+        super(nar, config);
+        this.config = {...defaultConfig, ...config};
         this.goals = new Map();
         this.plans = new Map();
     }

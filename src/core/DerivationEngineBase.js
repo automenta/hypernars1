@@ -3,11 +3,12 @@
  * Defines the interface that all derivation engines must implement.
  */
 export class DerivationEngineBase {
-    constructor(nar) {
+    constructor(nar, config) {
         if (this.constructor === DerivationEngineBase) {
             throw new Error("Abstract classes can't be instantiated.");
         }
         this.nar = nar;
+        this.config = config;
     }
 
     /**

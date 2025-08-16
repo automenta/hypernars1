@@ -1,6 +1,7 @@
 export class ExplanationSystem {
-    constructor(nar) {
+    constructor(nar, config) {
         this.nar = nar;
+        this.config = config;
         this.explanationTemplates = {
             'assertion': "It is a direct assertion that {conclusion}.",
             'transitivity': "Because {premise1} and {premise2}, it follows through transitivity that {conclusion}.",

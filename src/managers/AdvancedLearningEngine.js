@@ -11,9 +11,9 @@ import {mergeConfig} from "../support/utils.js";
 const defaultConfig = config.advancedLearningEngine;
 
 export class AdvancedLearningEngine extends LearningEngineBase {
-    constructor(nar) {
-        super(nar);
-        this.config = mergeConfig(defaultConfig, nar.config.advancedLearningEngine);
+    constructor(nar, config) {
+        super(nar, config);
+        this.config = mergeConfig(defaultConfig, config);
         this.experienceBuffer = [];
         this.patternMemory = new Map();
         this.learningRate = this.config.learningRate;

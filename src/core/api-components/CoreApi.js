@@ -9,7 +9,7 @@ export class CoreApi {
     }
 
     addHyperedge(type, args, options = {}) {
-        const {truth, budget, priority, premises = [], derivedBy} = options;
+        const {truth, budget, priority, premises = [], derivedBy, temporal} = options;
         const termId = id(type, args);
         if (termId.includes('tweety')) {
             console.log(`CoreApi.addHyperedge: Adding/getting hyperedge with id: ${termId}`);
@@ -18,6 +18,9 @@ export class CoreApi {
 
         if (!hyperedge) {
             hyperedge = new Hyperedge(this.nar, termId, type, args);
+            if (temporal) {
+                hyperedge.temporal = temporal;
+            }
             this.nar.state.hypergraph.set(termId, hyperedge);
             if (this.nar.state.index.structural) {
                 this.nar.state.index.structural.addToIndex(hyperedge);

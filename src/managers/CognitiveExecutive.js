@@ -44,10 +44,10 @@ const defaultConfig = {
 };
 
 export class CognitiveExecutive {
-    constructor(nar) {
+    constructor(nar, config) {
         this.nar = nar;
 
-        this.config = {...defaultConfig, ...nar.config.cognitiveExecutive};
+        this.config = {...defaultConfig, ...config};
 
         this.rulePerformance = new Map();
         this.reasoningGoals = new Set();

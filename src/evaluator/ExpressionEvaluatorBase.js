@@ -2,8 +2,9 @@
  * A base class for expression evaluators.
  */
 export class ExpressionEvaluatorBase {
-    constructor(nar) {
+    constructor(nar, config) {
         this.nar = nar;
+        this.config = config;
     }
 
     parseAndAdd(nalStatement, options = {}) {

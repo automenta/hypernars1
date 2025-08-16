@@ -23,8 +23,9 @@ import {id} from '../support/utils.js';
  * - Prunes redundant or low-value concepts
  */
 class ConceptFormation {
-    constructor(nar) {
+    constructor(nar, config) {
         this.nar = nar;
+        this.config = config;
         this.patternTracker = new PatternTracker();
         this.conceptCache = new Map();
         this.abstractionLevels = new Map(); // Tracks optimal abstraction for each context

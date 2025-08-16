@@ -1,9 +1,10 @@
 export class TemporalManagerBase {
-    constructor(nar) {
+    constructor(nar, config) {
         if (this.constructor === TemporalManagerBase) {
             throw new Error("Abstract classes can't be instantiated.");
         }
         this.nar = nar;
+        this.config = config;
     }
 
     interval(term, start, end, options = {}) {

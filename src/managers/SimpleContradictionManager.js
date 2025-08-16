@@ -1,9 +1,9 @@
 import {ContradictionManagerBase} from './ContradictionManagerBase.js';
 
 export class SimpleContradictionManager extends ContradictionManagerBase {
-    constructor(nar) {
-        super(nar);
-        this.contradictionThreshold = this.nar.config.contradictionThreshold || 0.7;
+    constructor(nar, config) {
+        super(nar, config);
+        this.contradictionThreshold = this.config.contradictionThreshold || 0.7;
     }
 
     detectContradictions(hyperedgeId) {

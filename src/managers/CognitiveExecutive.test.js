@@ -74,9 +74,9 @@ describe('CognitiveExecutive', () => {
         });
 
         it('should allow overriding default configuration', () => {
-            const customConfig = {cognitiveExecutive: {MAINTENANCE_INTERVAL: 200}};
-            const customNar = {...mockNar, config: {...mockNar.config, ...customConfig}};
-            const customExecutive = new CognitiveExecutive(customNar);
+            const customConfig = {MAINTENANCE_INTERVAL: 200};
+            const customNar = {...mockNar, config: {...mockNar.config, cognitiveExecutive: customConfig}};
+            const customExecutive = new CognitiveExecutive(customNar, customConfig);
             expect(customExecutive.config.MAINTENANCE_INTERVAL).toBe(200);
         });
     });

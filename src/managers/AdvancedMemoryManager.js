@@ -9,9 +9,9 @@ import {mergeConfig} from "../support/utils.js";
 const defaultConfig = config.advancedMemoryManager;
 
 export class AdvancedMemoryManager extends MemoryManagerBase {
-    constructor(nar) {
-        super(nar);
-        this.config = mergeConfig(defaultConfig, nar.config.advancedMemoryManager);
+    constructor(nar, config) {
+        super(nar, config);
+        this.config = mergeConfig(defaultConfig, config);
 
         this.index = new OptimizedIndex(nar);
         nar.state.index = this.index;

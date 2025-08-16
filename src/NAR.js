@@ -100,7 +100,7 @@ export class NAR extends EventEmitter {
             const ModuleClass = customModules[moduleDef.name] || (useAdvanced ? (moduleDef.advanced || moduleDef.simple) : moduleDef.simple);
 
             if (ModuleClass) {
-                this[instanceName] = new ModuleClass(this);
+                this[instanceName] = new ModuleClass(this, this.config[instanceName]);
 
                 if (moduleDef.base && !(this[instanceName] instanceof moduleDef.base)) {
                     throw new Error(`Module ${instanceName} does not extend its base class correctly.`);

@@ -17,8 +17,8 @@ class NALParserError extends Error {
  * and adds robust error handling from `enhance.c.md`.
  */
 export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
-    constructor(nar) {
-        super(nar);
+    constructor(nar, config) {
+        super(nar, config);
         // This operator list is now used inside the new parser logic
         this.operators = [
             {symbol: '==>', precedence: 4, type: 'Implication'},

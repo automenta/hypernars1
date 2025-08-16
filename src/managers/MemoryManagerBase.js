@@ -1,9 +1,10 @@
 export class MemoryManagerBase {
-    constructor(nar) {
+    constructor(nar, config) {
         if (this.constructor === MemoryManagerBase) {
             throw new Error("Abstract classes can't be instantiated.");
         }
         this.nar = nar;
+        this.config = config;
     }
 
     maintainMemory() {

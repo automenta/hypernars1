@@ -12,19 +12,21 @@ import {EquivalenceRule} from './derivation-rules/EquivalenceRule.js';
 import {ConjunctionRule} from './derivation-rules/ConjunctionRule.js';
 import {TemporalRelationRule} from './derivation-rules/TemporalRelationRule.js';
 import {MetaLearningRule} from './derivation-rules/MetaLearningRule.js';
+import {ConsequentConjunctionRule} from './derivation-rules/ConsequentConjunctionRule.js';
 
 const defaultConfig = advancedDerivationEngineConfig;
 
 export class AdvancedDerivationEngine extends DerivationEngineBase {
-    constructor(nar) {
-        super(nar);
-        this.config = mergeConfig(defaultConfig, nar.config.advancedDerivationEngine);
+    constructor(nar, config) {
+        super(nar, config);
+        this.config = mergeConfig(defaultConfig, config);
         this.rules = new Map();
         this.inferenceCount = 0;
         this._registerDefaultRules();
     }
 
     registerRule(rule) {
+        console.log('Registering rule:', rule);
         this.rules.set(rule.name, rule);
         this._sortRules();
     }
@@ -71,6 +73,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         this.registerRule(new ConjunctionRule(this.nar, this.config));
         this.registerRule(new TemporalRelationRule(this.nar, this.config));
         this.registerRule(new MetaLearningRule(this.nar, this.config));
+        this.registerRule(new ConsequentConjunctionRule(this.nar, this.config));
     }
 
     applyDerivationRules(event) {
@@ -99,6 +102,11 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
         if (hyperedge) {
             const {newBelief} = hyperedge.revise(event.belief);
             this.nar.questionHandler.checkQuestionAnswers(hyperedge.id, newBelief);
+
+            // After revising, check for contradictions with other hyperedges
+            if (this.nar.contradictionManager.detectAndResolveInterEdgeContradictions) {
+                this.nar.contradictionManager.detectAndResolveInterEdgeContradictions(hyperedge);
+            }
         }
     }
 
