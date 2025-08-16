@@ -20,30 +20,31 @@ describe('ConceptFormation', () => {
         conceptFormation.trackUsage(hyperedge1.id, 0.8, {priority: 0.9});
 
         expect(trackUsageSpy).toHaveBeenCalled();
-        const patternData = conceptFormation.patternTracker.patterns.get(hyperedge1.id);
+        const activeNeighborKey = 'A'; // Based on the active neighbor 'A' with activation > 0.4
+        const patternData = conceptFormation.patternTracker.patterns.get(activeNeighborKey);
         expect(patternData).toBeDefined();
-        expect(patternData.count).toBe(1);
+        expect(patternData.occurrences).toBe(1);
     });
 
     it('should discover new concepts from frequent patterns', () => {
         // Manually create a frequent pattern for testing
+        const patternKey = 'termA|termB';
         const pattern = {
             terms: ['termA', 'termB'],
-            count: 5,
-            signature: 'termA&termB',
-            support: 0.8,
-            confidence: 0.9
+            support: 5, // A high enough support to be considered frequent
+            totalActivation: 4,
+            totalPriority: 4.5,
+            occurrences: 5,
         };
-        conceptFormation.patternTracker.patterns.set(pattern.signature, pattern);
-        jest.spyOn(conceptFormation.patternTracker, 'getFrequentPatterns').mockReturnValue([pattern]);
+        conceptFormation.patternTracker.patterns.set(patternKey, pattern);
 
-        const termSpy = jest.spyOn(nar.api, 'term');
-        const inheritanceSpy = jest.spyOn(nar.api, 'inheritance');
+        const termSpy = jest.spyOn(nar.api, 'term').mockReturnValue(nar.api.addHyperedge('Term', ['newConcept']));
+        const inheritanceSpy = jest.spyOn(nar.api, 'inheritance').mockReturnValue(nar.api.addHyperedge('Inheritance', ['termA', 'newConcept']));
 
-        const newConcepts = conceptFormation.discoverNewConcepts(0.7, 0.8);
+        const newConcepts = conceptFormation.discoverNewConcepts(0.6, 0.8);
 
         expect(newConcepts.length).toBe(1);
         expect(termSpy).toHaveBeenCalled();
-        expect(inheritanceSpy).toHaveBeenCalledTimes(2);
+        expect(inheritanceSpy).toHaveBeenCalledTimes(2); // One for each term in the pattern
     });
 });

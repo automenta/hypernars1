@@ -3,18 +3,14 @@ import {TruthValue} from '../../support/TruthValue.js';
 
 export class ConsequentConjunctionRule extends DerivationRuleBase {
     constructor(nar, config) {
-        super(nar, config);
-        this.name = 'ConsequentConjunction';
+        super(nar, config, 'ConsequentConjunction', (event) => {
+            const hyperedge = nar.state.hypergraph.get(event.target);
+            return event.type === 'add-belief' && hyperedge && hyperedge.type === 'Implication';
+        });
         this.priority = 0.8;
     }
 
-    condition(event) {
-        const hyperedge = this.nar.state.hypergraph.get(event.target);
-        return event.type === 'add-belief' && hyperedge && hyperedge.type === 'Implication';
-    }
-
-    execute(event) {
-        const hyperedge = this.nar.state.hypergraph.get(event.target);
+    execute(hyperedge, event, ruleName) {
         const antecedent = hyperedge.args[0];
         const consequentId = hyperedge.args[1];
         const consequent = this.nar.state.hypergraph.get(consequentId);
