@@ -128,31 +128,42 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
                 const otherPredicateId = otherHyperedge.args[1];
 
                 if (predicateId === `Negation(${otherPredicateId})` || otherPredicateId === `Negation(${predicateId})`) {
-                    const belief1 = hyperedge.getStrongestBelief();
-                    const belief2 = otherHyperedge.getStrongestBelief();
+                    let pro_hyperedge, con_hyperedge;
+                    if (predicateId === `Negation(${otherPredicateId})`) {
+                        // `hyperedge` is the negated one (e.g., !flyer), `otherHyperedge` is the pro (e.g., flyer)
+                        con_hyperedge = hyperedge;
+                        pro_hyperedge = otherHyperedge;
+                    } else {
+                        // `otherHyperedge` is the negated one
+                        pro_hyperedge = hyperedge;
+                        con_hyperedge = otherHyperedge;
+                    }
 
-                    if (belief1 && belief2) {
-                        // Use the new, correct method for resolving contradictions
-                        const revisedTruth = TruthValue.resolveContradiction(belief1.truth, belief2.truth);
-                        const revisedBudget = belief1.budget.merge(belief2.budget).scale(0.9); // Scale budget down slightly after any contradiction
+                    const pro_belief = pro_hyperedge.getStrongestBelief();
+                    const con_belief = con_hyperedge.getStrongestBelief();
 
-                        // Revise the original belief directly instead of adding a new one
-                        belief1.truth = revisedTruth;
-                        belief1.budget = revisedBudget;
-                        belief1.premises = [belief1.id, belief2.id];
-                        belief1.derivedBy = 'inter_edge_contradiction_resolution';
-                        belief1.timestamp = Date.now();
+                    if (pro_belief && con_belief) {
+                        const revisedTruth_pro = TruthValue.resolveContradiction(pro_belief.truth, con_belief.truth);
+                        const revisedBudget = pro_belief.budget.merge(con_belief.budget).scale(0.9);
 
-                        // Re-sort beliefs since budget has changed
-                        hyperedge.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
+                        // Revise the "pro" belief
+                        pro_belief.truth = revisedTruth_pro;
+                        pro_belief.budget = revisedBudget;
+                        pro_belief.premises = [pro_belief.id, con_belief.id];
+                        pro_belief.derivedBy = 'inter_edge_contradiction_resolution';
+                        pro_belief.timestamp = Date.now();
+                        pro_hyperedge.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
 
-                        // Weaken the other hyperedge's belief
-                        otherHyperedge.revise({
-                            truth: belief2.truth, // Keep its truth the same
-                            budget: belief2.budget.scale(this.config.interEdgeBudgetScale), // But significantly weaken its budget
-                            premises: belief2.premises,
-                            derivedBy: 'inter_edge_contradiction_weakening'
-                        });
+                        // Revise the "con" belief
+                        const revisedTruth_con = revisedTruth_pro.negate();
+                        const revisedBudget_con = new Budget(revisedBudget.priority, revisedBudget.durability, revisedBudget.quality);
+
+                        con_belief.truth = revisedTruth_con;
+                        con_belief.budget = revisedBudget_con;
+                        con_belief.premises = [pro_belief.id, con_belief.id];
+                        con_belief.derivedBy = 'inter_edge_contradiction_resolution';
+                        con_belief.timestamp = Date.now();
+                        con_hyperedge.beliefs.sort((a, b) => b.budget.priority - a.budget.priority);
                     }
                 }
             }

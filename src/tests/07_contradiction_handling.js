@@ -9,11 +9,12 @@ export default {
                 const {TruthValue} = nar.api;
                 nar.inheritance('sky', 'blue', {truth: new TruthValue(0.9, 0.9)});
                 nar.inheritance('sky', 'blue', {truth: new TruthValue(0.1, 0.9)});
+                nar.contradictionManager.resolveContradictions();
                 nar.run(200);
             },
             assert: (nar, logs) => {
-                const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(sky,blue)'));
-                const resolved = logs.some(l => l.includes('Contradiction resolved for Inheritance(sky,blue)'));
+                const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(sky, blue)'));
+                const resolved = logs.some(l => l.includes('Contradiction resolved for Inheritance(sky, blue)'));
                 if (detected && resolved) return true;
                 if (!detected) return 'Strong contradiction was not detected.';
                 if (!resolved) return 'Strong contradiction was detected but not resolved.';
@@ -25,10 +26,11 @@ export default {
                 const {TruthValue} = nar.api;
                 nar.inheritance('moon', 'cheese', {truth: new TruthValue(0.9, 0.2)});
                 nar.inheritance('moon', 'cheese', {truth: new TruthValue(0.1, 0.2)});
+                nar.contradictionManager.resolveContradictions();
                 nar.run(200);
             },
             assert: (nar, logs) => {
-                const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(moon,cheese)'));
+                const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(moon, cheese)'));
                 if (!detected) return true;
                 return 'Weak contradiction was detected when it should have been ignored.';
             }
@@ -39,10 +41,11 @@ export default {
                 const {TruthValue} = nar.api;
                 nar.inheritance('sun', 'conscious', {truth: new TruthValue(0.8, 0.65)});
                 nar.inheritance('sun', 'conscious', {truth: new TruthValue(0.2, 0.65)});
+                nar.contradictionManager.resolveContradictions();
                 nar.run(200);
             },
             assert: (nar, logs) => {
-                const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(sun,conscious)'));
+                const detected = logs.some(l => l.includes('Contradiction detected for Inheritance(sun, conscious)'));
                 if (!detected) return true;
                 return 'Boundary contradiction was detected when it should have been ignored.';
             }

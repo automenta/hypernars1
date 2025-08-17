@@ -68,6 +68,23 @@ export class NAR extends EventEmitter {
         this._initializeCoreComponents(config);
         this._initializeModules(config);
         this._exposeApi();
+        this._setupEventListeners();
+    }
+
+    _setupEventListeners() {
+        this.on('contradiction-detected', (data) => {
+            this._log('warn', `Contradiction detected for ${data.hyperedgeId}`, {
+                hyperedgeId: data.hyperedgeId,
+                contradictions: data.contradictions
+            });
+        });
+
+        this.on('contradiction-resolved', (data) => {
+            this._log('info', `Contradiction resolved for ${data.hyperedgeId}`, {
+                hyperedgeId: data.hyperedgeId,
+                reason: data.reason
+            });
+        });
     }
 
     _initConfig(config) {
@@ -215,6 +232,7 @@ export class NAR extends EventEmitter {
             }
             const logMethod = this.config.logger[level.toLowerCase()] || this.config.logger.log || console.log;
             logMethod(logOutput);
+            this.emit('log', {message: logOutput, level: level, details: details});
         }
     }
 }
