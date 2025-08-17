@@ -9,27 +9,34 @@ export class ImplicationRule extends DerivationRuleBase {
     execute(hyperedge, event, ruleName) {
         const {args: [premise, conclusion]} = hyperedge;
         const premiseId = getArgId(premise);
-        if (this.nar.state.hypergraph.has(premiseId)) {
-            let targetId;
-            if (typeof conclusion === 'string' && /^[a-zA-Z0-9]+$/.test(conclusion)) {
-                targetId = conclusion;
-            } else {
-                const parsedConclusion = (typeof conclusion === 'string') ? this.nar.expressionEvaluator.parse(conclusion) : conclusion;
-                if (parsedConclusion && parsedConclusion.type && parsedConclusion.args) {
-                    targetId = id(parsedConclusion.type, parsedConclusion.args);
-                } else {
-                    targetId = getArgId(conclusion);
-                }
-            }
+        const premiseHyperedge = this.nar.state.hypergraph.get(premiseId);
 
-            this.nar.propagation.propagate({
-                target: targetId,
-                activation: event.activation * this.config.implicationActivationFactor,
-                budget: event.budget.scale(this.config.implicationBudgetFactor),
-                pathHash: event.pathHash,
-                pathLength: event.pathLength + 1,
-                derivationPath: [...(event.derivationPath || []), ruleName]
-            });
+        if (premiseHyperedge) {
+            const premiseBelief = premiseHyperedge.getStrongestBelief();
+            const implicationBelief = hyperedge.getStrongestBelief();
+
+            if (!premiseBelief || !implicationBelief) return;
+
+            const newTruth = this.nar.api.TruthValue.deduced(premiseBelief.truth, implicationBelief.truth);
+
+            const parsedConclusion = (typeof conclusion === 'string')
+                ? this.nar.expressionEvaluator.parse(conclusion)
+                : conclusion;
+
+            if (parsedConclusion && parsedConclusion.type && parsedConclusion.args) {
+                const conclusionArgs = parsedConclusion.args.map(arg => typeof arg === 'object' ? id(arg.type, arg.args) : arg);
+                this.nar.api.addHyperedge(parsedConclusion.type, conclusionArgs, {truth: newTruth});
+
+                const targetId = id(parsedConclusion.type, conclusionArgs);
+                this.nar.propagation.propagate({
+                    target: targetId,
+                    activation: event.activation * this.config.implicationActivationFactor,
+                    budget: event.budget.scale(this.config.implicationBudgetFactor),
+                    pathHash: event.pathHash,
+                    pathLength: event.pathLength + 1,
+                    derivationPath: [...(event.derivationPath || []), ruleName]
+                });
+            }
         }
     }
 }

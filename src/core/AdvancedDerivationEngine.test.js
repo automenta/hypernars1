@@ -17,6 +17,7 @@ const mockNar = {
         memoization: new Map(),
     },
     api: {
+        TruthValue: TruthValue,
         inheritance: jest.fn((...args) => {
             mockNar.api.addHyperedge('Inheritance', args.slice(0, 2), args[2]);
         }),
@@ -41,7 +42,12 @@ const mockNar = {
         checkQuestionAnswers: jest.fn(),
     },
     expressionEvaluator: {
-        parse: jest.fn(str => ({type: 'Inheritance', args: str.split('->')})),
+        parse: jest.fn(str => {
+            if (str.includes('->')) {
+                return {type: 'Inheritance', args: str.split('->')};
+            }
+            return {type: 'Term', args: [str]};
+        }),
     },
     config: {
         inferenceThreshold: 0.1,
@@ -197,7 +203,7 @@ describe('AdvancedDerivationEngine', () => {
             };
             const rule = engine.rules.get('Implication');
             rule.execute(h_imp, event, 'Implication');
-            expect(mockNar.propagation.propagate).toHaveBeenCalledWith(expect.objectContaining({target: 'B'}));
+            expect(mockNar.propagation.propagate).toHaveBeenCalledWith(expect.objectContaining({target: 'Term(B)'}));
         });
 
         it('should derive equivalence (A<=>B => A=>B and B=>A)', () => {

@@ -1,13 +1,15 @@
 export default {
     name: '4. Meta-Reasoning',
     description: 'Shows the system adapting its own parameters based on performance.',
-    skipped: false, // SKIPPED: Uncovered potential bug where meta-reasoning does not adapt the budgetThreshold as expected.
+    skipped: false,
+    config: {
+        cognitiveExecutive: {
+            LOW_INFERENCE_QUEUE_SIZE: 5,
+        },
+    },
     steps: [
         {
             action: (nar) => {
-                // Lower the threshold to ensure adaptation is triggered for the test
-                nar.config.cognitiveExecutive.LOW_INFERENCE_QUEUE_SIZE = 5;
-
                 // Use a scratchpad on the nar object to store state between steps
                 nar.scratchpad = {initialThreshold: nar.config.budgetThreshold};
 

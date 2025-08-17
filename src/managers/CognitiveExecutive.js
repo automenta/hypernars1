@@ -208,7 +208,9 @@ export class CognitiveExecutive {
 
         if (issues.includes('high-contradictions')) {
             policy.inferenceThreshold = Math.min(this.config.MAX_INFERENCE_THRESHOLD, policy.inferenceThreshold * (1 + rate));
-        } else if (issues.includes('low-inference-rate')) {
+        }
+
+        if (issues.includes('low-inference-rate')) {
             policy.inferenceThreshold = Math.max(this.config.MIN_INFERENCE_THRESHOLD, policy.inferenceThreshold * (1 - rate));
             policy.budgetThreshold = Math.max(this.config.MIN_BUDGET_THRESHOLD, policy.budgetThreshold * (1 - rate * 0.5));
         }
