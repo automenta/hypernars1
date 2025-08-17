@@ -188,14 +188,16 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                     if (bindings.get(varName) !== hyperedgeArgId) return false;
                 } else {
                     if (this._satisfiesConstraints(hyperedgeArgId, patternArg.constraints)) {
-                        bindings.set(varName, hyperedgeArgId);
+                        const termMatch = hyperedgeArgId.match(/^Term\((.*)\)$/);
+                        const valueToBind = termMatch ? termMatch[1] : hyperedgeArgId;
+                        bindings.set(varName, valueToBind);
                     } else {
                         return false; // Constraint check failed
                     }
                 }
             } else if (typeof patternArg === 'object' && patternArg.type === 'Term') {
                 const expectedId = id(patternArg.type, patternArg.args);
-                if (expectedId !== hyperedgeArgId && patternArg.args[0] !== hyperedgeArgId) {
+                if (expectedId !== hyperedgeArgId) {
                     return false;
                 }
             } else if (typeof patternArg === 'object' && patternArg.type) {

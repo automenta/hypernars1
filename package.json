@@ -29,6 +29,7 @@
     "@babel/preset-env": "^7.28.0",
     "@babel/preset-react": "^7.27.1",
     "@babel/runtime-corejs3": "^7.28.2",
+    "@testing-library/react": "^15.0.0",
     "jest": "^30.0.5"
   },
   "jest": {

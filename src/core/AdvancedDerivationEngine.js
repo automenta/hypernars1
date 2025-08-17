@@ -26,7 +26,7 @@ export class AdvancedDerivationEngine extends DerivationEngineBase {
     }
 
     registerRule(rule) {
-        console.log('Registering rule:', rule);
+        // console.log('Registering rule:', rule);
         this.rules.set(rule.name, rule);
         this._sortRules();
     }

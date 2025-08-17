@@ -84,7 +84,7 @@ export class NAR extends EventEmitter {
     }
 
     _initializeCoreComponents(config) {
-        this.state = new State({...this.config, useStructuralIndex: config.useAdvanced});
+        this.state = new State(this, {...this.config, useOptimizedIndex: config.useAdvanced});
         this.propagation = new Propagation(this);
         this.questionHandler = new QuestionHandler(this);
         this.system = new System(this);

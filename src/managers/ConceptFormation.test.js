@@ -13,11 +13,12 @@ describe('ConceptFormation', () => {
     });
 
     it('should track usage of hyperedges', () => {
-        const hyperedge1 = nar.api.inheritance('A', 'B');
+        const hyperedge1Id = nar.api.inheritance('A', 'B');
+        const hyperedge1 = nar.state.hypergraph.get(hyperedge1Id);
         nar.state.activations.set(hyperedge1.args[0], 0.6); // Activate 'A'
 
         const trackUsageSpy = jest.spyOn(conceptFormation.patternTracker, 'recordPattern');
-        conceptFormation.trackUsage(hyperedge1.id, 0.8, {priority: 0.9});
+        conceptFormation.trackUsage(hyperedge1Id, 0.8, {priority: 0.9});
 
         expect(trackUsageSpy).toHaveBeenCalled();
         const activeNeighborKey = 'A'; // Based on the active neighbor 'A' with activation > 0.4

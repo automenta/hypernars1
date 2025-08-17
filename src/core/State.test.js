@@ -1,4 +1,4 @@
-import {describe, expect, it} from '@jest/globals';
+import {describe, expect, it, beforeEach} from '@jest/globals';
 import {State} from './State.js';
 import {TrieIndex} from '../support/TrieIndex.js';
 import {StructuralIndex} from '../support/StructuralIndex.js';
@@ -6,13 +6,20 @@ import {LRUMap} from '../support/LRUMap.js';
 import {PriorityQueue} from '../support/PriorityQueue.js';
 
 describe('State', () => {
-    const minimalConfig = {
-        derivationCacheSize: 100,
-        nodeId: 'test-node'
-    };
+    let mockNar;
+    let minimalConfig;
+
+    beforeEach(() => {
+        minimalConfig = {
+            derivationCacheSize: 100,
+            nodeId: 'test-node'
+        };
+        mockNar = {config: minimalConfig};
+    });
+
 
     it('should initialize with a minimal config', () => {
-        const state = new State(minimalConfig);
+        const state = new State(mockNar, minimalConfig);
 
         // Check top-level properties
         expect(state.config).toBe(minimalConfig);
@@ -56,7 +63,7 @@ describe('State', () => {
             derivationCacheSize: 5000,
             nodeId: 'my-special-node-123'
         };
-        const state = new State(specificConfig);
+        const state = new State(mockNar, specificConfig);
 
         expect(state.index.derivationCache.maxSize).toBe(5000);
         expect(state.distributed.nodeId).toBe('my-special-node-123');
@@ -64,7 +71,8 @@ describe('State', () => {
     });
 
     it('should generate a random nodeId if not provided', () => {
-        const state = new State({derivationCacheSize: 100});
+        const config = {derivationCacheSize: 100};
+        const state = new State(mockNar, config);
         expect(state.distributed.nodeId).toBeDefined();
         expect(state.distributed.nodeId).toMatch(/^node-/);
     });
