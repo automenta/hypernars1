@@ -401,6 +401,14 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
             return {type: 'Variable', args: [content]};
         }
 
+        const termMatch = content.match(/^([A-Za-z_][\w]*)\((.*)\)$/);
+        if (termMatch) {
+            const type = termMatch[1];
+            const argsContent = termMatch[2];
+            if (type === 'Term') {
+                return {type: 'Term', args: [argsContent]};
+            }
+        }
         // 6. Default to simple Term
         return {type: 'Term', args: [content]};
     }
