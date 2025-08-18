@@ -71,7 +71,7 @@ describe('ExplanationSystem', () => {
         const explanation = nar.explain(conclusionId, {format: 'detailed'});
 
         // The new formatter is more specific
-        expect(explanation).toContain('CONCLUSION: TemporalRelation(TimeInterval(event_A, 1000, 2000), TimeInterval(event_B, 3000, 4000), before)');
+        expect(explanation).toContain('CONCLUSION: TemporalRelation(TimeInterval(Term(event_A), 1000, 2000), TimeInterval(Term(event_B), 3000, 4000), before)');
         // Check for the template-based explanation
         expect(explanation).toContain('It is a direct assertion that');
     });
@@ -89,16 +89,16 @@ describe('ExplanationSystem', () => {
 
         it('should generate a detailed explanation', () => {
             const explanation = nar.explain(conclusionId, {format: 'detailed'});
-            expect(explanation).toContain('CONCLUSION: Inheritance(A, C)');
+            expect(explanation).toContain('CONCLUSION: Inheritance(Term(A), Term(C))');
             expect(explanation).toContain('REASONING PATH:');
-            expect(explanation).toContain('- Because Inheritance(A, B) and Inheritance(B, C), it follows through transitivity that Inheritance(A, C)');
-            expect(explanation).toContain('  - It is a direct assertion that Inheritance(A, B)');
-            expect(explanation).toContain('  - It is a direct assertion that Inheritance(B, C)');
+            expect(explanation).toContain('- Because Inheritance(Term(A), Term(B)) and Inheritance(Term(B), Term(C)), it follows through transitivity that Inheritance(Term(A), Term(C))');
+            expect(explanation).toContain('  - It is a direct assertion that Inheritance(Term(A), Term(B))');
+            expect(explanation).toContain('  - It is a direct assertion that Inheritance(Term(B), Term(C))');
         });
 
         it('should generate a concise explanation', () => {
             const explanation = nar.explain(conclusionId, {format: 'concise'});
-            expect(explanation).toBe('Inheritance(A, C) -> Inheritance(A, B) -> Inheritance(B, C)');
+            expect(explanation).toBe('Inheritance(Term(A), Term(C)) -> Inheritance(Term(A), Term(B)) -> Inheritance(Term(B), Term(C))');
         });
 
         it('should generate a technical explanation', () => {
@@ -128,7 +128,7 @@ describe('ExplanationSystem', () => {
 
             const explanation = nar.explain(term, {format: 'justification'});
 
-            expect(explanation).toContain('Justification for: Inheritance(penguin, bird)');
+            expect(explanation).toContain('Justification for: Inheritance(Term(penguin), Term(bird))');
             expect(explanation).toContain('Supporting Evidence: This appears to be a base assertion.');
             expect(explanation).toContain('Conflicting Evidence (overridden or merged):');
             expect(explanation).toContain('An alternative belief exists with confidence');
@@ -139,7 +139,7 @@ describe('ExplanationSystem', () => {
     describe('Contradiction Explanations', () => {
         it('should include a note about a resolved contradiction in the justification', () => {
             const nar = new NAR({useAdvanced: true});
-            const conceptId = 'Inheritance(penguin, flyer)';
+            const conceptId = 'Inheritance(Term(penguin), Term(flyer))';
 
             // Introduce two strong but contradictory beliefs
             nar.api.inheritance('penguin', 'flyer', {truth: new TruthValue(0.9, 0.9)});

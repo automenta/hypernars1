@@ -62,14 +62,14 @@ describe('Api', () => {
     describe('Structural Operations', () => {
         it('should create an inheritance hyperedge', () => {
             const id = api.inheritance('cat', 'mammal');
-            expect(id).toBe('Inheritance(cat, mammal)');
+            expect(id).toBe('Inheritance(Term(cat), Term(mammal))');
             expect(nar.state.hypergraph.has(id)).toBe(true);
             expect(reviseSpy).toHaveBeenCalled();
         });
 
         it('should create a similarity hyperedge', () => {
             const id = api.similarity('cat', 'dog');
-            expect(id).toBe('Similarity(cat, dog)');
+            expect(id).toBe('Similarity(Term(cat), Term(dog))');
             expect(nar.state.hypergraph.has(id)).toBe(true);
             expect(reviseSpy).toHaveBeenCalled();
         });
@@ -77,7 +77,7 @@ describe('Api', () => {
         it('should create an implication hyperedge with custom truth value', () => {
             const truth = new TruthValue(0.8, 0.8);
             const id = api.implication('raining', 'wet', {truth});
-            expect(id).toBe('Implication(raining, wet)');
+            expect(id).toBe('Implication(Term(raining), Term(wet))');
             expect(reviseSpy).toHaveBeenCalledWith(expect.objectContaining({truth}));
         });
     });
@@ -97,7 +97,7 @@ describe('Api', () => {
             nar.expressionEvaluator.parseAndAdd.mockReturnValue('Inheritance(bird,flyer)');
 
             // Pre-create the context hyperedge so we can spy on its revise method
-            const contextEdgeId = 'hasContext(Inheritance(bird,flyer), biology)';
+            const contextEdgeId = 'hasContext(Inheritance(bird,flyer), Term(biology))';
             const contextHyperedge = new Hyperedge(nar, contextEdgeId, 'hasContext', ['Inheritance(bird,flyer)', 'biology']);
             nar.state.hypergraph.set(contextEdgeId, contextHyperedge);
             const contextReviseSpy = jest.spyOn(contextHyperedge, 'revise');
@@ -158,8 +158,8 @@ describe('Api', () => {
         it('should create both a base rule and an exception rule', () => {
             api.robustRule(premise, conclusion, exception);
 
-            const expectedBaseRuleId = 'Implication(bird, flyer)';
-            const expectedExceptionRuleId = 'Implication(Conjunction(penguin, bird), Negation(flyer))';
+            const expectedBaseRuleId = 'Implication(Term(bird), Term(flyer))';
+            const expectedExceptionRuleId = 'Implication(Conjunction(Term(penguin), Term(bird)), Negation(Term(flyer)))';
 
             expect(nar.state.hypergraph.has(expectedBaseRuleId)).toBe(true);
             expect(nar.state.hypergraph.has(expectedExceptionRuleId)).toBe(true);
@@ -168,8 +168,8 @@ describe('Api', () => {
         it('should return the correct IDs for both created rules', () => {
             const {baseRule, exceptionRule} = api.robustRule(premise, conclusion, exception);
 
-            const expectedBaseRuleId = 'Implication(bird, flyer)';
-            const expectedExceptionRuleId = 'Implication(Conjunction(penguin, bird), Negation(flyer))';
+            const expectedBaseRuleId = 'Implication(Term(bird), Term(flyer))';
+            const expectedExceptionRuleId = 'Implication(Conjunction(Term(penguin), Term(bird)), Negation(Term(flyer)))';
 
             expect(baseRule).toBe(expectedBaseRuleId);
             expect(exceptionRule).toBe(expectedExceptionRuleId);
@@ -185,8 +185,8 @@ describe('Api', () => {
             expect(implicationSpy).toHaveBeenCalledWith(premise, conclusion, expect.objectContaining({truth: customTruth}));
 
             // Check that implication was called with the default exception truth, not the custom one
-            const exceptionPremise = 'Conjunction(penguin, bird)';
-            const negatedConclusion = 'Negation(flyer)';
+            const exceptionPremise = 'Conjunction(Term(penguin), Term(bird))';
+            const negatedConclusion = 'Negation(Term(flyer))';
             expect(implicationSpy).toHaveBeenCalledWith(exceptionPremise, negatedConclusion, expect.not.objectContaining({
                 truth: customTruth
             }));

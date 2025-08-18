@@ -33,6 +33,7 @@ export class InheritanceRule extends DerivationRuleBase {
     }
 
     _deriveTransitiveInheritance(context, event) {
+        console.log('!!! Deriving transitive inheritance', context);
         const {subject, predicate, premise1, premise2, ruleName} = context;
         if (!premise1 || !premise2) return;
 
@@ -85,18 +86,18 @@ export class InheritanceRule extends DerivationRuleBase {
             truth: new TruthValue(1.0, 0.9)
         }, event);
 
-        this._derivePropertyInheritance(subject, predicateId, event, ruleName);
-        this._findAndDeriveInductionFromInheritance(subject, predicateId, ruleName, event);
+        this._derivePropertyInheritance(subjectId, predicateId, event, ruleName);
+        this._findAndDeriveInductionFromInheritance(subjectId, predicateId, ruleName, event);
     }
 
-    _derivePropertyInheritance(subject, predicateId, event, ruleName) {
-        if (this.nar.state.hypergraph.has(id('Instance', [subject, 'entity']))) {
+    _derivePropertyInheritance(subjectId, predicateId, event, ruleName) {
+        if (this.nar.state.hypergraph.has(id('Instance', [subjectId, 'entity']))) {
             (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(propId => {
                 const property = this.nar.state.hypergraph.get(propId);
                 if (property?.type === 'Property') {
                     this._addBeliefAndPropagate({
                         type: 'Property',
-                        args: [subject, property.args[1]],
+                        args: [subjectId, property.args[1]],
                         budgetFactor: this.config.propertyInheritanceBudgetFactor,
                         activationFactor: this.config.propertyInheritanceActivationFactor,
                         derivationSuffix: 'property_derivation'
@@ -106,15 +107,15 @@ export class InheritanceRule extends DerivationRuleBase {
         }
     }
 
-    _findAndDeriveInductionFromInheritance(subject, predicateId, ruleName, event) {
+    _findAndDeriveInductionFromInheritance(subjectId, predicateId, ruleName, event) {
         (this.nar.state.index.byArg.get(predicateId) || new Set()).forEach(termId => {
             const other = this.nar.state.hypergraph.get(termId);
-            if (other?.type === 'Inheritance' && getArgId(other.args[1]) === predicateId && getArgId(other.args[0]) !== getArgId(subject)) {
+            if (other?.type === 'Inheritance' && getArgId(other.args[1]) === predicateId && getArgId(other.args[0]) !== subjectId) {
                 const context = {
-                    term1: subject,
+                    term1: subjectId,
                     term2: other.args[0],
                     predicate: predicateId,
-                    premise1: this.nar.state.hypergraph.get(id('Inheritance', [subject, predicateId])),
+                    premise1: this.nar.state.hypergraph.get(id('Inheritance', [subjectId, predicateId])),
                     premise2: other,
                     ruleName
                 };

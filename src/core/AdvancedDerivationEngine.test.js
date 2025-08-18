@@ -3,7 +3,7 @@ import {AdvancedDerivationEngine} from './AdvancedDerivationEngine.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {Hyperedge} from '../support/Hyperedge.js';
 import {Budget} from "../support/Budget.js";
-import {id as generateId} from "../support/utils.js";
+import {id as generateId, getArgId} from "../support/utils.js";
 import {DerivationRuleBase} from "./derivation-rules/DerivationRuleBase.js";
 
 // Mock NAR system and its components
@@ -65,7 +65,7 @@ const createMockHyperedge = (id, type, args, truth = new TruthValue(0.9, 0.9)) =
         mockNar.state.hypergraph.set(officialId, edge);
     }
     args.forEach(arg => {
-        const argId = arg.id || arg;
+        const argId = getArgId(arg);
         if (!mockNar.state.index.byArg.has(argId)) {
             mockNar.state.index.byArg.set(argId, new Set());
         }
@@ -177,8 +177,17 @@ describe('AdvancedDerivationEngine', () => {
                 pathLength: 1
             };
             const rule = engine.rules.get('Inheritance');
+
+            // Spy on and mock the side-effect methods
+            const spy1 = jest.spyOn(rule, '_findAndDeriveInductionFromInheritance').mockImplementation(() => {});
+            const spy2 = jest.spyOn(rule, '_derivePropertyInheritance').mockImplementation(() => {});
+
             rule.execute(h1, event, 'Inheritance');
             expect(mockNar.api.addHyperedge).toHaveBeenCalledWith('Inheritance', ['A', 'C'], expect.any(Object));
+
+            // Restore the original methods
+            spy1.mockRestore();
+            spy2.mockRestore();
         });
 
         it('should derive analogy (X~Y, X->P => Y->P)', () => {

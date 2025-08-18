@@ -19,7 +19,7 @@ describe('QuestionHandler', () => {
         nar.inheritance('sky', 'blue', {truth: new TruthValue(1.0, 0.9)});
         expect(nar.state.eventQueue.heap.length).toBe(1);
         const event = nar.state.eventQueue.pop();
-        expect(event.target).toBe('Inheritance(sky, blue)');
+        expect(event.target).toBe('Inheritance(Term(sky), Term(blue))');
     });
 
     it('should answer a question when a corresponding belief is added', async () => {
