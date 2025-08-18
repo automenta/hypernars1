@@ -214,5 +214,21 @@ describe('AdvancedDerivationEngine', () => {
             expect(mockNar.api.implication).toHaveBeenCalledWith('A', 'B', expect.any(Object));
             expect(mockNar.api.implication).toHaveBeenCalledWith('B', 'A', expect.any(Object));
         });
+
+        it('should derive forward implication (A, A=>B => B)', () => {
+            createMockHyperedge('h_imp', 'Implication', ['A', 'B']);
+            const h_premise = createMockHyperedge('A', 'Term', ['A']);
+            const event = {
+                target: 'A',
+                activation: 0.9,
+                budget: {scale: jest.fn().mockReturnThis()},
+                pathHash: 123,
+                pathLength: 1,
+                derivationPath: []
+            };
+            const rule = engine.rules.get('ForwardImplication');
+            rule.execute(h_premise, event, 'ForwardImplication');
+            expect(mockNar.propagation.propagate).toHaveBeenCalledWith(expect.objectContaining({target: 'Term(B)'}));
+        });
     });
 });
