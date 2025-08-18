@@ -1,5 +1,6 @@
 import {beforeAll, describe, it} from '@jest/globals';
 import {NAR} from './NAR.js';
+import {TestAnalyzer} from './testing/TestAnalyzer.js';
 import fs from 'fs';
 import path from 'path';
 import {pathToFileURL} from 'url';
@@ -63,16 +64,22 @@ describe('All Tests', () => {
                         const stepName = step.comment || `Step ${index + 1}`;
 
                         it(stepName, () => {
-                            if (step.action) {
-                                step.action(nar);
-                            }
-
-                            if (step.assert) {
-                                const assertResult = step.assert(nar, logs);
-                                if (assertResult !== true) {
-                                    const errorMessage = `Assertion failed in step: "${stepName}"\nREASON: ${assertResult}\n\nLOGS:\n${logs.join('\n')}`;
-                                    throw new Error(errorMessage);
+                            try {
+                                if (step.action) {
+                                    step.action(nar);
                                 }
+
+                                if (step.assert) {
+                                    const assertResult = step.assert(nar, logs);
+                                    if (assertResult !== true) {
+                                        const errorMessage = `Assertion failed in step: "${stepName}"\nREASON: ${assertResult}\n\nLOGS:\n${logs.join('\n')}`;
+                                        throw new Error(errorMessage);
+                                    }
+                                }
+                            } catch (error) {
+                                const report = TestAnalyzer.analyze(error, nar, step, logs);
+                                console.log(report);
+                                throw error;
                             }
                         });
                     });
