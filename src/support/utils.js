@@ -2,22 +2,31 @@ export function clamp(number, lower, upper) {
     return Math.max(lower, Math.min(number, upper));
 }
 
-export function id(type, args) {
-    const stringify = (arg) => {
-        if (typeof arg === 'string') return arg;
-        if (arg && arg.type && arg.args) return id(arg.type, arg.args);
-        if (arg && arg.type === 'Term' && arg.args.length === 1) return arg.args[0];
-        return String(arg);
-    };
-    const stringArgs = args.map(stringify);
-    return `${type}(${stringArgs.join(', ')})`;
+function termId(str) {
+    return `Term(${str})`;
 }
 
 export function getArgId(arg) {
-    if (typeof arg === 'string') return arg;
-    if (arg && arg.type && arg.args) return id(arg.type, arg.args);
-    if (arg !== null && arg !== undefined) return String(arg);
+    if (typeof arg === 'object' && arg !== null && arg.id) {
+        return arg.id;
+    }
+    if (typeof arg === 'string') {
+        if (arg.includes('(')) { // simple check if it is already an ID
+            return arg;
+        }
+        return termId(arg);
+    }
+    if (arg !== null && arg !== undefined) {
+        return String(arg);
+    }
     return 'undefined_arg';
+}
+
+export function id(type, args) {
+    if (type === 'Term') {
+        return termId(args[0]);
+    }
+    return `${type}(${args.map(getArgId).join(', ')})`;
 }
 
 export function hash(str) {

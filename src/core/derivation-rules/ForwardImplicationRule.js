@@ -10,9 +10,10 @@ export class ForwardImplicationRule extends DerivationRuleBase {
     }
 
     execute(hyperedge, event, ruleName) {
-        const premiseId = hyperedge.id;
+        const premiseId = id(hyperedge.type, hyperedge.args);
+        const implications = [...this.nar.state.hypergraph.values()];
 
-        for (const implication of this.nar.state.hypergraph.values()) {
+        for (const implication of implications) {
             if (implication.type !== 'Implication') continue;
 
             const {args: [impPremise]} = implication;

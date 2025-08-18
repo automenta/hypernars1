@@ -11,6 +11,7 @@ export class CoreApi {
     addHyperedge(type, args, options = {}) {
         const {truth, budget, priority, premises = [], derivedBy, temporal} = options;
         const termId = id(type, args);
+        console.log('Adding hyperedge:', termId); // DEBUG
         let hyperedge = this.nar.state.hypergraph.get(termId);
 
         if (!hyperedge) {
