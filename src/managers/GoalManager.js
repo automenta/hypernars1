@@ -111,9 +111,24 @@ export class GoalManager extends GoalManagerBase {
     _executeAction(actionHyperedge, goal) {
         this.nar.emit('action-executed', {actionId: actionHyperedge.id, goalId: goal.id});
 
-        this.nar.api.addHyperedge('Term', [goal.description], {
-            truth: new TruthValue(0.9, 0.9)
-        });
+        // Find the implication that led to this action and prioritize its processing.
+        const implications = this.nar.query(`<$action ==> ${goal.description}>?`);
+        const relevantImplication = implications.find(imp => imp.bindings.$action === actionHyperedge.id);
+
+        if (relevantImplication) {
+            const budget = this.nar.memoryManager.allocateResources({type: 'derivation'}, {
+                importance: 1.0,
+                urgency: 1.0
+            });
+            this.nar.propagation.propagate({
+                target: relevantImplication.id,
+                activation: 1.0,
+                budget: budget,
+                pathHash: hash(String(relevantImplication.id)),
+                pathLength: 0,
+                derivationPath: [actionHyperedge.id]
+            });
+        }
     }
 
     _decomposeGoal(goal) {

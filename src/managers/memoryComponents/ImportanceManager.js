@@ -21,10 +21,11 @@ export class ImportanceManager {
         const importantTerms = new Set();
         this.nar.state.questionPromises.forEach((promise, questionId) => {
             try {
-                const match = questionId.match(/^Question\((.*)\)$/);
+                const match = questionId.match(/^Question\((.*)\)\|.*$/);
                 if (match) {
                     const questionContent = match[1];
-                    const parsedQuestion = this.nar.expressionEvaluator.parse(questionContent);
+                    const cleanedQuestionContent = questionContent.endsWith('?') ? questionContent.slice(0, -1) : questionContent;
+                    const parsedQuestion = this.nar.expressionEvaluator.parse(cleanedQuestionContent);
                     extractTerms(parsedQuestion, importantTerms);
                 }
             } catch (e) {

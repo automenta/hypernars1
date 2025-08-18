@@ -10,9 +10,6 @@ const files = fs.readdirSync(testsDir).filter(file => file.endsWith('.js') && !f
 async function loadTestModules() {
     const testModules = [];
     for (const file of files) {
-        if (file === '29_new_test.js') {
-            continue;
-        }
         const modulePath = path.join(testsDir, file);
         try {
             const testModule = await import(pathToFileURL(modulePath));
@@ -49,9 +46,8 @@ describe('All Tests', () => {
                 }
 
                 const testName = test.name || file;
-                const describeBlock = test.skipped ? describe.skip : describe;
 
-                describeBlock(testName, () => {
+                describe(testName, () => {
                     let nar;
                     let logs;
 
@@ -65,9 +61,8 @@ describe('All Tests', () => {
 
                     test.steps.forEach((step, index) => {
                         const stepName = step.comment || `Step ${index + 1}`;
-                        const itBlock = step.skipped ? it.skip : it;
 
-                        itBlock(stepName, () => {
+                        it(stepName, () => {
                             if (step.action) {
                                 step.action(nar);
                             }

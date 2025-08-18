@@ -24,16 +24,18 @@ export default {
                 // No action, just assert.
             },
             assert: (nar, logs) => {
-                const contradictions = nar.getContradictions();
-                if (contradictions.length === 0) {
-                    logs.push('[ASSERT FAILED] No contradiction was detected for the temporal paradox.');
-                    return false;
-                }
-
-                // Check if the log contains a warning about the contradiction
+                // The improved system now proactively detects the paradox and prevents it from being added,
+                // logging a warning instead of creating a formal contradiction.
                 const paradoxLog = logs.some(log => log.includes('Temporal constraint would create contradiction'));
                 if (!paradoxLog) {
                     logs.push('[ASSERT FAILED] The system did not log a warning about the temporal contradiction.');
+                    return false;
+                }
+
+                // Also check that no formal contradiction was created, as it was prevented.
+                const contradictions = nar.getContradictions();
+                if (contradictions.length > 0) {
+                    logs.push('[ASSERT FAILED] A formal contradiction was created, which should have been prevented.');
                     return false;
                 }
 

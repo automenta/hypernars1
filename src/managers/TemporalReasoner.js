@@ -240,6 +240,10 @@ export class TemporalReasoner extends TemporalManagerBase {
         const constraintId = id('TemporalConstraint', [event1, event2, relation]);
 
         if (this._wouldCreateContradiction(event1, event2, relation)) {
+            this.nar.emit('log', {
+                message: 'Temporal constraint would create contradiction',
+                level: 'warn'
+            });
             return null;
         }
 
@@ -365,6 +369,10 @@ export class TemporalReasoner extends TemporalManagerBase {
                 if (c.event1 === currentEvent && !visited.has(c.event2)) {
                     visited.add(c.event2);
                     queue.push({event: c.event2, path: [...path, c]});
+                } else if (c.event2 === currentEvent && !visited.has(c.event1)) {
+                    visited.add(c.event1);
+                    const inverseConstraint = {...c, event1: c.event2, event2: c.event1, relation: this._getInverseTemporalRelation(c.relation)};
+                    queue.push({event: c.event1, path: [...path, inverseConstraint]});
                 }
             }
         }
@@ -425,6 +433,14 @@ export class TemporalReasoner extends TemporalManagerBase {
             });
 
             inferredRelations.forEach(inferred => {
+                if (this._wouldCreateContradiction(inferred.event1, inferred.event2, inferred.relation)) {
+                    this.nar.emit('log', {
+                        message: `Inferred temporal relation ${inferred.event1} ${inferred.relation} ${inferred.event2} creates a contradiction.`,
+                        level: 'warn'
+                    });
+                    return;
+                }
+
                 const existing = this.inferRelationship(inferred.event1, inferred.event2);
                 if (existing && JSON.stringify(existing.relation) === JSON.stringify(inferred.relation)) {
                     return;

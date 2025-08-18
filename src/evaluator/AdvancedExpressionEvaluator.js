@@ -94,15 +94,14 @@ export class AdvancedExpressionEvaluator extends ExpressionEvaluatorBase {
                 }
             }
 
-            // Then, perform binding or wildcard queries
-            let queryResults;
-            if (pattern.includes('$') || parsedPattern.type !== 'Term') {
-                queryResults = this.queryWithBinding(pattern, options);
-            } else {
-                queryResults = this._wildcardQuery(pattern, options);
+            // Then, perform binding or wildcard queries if necessary
+            if (pattern.includes('$') || (parsedPattern.type !== 'Term' && !hyperedge)) {
+                // It's a binding query if it has a variable, or it's a complex pattern we didn't find directly
+                results = results.concat(this.queryWithBinding(pattern, options));
+            } else if (pattern.includes('*')) {
+                // It's an explicit wildcard query
+                results = results.concat(this._wildcardQuery(pattern, options));
             }
-
-            results = results.concat(queryResults);
 
             // Filter and sort
             results = results.filter(r => r.expectation >= minExpectation);
