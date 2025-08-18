@@ -13,12 +13,16 @@ export default {
                 // Use a scratchpad on the nar object to store state between steps
                 nar.scratchpad = {initialThreshold: nar.config.budgetThreshold};
 
-                // Simulating high question load by asking enough questions to exceed the LOW_INFERENCE_QUEUE_SIZE threshold (5)
-                for (let i = 0; i < 6; i++) {
-                    nar.ask(`(? --> thing${i})?`).catch(e => {});
-                }
+                // Mock _calculateMetrics to produce a low-inference-rate issue
+                nar.cognitiveExecutive._calculateMetrics = () => ({
+                    inferenceRate: 0.1, // Lower than LOW_INFERENCE_THRESHOLD (0.3)
+                    queueSize: 10, // Higher than LOW_INFERENCE_QUEUE_SIZE (5)
+                    contradictionRate: 0,
+                    resourceUtilization: 0,
+                    questionResponseTime: 1,
+                });
 
-                nar.run(120); // Should trigger meta-reasoning
+                nar.cognitiveExecutive.selfMonitor(); // Should trigger meta-reasoning
             },
             assert: (nar, logs) => {
                 const initialThreshold = nar.scratchpad.initialThreshold;
