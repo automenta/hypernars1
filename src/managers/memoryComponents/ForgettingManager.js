@@ -99,10 +99,8 @@ export class ForgettingManager {
         }
 
         const importance = this.memoryManager.importanceScores.get(hyperedgeId) || 0;
-        if (importance > 0.8) {
-            return true;
-        }
+        return importance > 0.8;
 
-        return false;
+
     }
 }

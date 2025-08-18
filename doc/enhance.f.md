@@ -466,303 +466,303 @@ To better adhere to AIKR principles and prevent combinatorial explosion:
  * Meta-reasoning capabilities for self-monitoring and optimization
  */
 class MetaReasoner {
-  constructor(nar) {
-    this.nar = nar;
-    this.performanceHistory = new Map(); // Tracks reasoning effectiveness
-    this.resourceAllocation = {
-      derivationBudget: 0.6,
-      memoryBudget: 0.3,
-      temporalBudget: 0.1
-    };
-    this.strategyEffectiveness = new Map(); // Maps strategy to success rate
-    this.currentFocus = 'default'; // Current reasoning focus area
-    this.focusHistory = [];
-  }
-  
-  /**
-   * Analyze recent reasoning performance to optimize resource allocation
-   */
-  optimizeResources() {
-    // Analyze recent performance
-    this._updatePerformanceMetrics();
-    
-    // Adjust resource allocation based on current needs
-    this._adjustResourceAllocation();
-    
-    // Select optimal reasoning strategies
-    this._selectOptimalStrategies();
-    
-    // Adjust focus based on system goals
-    this._adjustReasoningFocus();
-  }
-  
-  /**
-   * Track the effectiveness of different reasoning paths
-   */
-  trackReasoningPath(pathId, outcome, metrics = {}) {
-    if (!this.performanceHistory.has(pathId)) {
-      this.performanceHistory.set(pathId, {
-        successes: 0,
-        attempts: 0,
-        totalTime: 0,
-        totalSteps: 0,
-        lastOutcome: null,
-        metricsHistory: []
-      });
+    constructor(nar) {
+        this.nar = nar;
+        this.performanceHistory = new Map(); // Tracks reasoning effectiveness
+        this.resourceAllocation = {
+            derivationBudget: 0.6,
+            memoryBudget: 0.3,
+            temporalBudget: 0.1
+        };
+        this.strategyEffectiveness = new Map(); // Maps strategy to success rate
+        this.currentFocus = 'default'; // Current reasoning focus area
+        this.focusHistory = [];
     }
-    
-    const record = this.performanceHistory.get(pathId);
-    record.attempts++;
-    if (outcome === 'success') record.successes++;
-    record.totalTime += metrics.time || 0;
-    record.totalSteps += metrics.steps || 0;
-    record.lastOutcome = outcome;
-    record.metricsHistory.push({
-      timestamp: Date.now(),
-      outcome,
-      ...metrics
-    });
-    
-    // Keep history size manageable
-    if (record.metricsHistory.length > 100) {
-      record.metricsHistory = record.metricsHistory.slice(-50);
+
+    /**
+     * Analyze recent reasoning performance to optimize resource allocation
+     */
+    optimizeResources() {
+        // Analyze recent performance
+        this._updatePerformanceMetrics();
+
+        // Adjust resource allocation based on current needs
+        this._adjustResourceAllocation();
+
+        // Select optimal reasoning strategies
+        this._selectOptimalStrategies();
+
+        // Adjust focus based on system goals
+        this._adjustReasoningFocus();
     }
-  }
-  
-  /**
-   * Get effectiveness score for a reasoning strategy
-   */
-  getStrategyEffectiveness(strategyName) {
-    const record = this.strategyEffectiveness.get(strategyName);
-    if (!record) return 0.5; // Default medium effectiveness
-    
-    const successRate = record.successes / record.attempts;
-    const recencyFactor = Math.exp(-(Date.now() - record.lastUpdated) / (1000 * 60 * 5)); // 5 minute decay
-    
-    return successRate * 0.7 + recencyFactor * 0.3;
-  }
-  
-  /**
-   * Update effectiveness of a strategy based on outcome
-   */
-  updateStrategyEffectiveness(strategyName, outcome, metrics = {}) {
-    if (!this.strategyEffectiveness.has(strategyName)) {
-      this.strategyEffectiveness.set(strategyName, {
-        successes: 0,
-        attempts: 0,
-        lastUpdated: Date.now(),
-        metrics: {}
-      });
-    }
-    
-    const record = this.strategyEffectiveness.get(strategyName);
-    record.attempts++;
-    if (outcome === 'success') record.successes++;
-    record.lastUpdated = Date.now();
-    
-    // Update metric averages
-    Object.keys(metrics).forEach(key => {
-      const value = metrics[key];
-      if (typeof value === 'number') {
-        if (!record.metrics[key]) record.metrics[key] = { sum: 0, count: 0 };
-        record.metrics[key].sum += value;
-        record.metrics[key].count++;
-      }
-    });
-  }
-  
-  /* ===== INTERNAL METHODS ===== */
-  _updatePerformanceMetrics() {
-    // Analyze recent event processing
-    const recentEvents = this.nar.eventQueue.heap.slice(-50);
-    let successfulDerivations = 0;
-    let totalDerivations = 0;
-    
-    recentEvents.forEach(event => {
-      if (event.derivationPath && event.derivationPath.length > 0) {
-        totalDerivations++;
-        if (this._wasDerivationSuccessful(event)) {
-          successfulDerivations++;
+
+    /**
+     * Track the effectiveness of different reasoning paths
+     */
+    trackReasoningPath(pathId, outcome, metrics = {}) {
+        if (!this.performanceHistory.has(pathId)) {
+            this.performanceHistory.set(pathId, {
+                successes: 0,
+                attempts: 0,
+                totalTime: 0,
+                totalSteps: 0,
+                lastOutcome: null,
+                metricsHistory: []
+            });
         }
-      }
-    });
-    
-    // Track overall success rate
-    this._trackSystemMetric('derivation_success_rate', 
-      totalDerivations > 0 ? successfulDerivations / totalDerivations : 0);
-      
-    // Track budget utilization
-    this._trackSystemMetric('budget_utilization', 
-      this._calculateBudgetUtilization());
-  }
-  
-  _wasDerivationSuccessful(event) {
-    // In a real system, this would check if the derivation led to useful results
-    // For this example, we'll consider it successful if it generated answers to questions
-    return event.activation > 0.5 && event.budget.priority > 0.3;
-  }
-  
-  _calculateBudgetUtilization() {
-    // Calculate how effectively budget is being used
-    const totalBudget = this.nar.eventQueue.heap.reduce(
-      (sum, event) => sum + event.budget.priority, 0);
-      
-    const activeBudget = this.nar.eventQueue.heap.filter(
-      event => event.budget.priority > this.nar.config.budgetThreshold).length;
-      
-    return activeBudget / Math.max(totalBudget, 1);
-  }
-  
-  _adjustResourceAllocation() {
-    const successRate = this._getSystemMetric('derivation_success_rate', 0.5);
-    const budgetUtilization = this._getSystemMetric('budget_utilization', 0.5);
-    
-    // If success rate is low, allocate more resources to derivation
-    if (successRate < 0.4) {
-      this.resourceAllocation.derivationBudget = Math.min(
-        this.resourceAllocation.derivationBudget + 0.1, 0.8);
-    } 
-    // If budget utilization is high but success rate is low, we're wasting resources
-    else if (budgetUtilization > 0.7 && successRate < 0.6) {
-      this.resourceAllocation.derivationBudget = Math.max(
-        this.resourceAllocation.derivationBudget - 0.1, 0.3);
+
+        const record = this.performanceHistory.get(pathId);
+        record.attempts++;
+        if (outcome === 'success') record.successes++;
+        record.totalTime += metrics.time || 0;
+        record.totalSteps += metrics.steps || 0;
+        record.lastOutcome = outcome;
+        record.metricsHistory.push({
+            timestamp: Date.now(),
+            outcome,
+            ...metrics
+        });
+
+        // Keep history size manageable
+        if (record.metricsHistory.length > 100) {
+            record.metricsHistory = record.metricsHistory.slice(-50);
+        }
     }
-    
-    // Adjust other allocations to maintain sum of 1.0
-    const total = Object.values(this.resourceAllocation).reduce((a, b) => a + b, 0);
-    Object.keys(this.resourceAllocation).forEach(key => {
-      this.resourceAllocation[key] = this.resourceAllocation[key] / total;
-    });
-    
-    // Apply to system configuration
-    this.nar.config.budgetDecay = 0.9 - this.resourceAllocation.derivationBudget * 0.3;
-    this.nar.config.inferenceThreshold = 0.3 - this.resourceAllocation.derivationBudget * 0.1;
-  }
-  
-  _selectOptimalStrategies() {
-    // Identify which derivation rules are most effective
-    const ruleEffectiveness = {};
-    
-    ['Inheritance', 'Similarity', 'Implication', 'Conjunction'].forEach(rule => {
-      ruleEffectiveness[rule] = this.getStrategyEffectiveness(`derive_${rule}`);
-    });
-    
-    // Sort rules by effectiveness
-    const sortedRules = Object.entries(ruleEffectiveness)
-      .sort((a, b) => b[1] - a[1])
-      .map(([rule]) => rule);
-      
-    // Set priority for most effective rules
-    this.nar.config.derivationPriority = sortedRules;
-  }
-  
-  _adjustReasoningFocus() {
-    // Determine current focus based on system needs
-    const currentFocus = this._determineCurrentFocus();
-    
-    if (currentFocus !== this.currentFocus) {
-      this.focusHistory.push({
-        from: this.currentFocus,
-        to: currentFocus,
-        timestamp: Date.now()
-      });
-      
-      // Limit focus history size
-      if (this.focusHistory.length > 20) {
-        this.focusHistory = this.focusHistory.slice(-10);
-      }
-      
-      this.currentFocus = currentFocus;
-      
-      // Adjust system parameters based on focus
-      this._applyFocusParameters(currentFocus);
+
+    /**
+     * Get effectiveness score for a reasoning strategy
+     */
+    getStrategyEffectiveness(strategyName) {
+        const record = this.strategyEffectiveness.get(strategyName);
+        if (!record) return 0.5; // Default medium effectiveness
+
+        const successRate = record.successes / record.attempts;
+        const recencyFactor = Math.exp(-(Date.now() - record.lastUpdated) / (1000 * 60 * 5)); // 5 minute decay
+
+        return successRate * 0.7 + recencyFactor * 0.3;
     }
-  }
-  
-  _determineCurrentFocus() {
-    // Check for urgent questions
-    if (this.nar.questionPromises.size > 0) {
-      const oldestQuestion = Array.from(this.nar.questionPromises.keys())
-        .sort((a, b) => a.timestamp - b.timestamp)[0];
-        
-      if (oldestQuestion && Date.now() - oldestQuestion.timestamp < 1000) {
-        return 'question-answering';
-      }
-    }
-    
-    // Check for contradictions needing resolution
-    for (const [hyperedgeId, contradiction] of this.nar.contradictionManager.contradictions) {
-      if (!contradiction.resolved) {
-        return 'contradiction-resolution';
-      }
-    }
-    
-    // Check for temporal reasoning needs
-    if (this.nar.temporalIntervals.size > 0) {
-      return 'temporal-reasoning';
-    }
-    
-    return 'default';
-  }
-  
-  _applyFocusParameters(focus) {
-    switch (focus) {
-      case 'question-answering':
-        this.nar.config.maxPathLength = 20;
-        this.nar.config.inferenceThreshold = 0.2;
-        this.nar.config.budgetDecay = 0.7;
-        break;
-      case 'contradiction-resolution':
-        this.nar.config.beliefCapacity = 12;
-        this.nar.config.derivationCacheSize = 500;
-        break;
-      case 'temporal-reasoning':
-        this.nar.config.temporalHorizon = 15;
-        this.nar.config.maxDerivationDepth = 6;
-        break;
-      default:
-        // Restore default configuration
-        Object.assign(this.nar.config, {
-          decay: 0.1,
-          budgetDecay: 0.8,
-          inferenceThreshold: 0.3,
-          maxPathLength: 15,
-          beliefCapacity: 8,
-          temporalHorizon: 3,
-          budgetThreshold: 0.05,
-          maxDerivationDepth: 5
+
+    /**
+     * Update effectiveness of a strategy based on outcome
+     */
+    updateStrategyEffectiveness(strategyName, outcome, metrics = {}) {
+        if (!this.strategyEffectiveness.has(strategyName)) {
+            this.strategyEffectiveness.set(strategyName, {
+                successes: 0,
+                attempts: 0,
+                lastUpdated: Date.now(),
+                metrics: {}
+            });
+        }
+
+        const record = this.strategyEffectiveness.get(strategyName);
+        record.attempts++;
+        if (outcome === 'success') record.successes++;
+        record.lastUpdated = Date.now();
+
+        // Update metric averages
+        Object.keys(metrics).forEach(key => {
+            const value = metrics[key];
+            if (typeof value === 'number') {
+                if (!record.metrics[key]) record.metrics[key] = {sum: 0, count: 0};
+                record.metrics[key].sum += value;
+                record.metrics[key].count++;
+            }
         });
     }
-  }
-  
-  /* ===== UTILITY METHODS ===== */
-  _trackSystemMetric(metricName, value) {
-    if (!this.systemMetrics) {
-      this.systemMetrics = new Map();
+
+    /* ===== INTERNAL METHODS ===== */
+    _updatePerformanceMetrics() {
+        // Analyze recent event processing
+        const recentEvents = this.nar.eventQueue.heap.slice(-50);
+        let successfulDerivations = 0;
+        let totalDerivations = 0;
+
+        recentEvents.forEach(event => {
+            if (event.derivationPath && event.derivationPath.length > 0) {
+                totalDerivations++;
+                if (this._wasDerivationSuccessful(event)) {
+                    successfulDerivations++;
+                }
+            }
+        });
+
+        // Track overall success rate
+        this._trackSystemMetric('derivation_success_rate',
+            totalDerivations > 0 ? successfulDerivations / totalDerivations : 0);
+
+        // Track budget utilization
+        this._trackSystemMetric('budget_utilization',
+            this._calculateBudgetUtilization());
     }
-    
-    if (!this.systemMetrics.has(metricName)) {
-      this.systemMetrics.set(metricName, {
-        history: [],
-        average: 0,
-        count: 0
-      });
+
+    _wasDerivationSuccessful(event) {
+        // In a real system, this would check if the derivation led to useful results
+        // For this example, we'll consider it successful if it generated answers to questions
+        return event.activation > 0.5 && event.budget.priority > 0.3;
     }
-    
-    const metric = this.systemMetrics.get(metricName);
-    metric.history.push({ timestamp: Date.now(), value });
-    metric.count++;
-    metric.average = (metric.average * (metric.count - 1) + value) / metric.count;
-    
-    // Keep history size manageable
-    if (metric.history.length > 50) {
-      metric.history = metric.history.slice(-25);
+
+    _calculateBudgetUtilization() {
+        // Calculate how effectively budget is being used
+        const totalBudget = this.nar.eventQueue.heap.reduce(
+            (sum, event) => sum + event.budget.priority, 0);
+
+        const activeBudget = this.nar.eventQueue.heap.filter(
+            event => event.budget.priority > this.nar.config.budgetThreshold).length;
+
+        return activeBudget / Math.max(totalBudget, 1);
     }
-  }
-  
-  _getSystemMetric(metricName, defaultValue = 0) {
-    return this.systemMetrics?.get(metricName)?.average || defaultValue;
-  }
+
+    _adjustResourceAllocation() {
+        const successRate = this._getSystemMetric('derivation_success_rate', 0.5);
+        const budgetUtilization = this._getSystemMetric('budget_utilization', 0.5);
+
+        // If success rate is low, allocate more resources to derivation
+        if (successRate < 0.4) {
+            this.resourceAllocation.derivationBudget = Math.min(
+                this.resourceAllocation.derivationBudget + 0.1, 0.8);
+        }
+        // If budget utilization is high but success rate is low, we're wasting resources
+        else if (budgetUtilization > 0.7 && successRate < 0.6) {
+            this.resourceAllocation.derivationBudget = Math.max(
+                this.resourceAllocation.derivationBudget - 0.1, 0.3);
+        }
+
+        // Adjust other allocations to maintain sum of 1.0
+        const total = Object.values(this.resourceAllocation).reduce((a, b) => a + b, 0);
+        Object.keys(this.resourceAllocation).forEach(key => {
+            this.resourceAllocation[key] = this.resourceAllocation[key] / total;
+        });
+
+        // Apply to system configuration
+        this.nar.config.budgetDecay = 0.9 - this.resourceAllocation.derivationBudget * 0.3;
+        this.nar.config.inferenceThreshold = 0.3 - this.resourceAllocation.derivationBudget * 0.1;
+    }
+
+    _selectOptimalStrategies() {
+        // Identify which derivation rules are most effective
+        const ruleEffectiveness = {};
+
+        ['Inheritance', 'Similarity', 'Implication', 'Conjunction'].forEach(rule => {
+            ruleEffectiveness[rule] = this.getStrategyEffectiveness(`derive_${rule}`);
+        });
+
+        // Sort rules by effectiveness
+        const sortedRules = Object.entries(ruleEffectiveness)
+            .sort((a, b) => b[1] - a[1])
+            .map(([rule]) => rule);
+
+        // Set priority for most effective rules
+        this.nar.config.derivationPriority = sortedRules;
+    }
+
+    _adjustReasoningFocus() {
+        // Determine current focus based on system needs
+        const currentFocus = this._determineCurrentFocus();
+
+        if (currentFocus !== this.currentFocus) {
+            this.focusHistory.push({
+                from: this.currentFocus,
+                to: currentFocus,
+                timestamp: Date.now()
+            });
+
+            // Limit focus history size
+            if (this.focusHistory.length > 20) {
+                this.focusHistory = this.focusHistory.slice(-10);
+            }
+
+            this.currentFocus = currentFocus;
+
+            // Adjust system parameters based on focus
+            this._applyFocusParameters(currentFocus);
+        }
+    }
+
+    _determineCurrentFocus() {
+        // Check for urgent questions
+        if (this.nar.questionPromises.size > 0) {
+            const oldestQuestion = Array.from(this.nar.questionPromises.keys())
+                .sort((a, b) => a.timestamp - b.timestamp)[0];
+
+            if (oldestQuestion && Date.now() - oldestQuestion.timestamp < 1000) {
+                return 'question-answering';
+            }
+        }
+
+        // Check for contradictions needing resolution
+        for (const [hyperedgeId, contradiction] of this.nar.contradictionManager.contradictions) {
+            if (!contradiction.resolved) {
+                return 'contradiction-resolution';
+            }
+        }
+
+        // Check for temporal reasoning needs
+        if (this.nar.temporalIntervals.size > 0) {
+            return 'temporal-reasoning';
+        }
+
+        return 'default';
+    }
+
+    _applyFocusParameters(focus) {
+        switch (focus) {
+            case 'question-answering':
+                this.nar.config.maxPathLength = 20;
+                this.nar.config.inferenceThreshold = 0.2;
+                this.nar.config.budgetDecay = 0.7;
+                break;
+            case 'contradiction-resolution':
+                this.nar.config.beliefCapacity = 12;
+                this.nar.config.derivationCacheSize = 500;
+                break;
+            case 'temporal-reasoning':
+                this.nar.config.temporalHorizon = 15;
+                this.nar.config.maxDerivationDepth = 6;
+                break;
+            default:
+                // Restore default configuration
+                Object.assign(this.nar.config, {
+                    decay: 0.1,
+                    budgetDecay: 0.8,
+                    inferenceThreshold: 0.3,
+                    maxPathLength: 15,
+                    beliefCapacity: 8,
+                    temporalHorizon: 3,
+                    budgetThreshold: 0.05,
+                    maxDerivationDepth: 5
+                });
+        }
+    }
+
+    /* ===== UTILITY METHODS ===== */
+    _trackSystemMetric(metricName, value) {
+        if (!this.systemMetrics) {
+            this.systemMetrics = new Map();
+        }
+
+        if (!this.systemMetrics.has(metricName)) {
+            this.systemMetrics.set(metricName, {
+                history: [],
+                average: 0,
+                count: 0
+            });
+        }
+
+        const metric = this.systemMetrics.get(metricName);
+        metric.history.push({timestamp: Date.now(), value});
+        metric.count++;
+        metric.average = (metric.average * (metric.count - 1) + value) / metric.count;
+
+        // Keep history size manageable
+        if (metric.history.length > 50) {
+            metric.history = metric.history.slice(-25);
+        }
+    }
+
+    _getSystemMetric(metricName, defaultValue = 0) {
+        return this.systemMetrics?.get(metricName)?.average || defaultValue;
+    }
 }
 ```
 
@@ -776,372 +776,372 @@ To make the system truly adaptive:
  * Learning capabilities for adaptive reasoning
  */
 class LearningEngine {
-  constructor(nar) {
-    this.nar = nar;
-    this.experienceBuffer = [];
-    this.patternMemory = new Map(); // Maps pattern signatures to learning data
-    this.ruleCreationThreshold = 0.75; // Confidence threshold for creating new rules
-    this.learningRate = 0.1; // How quickly to update based on new evidence
-    this.patternSimilarityThreshold = 0.8; // Threshold for considering patterns similar
-  }
-  
-  /**
-   * Apply learning from recent experiences
-   */
-  applyLearning() {
-    // Process recent experiences
-    this._processRecentExperiences();
-    
-    // Update truth value revision parameters
-    this._updateRevisionParameters();
-    
-    // Discover new patterns
-    this._discoverPatterns();
-    
-    // Create new rules from patterns
-    this._createRulesFromPatterns();
-    
-    // Adjust derivation rule effectiveness
-    this._adjustRuleEffectiveness();
-  }
-  
-  /**
-   * Record an experience for future learning
-   */
-  recordExperience(context, outcome, options = {}) {
-    const experience = {
-      id: this._generateExperienceId(context, outcome),
-      timestamp: Date.now(),
-      context,
-      outcome,
-      expectedOutcome: options.expectedOutcome,
-      accuracy: options.accuracy,
-      derivationPath: options.derivationPath,
-      resourcesUsed: options.resourcesUsed,
-      success: options.success
-    };
-    
-    this.experienceBuffer.push(experience);
-    
-    // Keep buffer size manageable
-    if (this.experienceBuffer.length > 1000) {
-      this.experienceBuffer = this.experienceBuffer.slice(-500);
+    constructor(nar) {
+        this.nar = nar;
+        this.experienceBuffer = [];
+        this.patternMemory = new Map(); // Maps pattern signatures to learning data
+        this.ruleCreationThreshold = 0.75; // Confidence threshold for creating new rules
+        this.learningRate = 0.1; // How quickly to update based on new evidence
+        this.patternSimilarityThreshold = 0.8; // Threshold for considering patterns similar
     }
-    
-    // Immediately process significant experiences
-    if (options.important || (options.accuracy !== undefined && Math.abs(options.accuracy) < 0.2)) {
-      this._processSignificantExperience(experience);
+
+    /**
+     * Apply learning from recent experiences
+     */
+    applyLearning() {
+        // Process recent experiences
+        this._processRecentExperiences();
+
+        // Update truth value revision parameters
+        this._updateRevisionParameters();
+
+        // Discover new patterns
+        this._discoverPatterns();
+
+        // Create new rules from patterns
+        this._createRulesFromPatterns();
+
+        // Adjust derivation rule effectiveness
+        this._adjustRuleEffectiveness();
     }
-  }
-  
-  /* ===== INTERNAL METHODS ===== */
-  _processRecentExperiences() {
-    const recent = this.experienceBuffer.slice(-100);
-    if (recent.length === 0) return;
-    
-    // Calculate average accuracy
-    const validExperiences = recent.filter(e => e.accuracy !== undefined);
-    if (validExperiences.length > 0) {
-      const avgAccuracy = validExperiences.reduce((sum, e) => sum + e.accuracy, 0) / 
-                          validExperiences.length;
-      
-      // Track accuracy by derivation path
-      const pathAccuracy = new Map();
-      validExperiences.forEach(experience => {
-        if (experience.derivationPath) {
-          const pathKey = experience.derivationPath.join('>');
-          if (!pathAccuracy.has(pathKey)) {
-            pathAccuracy.set(pathKey, { sum: 0, count: 0 });
-          }
-          const record = pathAccuracy.get(pathKey);
-          record.sum += experience.accuracy;
-          record.count++;
-        }
-      });
-      
-      // Update path effectiveness
-      pathAccuracy.forEach((record, pathKey) => {
-        const avg = record.sum / record.count;
-        this.nar.metaReasoner.updateStrategyEffectiveness(
-          `path:${pathKey}`, 
-          avg > 0.6 ? 'success' : 'failure',
-          { accuracy: avg }
-        );
-      });
-    }
-  }
-  
-  _processSignificantExperience(experience) {
-    // For highly accurate or inaccurate predictions, immediately adjust parameters
-    if (experience.accuracy !== undefined) {
-      const absAccuracy = Math.abs(experience.accuracy);
-      
-      // If prediction was very inaccurate, investigate why
-      if (absAccuracy < 0.3) {
-        this._analyzeFailure(experience);
-      }
-      
-      // If prediction was very accurate, reinforce the pattern
-      if (absAccuracy > 0.8) {
-        this._reinforcePattern(experience);
-      }
-    }
-  }
-  
-  _updateRevisionParameters() {
-    // Analyze when revision works well vs poorly
-    const revisionCases = this.experienceBuffer.filter(e => 
-      e.context?.operation === 'revise');
-      
-    if (revisionCases.length > 20) {
-      // Calculate optimal revision parameters
-      const idealParams = this._calculateOptimalRevisionParameters(revisionCases);
-      
-      // Update TruthValue revision parameters if significantly different
-      if (Math.abs(idealParams.learningRate - this.learningRate) > 0.05) {
-        this.learningRate = idealParams.learningRate;
-      }
-    }
-  }
-  
-  _calculateOptimalRevisionParameters(cases) {
-    // In a real implementation, this would use statistical methods to determine
-    // optimal revision parameters based on prediction accuracy
-    
-    // For demonstration, we'll use a simplified approach
-    let sumFrequency = 0;
-    let sumConfidence = 0;
-    let count = 0;
-    
-    cases.forEach(c => {
-      if (c.accuracy !== undefined) {
-        sumFrequency += c.context.newTruth.frequency;
-        sumConfidence += c.context.newTruth.confidence;
-        count++;
-      }
-    });
-    
-    return {
-      learningRate: count > 0 ? Math.min(0.3, 0.1 + (sumConfidence / count) * 0.2) : 0.1
-    };
-  }
-  
-  _discoverPatterns() {
-    // Look for recurring patterns in successful reasoning
-    const patternCandidates = this._extractPatternCandidates();
-    
-    patternCandidates.forEach(candidate => {
-      const signature = this._patternSignature(candidate);
-      
-      if (!this.patternMemory.has(signature)) {
-        this.patternMemory.set(signature, {
-          instances: [],
-          successCount: 0,
-          totalCount: 0,
-          averageAccuracy: 0
-        });
-      }
-      
-      const pattern = this.patternMemory.get(signature);
-      pattern.instances.push(candidate);
-      pattern.totalCount++;
-      
-      if (candidate.accuracy !== undefined && candidate.accuracy > 0.6) {
-        pattern.successCount++;
-      }
-      
-      // Calculate moving average accuracy
-      const prevAccuracy = pattern.averageAccuracy || 0;
-      pattern.averageAccuracy = prevAccuracy * 0.9 + 
-        (candidate.accuracy || 0.5) * 0.1;
-      
-      // Keep instances manageable
-      if (pattern.instances.length > 50) {
-        pattern.instances = pattern.instances.slice(-25);
-      }
-    });
-  }
-  
-  _extractPatternCandidates() {
-    // Identify potential patterns from recent successful reasoning
-    return this.experienceBuffer
-      .slice(-200)
-      .filter(e => e.success && e.accuracy > 0.7 && e.derivationPath)
-      .map(e => ({
-        context: e.context,
-        outcome: e.outcome,
-        derivationPath: e.derivationPath,
-        accuracy: e.accuracy,
-        timestamp: e.timestamp
-      }));
-  }
-  
-  _patternSignature(pattern) {
-    // Create a signature that captures the essential structure of the pattern
-    // without being too specific
-    
-    // For derivation patterns, use the path and key context elements
-    if (pattern.derivationPath) {
-      const pathKey = pattern.derivationPath.slice(-3).join('>');
-      const contextKey = this._simplifyContext(pattern.context);
-      return `${pathKey}|${contextKey}`;
-    }
-    
-    return JSON.stringify(pattern.context).substring(0, 50);
-  }
-  
-  _simplifyContext(context) {
-    // Simplify context to capture essential features without exact values
-    if (context.operation === 'derive' && context.rule) {
-      return `derive:${context.rule}`;
-    }
-    if (context.operation === 'revise') {
-      return `revise:${context.hyperedgeType}`;
-    }
-    return 'general';
-  }
-  
-  _createRulesFromPatterns() {
-    // Create new rules from high-confidence patterns
-    for (const [signature, patternData] of this.patternMemory) {
-      if (patternData.averageAccuracy > this.ruleCreationThreshold && 
-          patternData.instances.length > 5) {
-        
-        const newRule = this._generateRuleFromPattern(patternData);
-        if (newRule && !this._ruleExists(newRule)) {
-          this._addLearnedRule(newRule);
-          
-          // Notify system of new rule
-          this.nar._notifyListeners('learned-rule', {
-            rule: newRule,
-            confidence: patternData.averageAccuracy,
-            support: patternData.instances.length
-          });
-        }
-      }
-    }
-  }
-  
-  _generateRuleFromPattern(patternData) {
-    // Analyze pattern to generate a new derivation rule
-    const recentInstances = patternData.instances.slice(-5);
-    
-    // For demonstration, we'll handle a specific case: transitive inheritance
-    if (recentInstances.some(i => 
-        i.derivationPath.includes('transitivity') && 
-        i.context.rule === 'Inheritance')) {
-      
-      // Create a specialized transitive rule for common patterns
-      const commonSubjects = this._findCommonElements(
-        recentInstances, i => i.context.args?.[0]);
-      const commonPredicates = this._findCommonElements(
-        recentInstances, i => i.context.args?.[1]);
-      
-      if (commonSubjects.length > 0 && commonPredicates.length > 0) {
-        return {
-          type: 'DerivationRule',
-          name: `SpecializedTransitive_${commonSubjects[0]}_${commonPredicates[0]}`,
-          condition: (hyperedge, event) => {
-            return hyperedge.type === 'Inheritance' && 
-                   hyperedge.args[0] === commonSubjects[0] &&
-                   hyperedge.args[1] === commonPredicates[0];
-          },
-          action: (hyperedge, event) => {
-            // Specialized handling for this pattern
-            const [subject, predicate] = hyperedge.args;
-            this.nar._propagate(predicate, 
-              event.activation * 0.9, 
-              event.budget.scale(0.85),
-              event.pathHash,
-              event.pathLength + 1,
-              [...event.derivationPath, 'specialized_transitivity']);
-          },
-          confidence: patternData.averageAccuracy,
-          support: patternData.instances.length
+
+    /**
+     * Record an experience for future learning
+     */
+    recordExperience(context, outcome, options = {}) {
+        const experience = {
+            id: this._generateExperienceId(context, outcome),
+            timestamp: Date.now(),
+            context,
+            outcome,
+            expectedOutcome: options.expectedOutcome,
+            accuracy: options.accuracy,
+            derivationPath: options.derivationPath,
+            resourcesUsed: options.resourcesUsed,
+            success: options.success
         };
-      }
+
+        this.experienceBuffer.push(experience);
+
+        // Keep buffer size manageable
+        if (this.experienceBuffer.length > 1000) {
+            this.experienceBuffer = this.experienceBuffer.slice(-500);
+        }
+
+        // Immediately process significant experiences
+        if (options.important || (options.accuracy !== undefined && Math.abs(options.accuracy) < 0.2)) {
+            this._processSignificantExperience(experience);
+        }
     }
-    
-    return null;
-  }
-  
-  _findCommonElements(instances, extractor) {
-    const counts = new Map();
-    instances.forEach(instance => {
-      const value = extractor(instance);
-      if (value) {
-        counts.set(value, (counts.get(value) || 0) + 1);
-      }
-    });
-    
-    // Return elements that appear in at least 60% of instances
-    return Array.from(counts.entries())
-      .filter(([_, count]) => count / instances.length >= 0.6)
-      .map(([value]) => value);
-  }
-  
-  _ruleExists(newRule) {
-    // Check if a similar rule already exists
-    return Array.from(this.nar.derivationRules || []).some(rule => 
-      rule.name === newRule.name);
-  }
-  
-  _addLearnedRule(rule) {
-    if (!this.nar.derivationRules) {
-      this.nar.derivationRules = new Map();
+
+    /* ===== INTERNAL METHODS ===== */
+    _processRecentExperiences() {
+        const recent = this.experienceBuffer.slice(-100);
+        if (recent.length === 0) return;
+
+        // Calculate average accuracy
+        const validExperiences = recent.filter(e => e.accuracy !== undefined);
+        if (validExperiences.length > 0) {
+            const avgAccuracy = validExperiences.reduce((sum, e) => sum + e.accuracy, 0) /
+                validExperiences.length;
+
+            // Track accuracy by derivation path
+            const pathAccuracy = new Map();
+            validExperiences.forEach(experience => {
+                if (experience.derivationPath) {
+                    const pathKey = experience.derivationPath.join('>');
+                    if (!pathAccuracy.has(pathKey)) {
+                        pathAccuracy.set(pathKey, {sum: 0, count: 0});
+                    }
+                    const record = pathAccuracy.get(pathKey);
+                    record.sum += experience.accuracy;
+                    record.count++;
+                }
+            });
+
+            // Update path effectiveness
+            pathAccuracy.forEach((record, pathKey) => {
+                const avg = record.sum / record.count;
+                this.nar.metaReasoner.updateStrategyEffectiveness(
+                    `path:${pathKey}`,
+                    avg > 0.6 ? 'success' : 'failure',
+                    {accuracy: avg}
+                );
+            });
+        }
     }
-    this.nar.derivationRules.set(rule.name, rule);
-  }
-  
-  _analyzeFailure(experience) {
-    // Analyze why a prediction failed
-    if (experience.derivationPath) {
-      // Check which step in the derivation path might have gone wrong
-      const problematicStep = this._identifyProblematicStep(experience);
-      
-      if (problematicStep) {
-        // Adjust parameters for that step
-        this._adjustStepParameters(problematicStep, experience);
-      }
+
+    _processSignificantExperience(experience) {
+        // For highly accurate or inaccurate predictions, immediately adjust parameters
+        if (experience.accuracy !== undefined) {
+            const absAccuracy = Math.abs(experience.accuracy);
+
+            // If prediction was very inaccurate, investigate why
+            if (absAccuracy < 0.3) {
+                this._analyzeFailure(experience);
+            }
+
+            // If prediction was very accurate, reinforce the pattern
+            if (absAccuracy > 0.8) {
+                this._reinforcePattern(experience);
+            }
+        }
     }
-  }
-  
-  _identifyProblematicStep(experience) {
-    // In a real system, this would analyze the derivation path to find
-    // where the reasoning likely went astray
-    return experience.derivationPath[experience.derivationPath.length - 2];
-  }
-  
-  _adjustStepParameters(step, experience) {
-    // Adjust parameters for a problematic reasoning step
-    const key = `step:${step}`;
-    const currentEffectiveness = this.nar.metaReasoner.getStrategyEffectiveness(key);
-    
-    // Reduce effectiveness if this step led to failure
-    if (experience.accuracy < 0.3) {
-      const newEffectiveness = Math.max(0.1, currentEffectiveness - 0.2);
-      this.nar.metaReasoner.updateStrategyEffectiveness(
-        key, 'failure', { effectiveness: newEffectiveness });
+
+    _updateRevisionParameters() {
+        // Analyze when revision works well vs poorly
+        const revisionCases = this.experienceBuffer.filter(e =>
+            e.context?.operation === 'revise');
+
+        if (revisionCases.length > 20) {
+            // Calculate optimal revision parameters
+            const idealParams = this._calculateOptimalRevisionParameters(revisionCases);
+
+            // Update TruthValue revision parameters if significantly different
+            if (Math.abs(idealParams.learningRate - this.learningRate) > 0.05) {
+                this.learningRate = idealParams.learningRate;
+            }
+        }
     }
-  }
-  
-  _reinforcePattern(experience) {
-    // Strengthen a successful pattern
-    if (experience.derivationPath) {
-      const pathKey = experience.derivationPath.join('>');
-      const currentEffectiveness = this.nar.metaReasoner.getStrategyEffectiveness(`path:${pathKey}`);
-      
-      // Increase effectiveness if this path led to success
-      const newEffectiveness = Math.min(0.95, currentEffectiveness + 0.1);
-      this.nar.metaReasoner.updateStrategyEffectiveness(
-        `path:${pathKey}`, 'success', { effectiveness: newEffectiveness });
+
+    _calculateOptimalRevisionParameters(cases) {
+        // In a real implementation, this would use statistical methods to determine
+        // optimal revision parameters based on prediction accuracy
+
+        // For demonstration, we'll use a simplified approach
+        let sumFrequency = 0;
+        let sumConfidence = 0;
+        let count = 0;
+
+        cases.forEach(c => {
+            if (c.accuracy !== undefined) {
+                sumFrequency += c.context.newTruth.frequency;
+                sumConfidence += c.context.newTruth.confidence;
+                count++;
+            }
+        });
+
+        return {
+            learningRate: count > 0 ? Math.min(0.3, 0.1 + (sumConfidence / count) * 0.2) : 0.1
+        };
     }
-  }
-  
-  /* ===== UTILITY METHODS ===== */
-  _generateExperienceId(context, outcome) {
-    return `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
-  }
+
+    _discoverPatterns() {
+        // Look for recurring patterns in successful reasoning
+        const patternCandidates = this._extractPatternCandidates();
+
+        patternCandidates.forEach(candidate => {
+            const signature = this._patternSignature(candidate);
+
+            if (!this.patternMemory.has(signature)) {
+                this.patternMemory.set(signature, {
+                    instances: [],
+                    successCount: 0,
+                    totalCount: 0,
+                    averageAccuracy: 0
+                });
+            }
+
+            const pattern = this.patternMemory.get(signature);
+            pattern.instances.push(candidate);
+            pattern.totalCount++;
+
+            if (candidate.accuracy !== undefined && candidate.accuracy > 0.6) {
+                pattern.successCount++;
+            }
+
+            // Calculate moving average accuracy
+            const prevAccuracy = pattern.averageAccuracy || 0;
+            pattern.averageAccuracy = prevAccuracy * 0.9 +
+                (candidate.accuracy || 0.5) * 0.1;
+
+            // Keep instances manageable
+            if (pattern.instances.length > 50) {
+                pattern.instances = pattern.instances.slice(-25);
+            }
+        });
+    }
+
+    _extractPatternCandidates() {
+        // Identify potential patterns from recent successful reasoning
+        return this.experienceBuffer
+            .slice(-200)
+            .filter(e => e.success && e.accuracy > 0.7 && e.derivationPath)
+            .map(e => ({
+                context: e.context,
+                outcome: e.outcome,
+                derivationPath: e.derivationPath,
+                accuracy: e.accuracy,
+                timestamp: e.timestamp
+            }));
+    }
+
+    _patternSignature(pattern) {
+        // Create a signature that captures the essential structure of the pattern
+        // without being too specific
+
+        // For derivation patterns, use the path and key context elements
+        if (pattern.derivationPath) {
+            const pathKey = pattern.derivationPath.slice(-3).join('>');
+            const contextKey = this._simplifyContext(pattern.context);
+            return `${pathKey}|${contextKey}`;
+        }
+
+        return JSON.stringify(pattern.context).substring(0, 50);
+    }
+
+    _simplifyContext(context) {
+        // Simplify context to capture essential features without exact values
+        if (context.operation === 'derive' && context.rule) {
+            return `derive:${context.rule}`;
+        }
+        if (context.operation === 'revise') {
+            return `revise:${context.hyperedgeType}`;
+        }
+        return 'general';
+    }
+
+    _createRulesFromPatterns() {
+        // Create new rules from high-confidence patterns
+        for (const [signature, patternData] of this.patternMemory) {
+            if (patternData.averageAccuracy > this.ruleCreationThreshold &&
+                patternData.instances.length > 5) {
+
+                const newRule = this._generateRuleFromPattern(patternData);
+                if (newRule && !this._ruleExists(newRule)) {
+                    this._addLearnedRule(newRule);
+
+                    // Notify system of new rule
+                    this.nar._notifyListeners('learned-rule', {
+                        rule: newRule,
+                        confidence: patternData.averageAccuracy,
+                        support: patternData.instances.length
+                    });
+                }
+            }
+        }
+    }
+
+    _generateRuleFromPattern(patternData) {
+        // Analyze pattern to generate a new derivation rule
+        const recentInstances = patternData.instances.slice(-5);
+
+        // For demonstration, we'll handle a specific case: transitive inheritance
+        if (recentInstances.some(i =>
+            i.derivationPath.includes('transitivity') &&
+            i.context.rule === 'Inheritance')) {
+
+            // Create a specialized transitive rule for common patterns
+            const commonSubjects = this._findCommonElements(
+                recentInstances, i => i.context.args?.[0]);
+            const commonPredicates = this._findCommonElements(
+                recentInstances, i => i.context.args?.[1]);
+
+            if (commonSubjects.length > 0 && commonPredicates.length > 0) {
+                return {
+                    type: 'DerivationRule',
+                    name: `SpecializedTransitive_${commonSubjects[0]}_${commonPredicates[0]}`,
+                    condition: (hyperedge, event) => {
+                        return hyperedge.type === 'Inheritance' &&
+                            hyperedge.args[0] === commonSubjects[0] &&
+                            hyperedge.args[1] === commonPredicates[0];
+                    },
+                    action: (hyperedge, event) => {
+                        // Specialized handling for this pattern
+                        const [subject, predicate] = hyperedge.args;
+                        this.nar._propagate(predicate,
+                            event.activation * 0.9,
+                            event.budget.scale(0.85),
+                            event.pathHash,
+                            event.pathLength + 1,
+                            [...event.derivationPath, 'specialized_transitivity']);
+                    },
+                    confidence: patternData.averageAccuracy,
+                    support: patternData.instances.length
+                };
+            }
+        }
+
+        return null;
+    }
+
+    _findCommonElements(instances, extractor) {
+        const counts = new Map();
+        instances.forEach(instance => {
+            const value = extractor(instance);
+            if (value) {
+                counts.set(value, (counts.get(value) || 0) + 1);
+            }
+        });
+
+        // Return elements that appear in at least 60% of instances
+        return Array.from(counts.entries())
+            .filter(([_, count]) => count / instances.length >= 0.6)
+            .map(([value]) => value);
+    }
+
+    _ruleExists(newRule) {
+        // Check if a similar rule already exists
+        return Array.from(this.nar.derivationRules || []).some(rule =>
+            rule.name === newRule.name);
+    }
+
+    _addLearnedRule(rule) {
+        if (!this.nar.derivationRules) {
+            this.nar.derivationRules = new Map();
+        }
+        this.nar.derivationRules.set(rule.name, rule);
+    }
+
+    _analyzeFailure(experience) {
+        // Analyze why a prediction failed
+        if (experience.derivationPath) {
+            // Check which step in the derivation path might have gone wrong
+            const problematicStep = this._identifyProblematicStep(experience);
+
+            if (problematicStep) {
+                // Adjust parameters for that step
+                this._adjustStepParameters(problematicStep, experience);
+            }
+        }
+    }
+
+    _identifyProblematicStep(experience) {
+        // In a real system, this would analyze the derivation path to find
+        // where the reasoning likely went astray
+        return experience.derivationPath[experience.derivationPath.length - 2];
+    }
+
+    _adjustStepParameters(step, experience) {
+        // Adjust parameters for a problematic reasoning step
+        const key = `step:${step}`;
+        const currentEffectiveness = this.nar.metaReasoner.getStrategyEffectiveness(key);
+
+        // Reduce effectiveness if this step led to failure
+        if (experience.accuracy < 0.3) {
+            const newEffectiveness = Math.max(0.1, currentEffectiveness - 0.2);
+            this.nar.metaReasoner.updateStrategyEffectiveness(
+                key, 'failure', {effectiveness: newEffectiveness});
+        }
+    }
+
+    _reinforcePattern(experience) {
+        // Strengthen a successful pattern
+        if (experience.derivationPath) {
+            const pathKey = experience.derivationPath.join('>');
+            const currentEffectiveness = this.nar.metaReasoner.getStrategyEffectiveness(`path:${pathKey}`);
+
+            // Increase effectiveness if this path led to success
+            const newEffectiveness = Math.min(0.95, currentEffectiveness + 0.1);
+            this.nar.metaReasoner.updateStrategyEffectiveness(
+                `path:${pathKey}`, 'success', {effectiveness: newEffectiveness});
+        }
+    }
+
+    /* ===== UTILITY METHODS ===== */
+    _generateExperienceId(context, outcome) {
+        return `Exp_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+    }
 }
 ```
 
@@ -1155,260 +1155,260 @@ To improve scalability and resource usage:
  * Advanced memory management system with selective forgetting
  */
 class MemoryManager {
-  constructor(nar) {
-    this.nar = nar;
-    this.beliefRelevance = new Map(); // Tracks relevance of beliefs
-    this.accessPatterns = new Map(); // Tracks access patterns for cache optimization
-    this.forgettingThreshold = 0.2; // Minimum relevance to retain beliefs
-    this.relevanceDecayRate = 0.001; // Base rate of relevance decay
-    this.activityWindow = 300000; // 5 minutes for recent activity tracking
-  }
-  
-  /**
-   * Run memory maintenance operations
-   */
-  maintainMemory() {
-    this._decayRelevance();
-    this._selectivelyForget();
-    this._optimizeIndexes();
-    this._adjustCacheSizes();
-  }
-  
-  /**
-   * Update relevance of a belief based on usage
-   */
-  updateRelevance(hyperedgeId, activityType, intensity = 1.0) {
-    if (!this.beliefRelevance.has(hyperedgeId)) {
-      this.beliefRelevance.set(hyperedgeId, {
-        baseRelevance: 0.5,
-        recentActivity: [],
-        lastAccess: Date.now()
-      });
+    constructor(nar) {
+        this.nar = nar;
+        this.beliefRelevance = new Map(); // Tracks relevance of beliefs
+        this.accessPatterns = new Map(); // Tracks access patterns for cache optimization
+        this.forgettingThreshold = 0.2; // Minimum relevance to retain beliefs
+        this.relevanceDecayRate = 0.001; // Base rate of relevance decay
+        this.activityWindow = 300000; // 5 minutes for recent activity tracking
     }
-    
-    const relevance = this.beliefRelevance.get(hyperedgeId);
-    const now = Date.now();
-    
-    // Clean up old activity records
-    relevance.recentActivity = relevance.recentActivity.filter(
-      record => now - record.timestamp < this.activityWindow);
-      
-    // Add new activity
-    relevance.recentActivity.push({
-      timestamp: now,
-      type: activityType,
-      intensity
-    });
-    
-    // Update base relevance with decay
-    const timeFactor = Math.exp(-(now - relevance.lastAccess) / this.activityWindow);
-    relevance.baseRelevance = relevance.baseRelevance * timeFactor + intensity * 0.2;
-    relevance.baseRelevance = Math.min(1.0, relevance.baseRelevance);
-    relevance.lastAccess = now;
-    
-    // Track access patterns for optimization
-    this._trackAccessPattern(hyperedgeId, activityType);
-  }
-  
-  /* ===== INTERNAL METHODS ===== */
-  _decayRelevance() {
-    const now = Date.now();
-    const decayFactor = Math.exp(-this.relevanceDecayRate * (this.nar.config.decayInterval || 100));
-    
-    this.beliefRelevance.forEach((relevance, hyperedgeId) => {
-      // Apply decay based on time since last access
-      const timeDelta = now - relevance.lastAccess;
-      const timeDecay = Math.exp(-this.relevanceDecayRate * timeDelta / 1000);
-      
-      relevance.baseRelevance *= timeDecay;
-      
-      // If relevance is very low and belief is gone from hypergraph, clean up
-      if (relevance.baseRelevance < 0.01 && !this.nar.hypergraph.has(hyperedgeId)) {
-        this.beliefRelevance.delete(hyperedgeId);
-      }
-    });
-  }
-  
-  _selectivelyForget() {
-    // Identify beliefs with low relevance
-    const candidates = Array.from(this.beliefRelevance.entries())
-      .filter(([id, relevance]) => {
-        // Don't forget recently added beliefs
-        if (relevance.lastAccess > Date.now() - 60000) return false;
-        
-        // Don't forget high-priority system knowledge
-        const hyperedge = this.nar.hypergraph.get(id);
-        if (hyperedge && hyperedge.beliefs.some(b => 
-            b.budget.priority > 0.7 && b.truth.confidence > 0.7)) {
-          return false;
+
+    /**
+     * Run memory maintenance operations
+     */
+    maintainMemory() {
+        this._decayRelevance();
+        this._selectivelyForget();
+        this._optimizeIndexes();
+        this._adjustCacheSizes();
+    }
+
+    /**
+     * Update relevance of a belief based on usage
+     */
+    updateRelevance(hyperedgeId, activityType, intensity = 1.0) {
+        if (!this.beliefRelevance.has(hyperedgeId)) {
+            this.beliefRelevance.set(hyperedgeId, {
+                baseRelevance: 0.5,
+                recentActivity: [],
+                lastAccess: Date.now()
+            });
         }
-        
-        return relevance.baseRelevance < this.forgettingThreshold;
-      })
-      .sort((a, b) => a[1].baseRelevance - b[1].baseRelevance);
-      
-    // Forget up to 5% of low-relevance beliefs
-    const forgetCount = Math.min(10, Math.floor(candidates.length * 0.05));
-    candidates.slice(0, forgetCount).forEach(([id]) => {
-      this._forgetBelief(id);
-    });
-  }
-  
-  _forgetBelief(hyperedgeId) {
-    const hyperedge = this.nar.hypergraph.get(hyperedgeId);
-    if (!hyperedge) return;
-    
-    // Don't completely remove, just reduce priority
-    hyperedge.beliefs = hyperedge.beliefs.map(belief => ({
-      ...belief,
-      budget: belief.budget.scale(0.3),
-      truth: new TruthValue(
-        belief.truth.frequency,
-        belief.truth.confidence * 0.5,
-        belief.truth.priority * 0.3
-      )
-    }));
-    
-    // If all beliefs have very low priority, consider removing
-    if (hyperedge.beliefs.every(b => b.budget.total() < 0.1)) {
-      this.nar.hypergraph.delete(hyperedgeId);
-      this._removeFromIndexes(hyperedgeId);
-      this.beliefRelevance.delete(hyperedgeId);
-      
-      this.nar._notifyListeners('belief-forgotten', { hyperedgeId });
+
+        const relevance = this.beliefRelevance.get(hyperedgeId);
+        const now = Date.now();
+
+        // Clean up old activity records
+        relevance.recentActivity = relevance.recentActivity.filter(
+            record => now - record.timestamp < this.activityWindow);
+
+        // Add new activity
+        relevance.recentActivity.push({
+            timestamp: now,
+            type: activityType,
+            intensity
+        });
+
+        // Update base relevance with decay
+        const timeFactor = Math.exp(-(now - relevance.lastAccess) / this.activityWindow);
+        relevance.baseRelevance = relevance.baseRelevance * timeFactor + intensity * 0.2;
+        relevance.baseRelevance = Math.min(1.0, relevance.baseRelevance);
+        relevance.lastAccess = now;
+
+        // Track access patterns for optimization
+        this._trackAccessPattern(hyperedgeId, activityType);
     }
-  }
-  
-  _removeFromIndexes(hyperedgeId) {
-    // Remove from all indexes
-    const hyperedge = this.nar.hypergraph.get(hyperedgeId);
-    if (hyperedge) {
-      // Remove from type index
-      if (this.nar.index.byType.has(hyperedge.type)) {
-        const set = this.nar.index.byType.get(hyperedge.type);
-        set.delete(hyperedgeId);
-        if (set.size === 0) this.nar.index.byType.delete(hyperedge.type);
-      }
-      
-      // Remove from argument index
-      hyperedge.args.forEach(arg => {
-        if (this.nar.index.byArg.has(arg)) {
-          const set = this.nar.index.byArg.get(arg);
-          set.delete(hyperedgeId);
-          if (set.size === 0) this.nar.index.byArg.delete(arg);
+
+    /* ===== INTERNAL METHODS ===== */
+    _decayRelevance() {
+        const now = Date.now();
+        const decayFactor = Math.exp(-this.relevanceDecayRate * (this.nar.config.decayInterval || 100));
+
+        this.beliefRelevance.forEach((relevance, hyperedgeId) => {
+            // Apply decay based on time since last access
+            const timeDelta = now - relevance.lastAccess;
+            const timeDecay = Math.exp(-this.relevanceDecayRate * timeDelta / 1000);
+
+            relevance.baseRelevance *= timeDecay;
+
+            // If relevance is very low and belief is gone from hypergraph, clean up
+            if (relevance.baseRelevance < 0.01 && !this.nar.hypergraph.has(hyperedgeId)) {
+                this.beliefRelevance.delete(hyperedgeId);
+            }
+        });
+    }
+
+    _selectivelyForget() {
+        // Identify beliefs with low relevance
+        const candidates = Array.from(this.beliefRelevance.entries())
+            .filter(([id, relevance]) => {
+                // Don't forget recently added beliefs
+                if (relevance.lastAccess > Date.now() - 60000) return false;
+
+                // Don't forget high-priority system knowledge
+                const hyperedge = this.nar.hypergraph.get(id);
+                if (hyperedge && hyperedge.beliefs.some(b =>
+                    b.budget.priority > 0.7 && b.truth.confidence > 0.7)) {
+                    return false;
+                }
+
+                return relevance.baseRelevance < this.forgettingThreshold;
+            })
+            .sort((a, b) => a[1].baseRelevance - b[1].baseRelevance);
+
+        // Forget up to 5% of low-relevance beliefs
+        const forgetCount = Math.min(10, Math.floor(candidates.length * 0.05));
+        candidates.slice(0, forgetCount).forEach(([id]) => {
+            this._forgetBelief(id);
+        });
+    }
+
+    _forgetBelief(hyperedgeId) {
+        const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+        if (!hyperedge) return;
+
+        // Don't completely remove, just reduce priority
+        hyperedge.beliefs = hyperedge.beliefs.map(belief => ({
+            ...belief,
+            budget: belief.budget.scale(0.3),
+            truth: new TruthValue(
+                belief.truth.frequency,
+                belief.truth.confidence * 0.5,
+                belief.truth.priority * 0.3
+            )
+        }));
+
+        // If all beliefs have very low priority, consider removing
+        if (hyperedge.beliefs.every(b => b.budget.total() < 0.1)) {
+            this.nar.hypergraph.delete(hyperedgeId);
+            this._removeFromIndexes(hyperedgeId);
+            this.beliefRelevance.delete(hyperedgeId);
+
+            this.nar._notifyListeners('belief-forgotten', {hyperedgeId});
         }
-      });
     }
-  }
-  
-  _optimizeIndexes() {
-    // Analyze index usage patterns and optimize
-    const frequentPatterns = this._analyzeFrequentQueryPatterns();
-    
-    // Create specialized indexes for frequent patterns
-    frequentPatterns.forEach(pattern => {
-      if (!this.nar.index.specialized.has(pattern.signature)) {
-        this._createSpecializedIndex(pattern);
-      }
-    });
-  }
-  
-  _analyzeFrequentQueryPatterns() {
-    // In a real system, this would analyze query logs
-    // For demonstration, we'll look for common argument patterns
-    const argFrequency = new Map();
-    
-    this.nar.index.byArg.forEach((ids, arg) => {
-      argFrequency.set(arg, ids.size);
-    });
-    
-    // Find the most frequently used arguments
-    return Array.from(argFrequency.entries())
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([arg, count]) => ({
-        signature: `byArg:${arg}`,
-        pattern: { type: 'byArg', arg },
-        frequency: count
-      }));
-  }
-  
-  _createSpecializedIndex(pattern) {
-    if (pattern.pattern.type === 'byArg') {
-      const arg = pattern.pattern.arg;
-      const index = new Set();
-      
-      // Populate index with hyperedges containing this argument
-      this.nar.index.byArg.get(arg)?.forEach(hyperedgeId => {
+
+    _removeFromIndexes(hyperedgeId) {
+        // Remove from all indexes
         const hyperedge = this.nar.hypergraph.get(hyperedgeId);
         if (hyperedge) {
-          index.add(hyperedgeId);
+            // Remove from type index
+            if (this.nar.index.byType.has(hyperedge.type)) {
+                const set = this.nar.index.byType.get(hyperedge.type);
+                set.delete(hyperedgeId);
+                if (set.size === 0) this.nar.index.byType.delete(hyperedge.type);
+            }
+
+            // Remove from argument index
+            hyperedge.args.forEach(arg => {
+                if (this.nar.index.byArg.has(arg)) {
+                    const set = this.nar.index.byArg.get(arg);
+                    set.delete(hyperedgeId);
+                    if (set.size === 0) this.nar.index.byArg.delete(arg);
+                }
+            });
         }
-      });
-      
-      this.nar.index.specialized.set(pattern.signature, {
-        type: 'byArg',
-        arg,
-        index
-      });
     }
-  }
-  
-  _adjustCacheSizes() {
-    // Dynamically adjust cache sizes based on usage patterns
-    const cacheUsage = this._analyzeCacheUsage();
-    
-    // Adjust derivation cache
-    if (cacheUsage.derivationCache.missRate > 0.3) {
-      // Increase cache size if miss rate is high
-      this.nar.config.derivationCacheSize = Math.min(
-        this.nar.config.derivationCacheSize * 1.2, 2000);
-    } else if (cacheUsage.derivationCache.missRate < 0.1) {
-      // Decrease cache size if miss rate is low
-      this.nar.config.derivationCacheSize = Math.max(
-        this.nar.config.derivationCacheSize * 0.8, 500);
+
+    _optimizeIndexes() {
+        // Analyze index usage patterns and optimize
+        const frequentPatterns = this._analyzeFrequentQueryPatterns();
+
+        // Create specialized indexes for frequent patterns
+        frequentPatterns.forEach(pattern => {
+            if (!this.nar.index.specialized.has(pattern.signature)) {
+                this._createSpecializedIndex(pattern);
+            }
+        });
     }
-    
-    // Update the actual cache
-    if (this.nar.index.derivationCache && 
-        this.nar.index.derivationCache.maxSize !== this.nar.config.derivationCacheSize) {
-      const newCache = new LRUMap(this.nar.config.derivationCacheSize);
-      // Transfer existing entries
-      this.nar.index.derivationCache.map.forEach((value, key) => {
-        newCache.set(key, value);
-      });
-      this.nar.index.derivationCache = newCache;
+
+    _analyzeFrequentQueryPatterns() {
+        // In a real system, this would analyze query logs
+        // For demonstration, we'll look for common argument patterns
+        const argFrequency = new Map();
+
+        this.nar.index.byArg.forEach((ids, arg) => {
+            argFrequency.set(arg, ids.size);
+        });
+
+        // Find the most frequently used arguments
+        return Array.from(argFrequency.entries())
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([arg, count]) => ({
+                signature: `byArg:${arg}`,
+                pattern: {type: 'byArg', arg},
+                frequency: count
+            }));
     }
-  }
-  
-  _analyzeCacheUsage() {
-    // In a real system, this would track cache hits/misses
-    // For demonstration, we'll assume some metrics
-    return {
-      derivationCache: {
-        hitRate: 0.7,
-        missRate: 0.3,
-        size: this.nar.index.derivationCache?.map.size || 0
-      }
-    };
-  }
-  
-  _trackAccessPattern(hyperedgeId, activityType) {
-    if (!this.accessPatterns.has(hyperedgeId)) {
-      this.accessPatterns.set(hyperedgeId, {
-        totalAccesses: 0,
-        byType: new Map(),
-        lastAccess: Date.now()
-      });
+
+    _createSpecializedIndex(pattern) {
+        if (pattern.pattern.type === 'byArg') {
+            const arg = pattern.pattern.arg;
+            const index = new Set();
+
+            // Populate index with hyperedges containing this argument
+            this.nar.index.byArg.get(arg)?.forEach(hyperedgeId => {
+                const hyperedge = this.nar.hypergraph.get(hyperedgeId);
+                if (hyperedge) {
+                    index.add(hyperedgeId);
+                }
+            });
+
+            this.nar.index.specialized.set(pattern.signature, {
+                type: 'byArg',
+                arg,
+                index
+            });
+        }
     }
-    
-    const pattern = this.accessPatterns.get(hyperedgeId);
-    pattern.totalAccesses++;
-    pattern.lastAccess = Date.now();
-    
-    const typeCount = pattern.byType.get(activityType) || 0;
-    pattern.byType.set(activityType, typeCount + 1);
-  }
+
+    _adjustCacheSizes() {
+        // Dynamically adjust cache sizes based on usage patterns
+        const cacheUsage = this._analyzeCacheUsage();
+
+        // Adjust derivation cache
+        if (cacheUsage.derivationCache.missRate > 0.3) {
+            // Increase cache size if miss rate is high
+            this.nar.config.derivationCacheSize = Math.min(
+                this.nar.config.derivationCacheSize * 1.2, 2000);
+        } else if (cacheUsage.derivationCache.missRate < 0.1) {
+            // Decrease cache size if miss rate is low
+            this.nar.config.derivationCacheSize = Math.max(
+                this.nar.config.derivationCacheSize * 0.8, 500);
+        }
+
+        // Update the actual cache
+        if (this.nar.index.derivationCache &&
+            this.nar.index.derivationCache.maxSize !== this.nar.config.derivationCacheSize) {
+            const newCache = new LRUMap(this.nar.config.derivationCacheSize);
+            // Transfer existing entries
+            this.nar.index.derivationCache.map.forEach((value, key) => {
+                newCache.set(key, value);
+            });
+            this.nar.index.derivationCache = newCache;
+        }
+    }
+
+    _analyzeCacheUsage() {
+        // In a real system, this would track cache hits/misses
+        // For demonstration, we'll assume some metrics
+        return {
+            derivationCache: {
+                hitRate: 0.7,
+                missRate: 0.3,
+                size: this.nar.index.derivationCache?.map.size || 0
+            }
+        };
+    }
+
+    _trackAccessPattern(hyperedgeId, activityType) {
+        if (!this.accessPatterns.has(hyperedgeId)) {
+            this.accessPatterns.set(hyperedgeId, {
+                totalAccesses: 0,
+                byType: new Map(),
+                lastAccess: Date.now()
+            });
+        }
+
+        const pattern = this.accessPatterns.get(hyperedgeId);
+        pattern.totalAccesses++;
+        pattern.lastAccess = Date.now();
+
+        const typeCount = pattern.byType.get(activityType) || 0;
+        pattern.byType.set(activityType, typeCount + 1);
+    }
 }
 ```
 
@@ -1418,208 +1418,220 @@ To complete the implementation, I'll add integration points for these new system
 
 ```javascript
 // In NARHyper constructor
-constructor(config = {}) {
-  // ... existing initialization ...
-  
-  // Enhanced systems
-  this.memoryManager = new MemoryManager(this);
-  this.contradictionManager = new ContradictionManager(this);
-  this.metaReasoner = new MetaReasoner(this);
-  this.learningEngine = new LearningEngine(this);
-  
-  // Memory maintenance interval
-  this.memoryMaintenanceInterval = config.memoryMaintenanceInterval || 100;
-  this.stepsSinceMaintenance = 0;
+constructor(config = {})
+{
+    // ... existing initialization ...
+
+    // Enhanced systems
+    this.memoryManager = new MemoryManager(this);
+    this.contradictionManager = new ContradictionManager(this);
+    this.metaReasoner = new MetaReasoner(this);
+    this.learningEngine = new LearningEngine(this);
+
+    // Memory maintenance interval
+    this.memoryMaintenanceInterval = config.memoryMaintenanceInterval || 100;
+    this.stepsSinceMaintenance = 0;
 }
 
 // In step() method
-step() {
-  this.currentStep++;
-  const event = this.eventQueue.pop();
-  
-  if (!event || event.budget.priority < this.config.budgetThreshold) return false;
-  
-  // Track relevance of processed belief
-  this.memoryManager.updateRelevance(
-    event.target, 
-    'processing', 
-    event.budget.priority
-  );
-  
-  this._updateActivation(event.target, event.activation);
-  this._applyDerivationRules(event);
-  this._propagateWave(event);
-  
-  // Record experience for learning
-  this._recordReasoningExperience(event);
-  
-  this._notifyListeners('step', { 
-    step: this.currentStep,
-    event, 
-    activation: this.activations.get(event.target),
-    queueSize: this.eventQueue.heap.length 
-  });
-  
-  // Check if any questions can be resolved
-  this.questionPromises.forEach((_, questionId) => {
-    if (this.currentStep % 10 === 0) {
-      this._resolveQuestion(questionId);
+step()
+{
+    this.currentStep++;
+    const event = this.eventQueue.pop();
+
+    if (!event || event.budget.priority < this.config.budgetThreshold) return false;
+
+    // Track relevance of processed belief
+    this.memoryManager.updateRelevance(
+        event.target,
+        'processing',
+        event.budget.priority
+    );
+
+    this._updateActivation(event.target, event.activation);
+    this._applyDerivationRules(event);
+    this._propagateWave(event);
+
+    // Record experience for learning
+    this._recordReasoningExperience(event);
+
+    this._notifyListeners('step', {
+        step: this.currentStep,
+        event,
+        activation: this.activations.get(event.target),
+        queueSize: this.eventQueue.heap.length
+    });
+
+    // Check if any questions can be resolved
+    this.questionPromises.forEach((_, questionId) => {
+        if (this.currentStep % 10 === 0) {
+            this._resolveQuestion(questionId);
+        }
+    });
+
+    // Run maintenance operations periodically
+    this.stepsSinceMaintenance++;
+    if (this.stepsSinceMaintenance >= this.memoryMaintenanceInterval) {
+        this._runMaintenance();
+        this.stepsSinceMaintenance = 0;
     }
-  });
-  
-  // Run maintenance operations periodically
-  this.stepsSinceMaintenance++;
-  if (this.stepsSinceMaintenance >= this.memoryMaintenanceInterval) {
-    this._runMaintenance();
-    this.stepsSinceMaintenance = 0;
-  }
-  
-  return true;
+
+    return true;
 }
 
-_recordReasoningExperience(event) {
-  // Record experience for learning
-  this.learningEngine.recordExperience({
-    operation: 'derive',
-    rule: this._getDerivationRule(event),
-    hyperedgeType: this._getHyperedgeType(event),
-    args: this._getHyperedgeArgs(event)
-  }, {
-    activation: event.activation,
-    budget: event.budget
-  }, {
-    derivationPath: event.derivationPath,
-    resourcesUsed: {
-      priority: event.budget.priority,
-      steps: 1
-    }
-  });
+_recordReasoningExperience(event)
+{
+    // Record experience for learning
+    this.learningEngine.recordExperience({
+        operation: 'derive',
+        rule: this._getDerivationRule(event),
+        hyperedgeType: this._getHyperedgeType(event),
+        args: this._getHyperedgeArgs(event)
+    }, {
+        activation: event.activation,
+        budget: event.budget
+    }, {
+        derivationPath: event.derivationPath,
+        resourcesUsed: {
+            priority: event.budget.priority,
+            steps: 1
+        }
+    });
 }
 
-_getDerivationRule(event) {
-  const hyperedge = this.hypergraph.get(event.target);
-  return hyperedge ? hyperedge.type : 'unknown';
+_getDerivationRule(event)
+{
+    const hyperedge = this.hypergraph.get(event.target);
+    return hyperedge ? hyperedge.type : 'unknown';
 }
 
-_getHyperedgeType(event) {
-  const hyperedge = this.hypergraph.get(event.target);
-  return hyperedge ? hyperedge.type : 'Term';
+_getHyperedgeType(event)
+{
+    const hyperedge = this.hypergraph.get(event.target);
+    return hyperedge ? hyperedge.type : 'Term';
 }
 
-_getHyperedgeArgs(event) {
-  const hyperedge = this.hypergraph.get(event.target);
-  return hyperedge ? hyperedge.args : [event.target];
+_getHyperedgeArgs(event)
+{
+    const hyperedge = this.hypergraph.get(event.target);
+    return hyperedge ? hyperedge.args : [event.target];
 }
 
-_runMaintenance() {
-  // Run memory maintenance
-  this.memoryManager.maintainMemory();
-  
-  // Run contradiction resolution
-  this.contradictionManager.resolveContradictions();
-  
-  // Run meta-reasoning
-  this.metaReasoner.optimizeResources();
-  
-  // Apply learning
-  this.learningEngine.applyLearning();
+_runMaintenance()
+{
+    // Run memory maintenance
+    this.memoryManager.maintainMemory();
+
+    // Run contradiction resolution
+    this.contradictionManager.resolveContradictions();
+
+    // Run meta-reasoning
+    this.metaReasoner.optimizeResources();
+
+    // Apply learning
+    this.learningEngine.applyLearning();
 }
 
 // In _propagate method
-_propagate(target, activation, budget, pathHash, pathLength, derivationPath) {
-  if (budget.priority < this.config.budgetThreshold || 
-      pathLength > this.config.maxPathLength || 
-      this._hasLoop(target, pathHash)) return;
-      
-  // Update relevance before propagation
-  this.memoryManager.updateRelevance(
-    target,
-    'propagation',
-    budget.priority
-  );
-  
-  this.eventQueue.push({ 
-    target, 
-    activation: Math.min(activation, 1.0),
-    budget,
-    pathHash,
-    pathLength,
-    derivationPath
-  });
+_propagate(target, activation, budget, pathHash, pathLength, derivationPath)
+{
+    if (budget.priority < this.config.budgetThreshold ||
+        pathLength > this.config.maxPathLength ||
+        this._hasLoop(target, pathHash)) return;
+
+    // Update relevance before propagation
+    this.memoryManager.updateRelevance(
+        target,
+        'propagation',
+        budget.priority
+    );
+
+    this.eventQueue.push({
+        target,
+        activation: Math.min(activation, 1.0),
+        budget,
+        pathHash,
+        pathLength,
+        derivationPath
+    });
 }
 
 // In revise method
-revise(hyperedgeId, newTruth, newBudget) {
-  const hyperedge = this.hypergraph.get(hyperedgeId);
-  if (hyperedge) {
-    // Track relevance of revision activity
-    this.memoryManager.updateRelevance(
-      hyperedgeId,
-      'revision',
-      newBudget ? newBudget.priority : 0.5
-    );
-    
-    const result = hyperedge.revise(newTruth, newBudget || hyperedge.getStrongestBelief().budget);
-    this._notifyListeners('revision', { hyperedgeId, newTruth, newBudget, ...result });
-    
-    // Record revision experience
-    this.learningEngine.recordExperience({
-      operation: 'revise',
-      hyperedgeId,
-      hyperedgeType: hyperedge.type,
-      newTruth,
-      newBudget
-    }, {
-      oldTruth: hyperedge.getTruth(),
-      oldBudget: hyperedge.getStrongestBelief().budget
-    }, {
-      accuracy: this._calculateRevisionAccuracy(hyperedge, newTruth),
-      success: result.needsUpdate
-    });
-    
-    return result.needsUpdate;
-  }
-  return false;
+revise(hyperedgeId, newTruth, newBudget)
+{
+    const hyperedge = this.hypergraph.get(hyperedgeId);
+    if (hyperedge) {
+        // Track relevance of revision activity
+        this.memoryManager.updateRelevance(
+            hyperedgeId,
+            'revision',
+            newBudget ? newBudget.priority : 0.5
+        );
+
+        const result = hyperedge.revise(newTruth, newBudget || hyperedge.getStrongestBelief().budget);
+        this._notifyListeners('revision', {hyperedgeId, newTruth, newBudget, ...result});
+
+        // Record revision experience
+        this.learningEngine.recordExperience({
+            operation: 'revise',
+            hyperedgeId,
+            hyperedgeType: hyperedge.type,
+            newTruth,
+            newBudget
+        }, {
+            oldTruth: hyperedge.getTruth(),
+            oldBudget: hyperedge.getStrongestBelief().budget
+        }, {
+            accuracy: this._calculateRevisionAccuracy(hyperedge, newTruth),
+            success: result.needsUpdate
+        });
+
+        return result.needsUpdate;
+    }
+    return false;
 }
 
-_calculateRevisionAccuracy(hyperedge, newTruth) {
-  // In a real system, this would compare to ground truth
-  // For demonstration, we'll assume some accuracy calculation
-  const oldExpectation = hyperedge.getTruth().expectation();
-  const newExpectation = newTruth.expectation();
-  
-  // If we had a way to know the "correct" value, we'd compare to that
-  // For now, we'll just measure the change magnitude
-  return 1 - Math.abs(oldExpectation - newExpectation);
+_calculateRevisionAccuracy(hyperedge, newTruth)
+{
+    // In a real system, this would compare to ground truth
+    // For demonstration, we'll assume some accuracy calculation
+    const oldExpectation = hyperedge.getTruth().expectation();
+    const newExpectation = newTruth.expectation();
+
+    // If we had a way to know the "correct" value, we'd compare to that
+    // For now, we'll just measure the change magnitude
+    return 1 - Math.abs(oldExpectation - newExpectation);
 }
 
 // In ask method
-ask(question, options = {}) {
-  // Track relevance of question
-  this.memoryManager.updateRelevance(
-    this._generateQuestionId(question),
-    'question',
-    options.minExpectation || 0.5
-  );
-  
-  // ... existing implementation ...
+ask(question, options = {})
+{
+    // Track relevance of question
+    this.memoryManager.updateRelevance(
+        this._generateQuestionId(question),
+        'question',
+        options.minExpectation || 0.5
+    );
+
+    // ... existing implementation ...
 }
 
 // In _answerQuestion method
-_answerQuestion(questionId, answer) {
-  // Record experience for question answering
-  this.learningEngine.recordExperience({
-    operation: 'answer',
-    questionId,
-    answerType: answer.type
-  }, {
-    answer
-  }, {
-    accuracy: answer.truth.expectation(),
-    success: true
-  });
-  
-  // ... existing implementation ...
+_answerQuestion(questionId, answer)
+{
+    // Record experience for question answering
+    this.learningEngine.recordExperience({
+        operation: 'answer',
+        questionId,
+        answerType: answer.type
+    }, {
+        answer
+    }, {
+        accuracy: answer.truth.expectation(),
+        success: true
+    });
+
+    // ... existing implementation ...
 }
 ```
 

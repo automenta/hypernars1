@@ -1,4 +1,4 @@
-import {id} from '../support/utils.js';
+import {id, mergeConfig} from '../support/utils.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {Budget} from '../support/Budget.js';
 import {LearningEngineBase} from './LearningEngineBase.js';
@@ -6,7 +6,6 @@ import {config} from '../config/index.js';
 import {PatternMiner} from './learningComponents/PatternMiner.js';
 import {ConceptFormer} from './learningComponents/ConceptFormer.js';
 import {RuleAdaptor} from './learningComponents/RuleAdaptor.js';
-import {mergeConfig} from "../support/utils.js";
 
 const defaultConfig = config.advancedLearningEngine;
 

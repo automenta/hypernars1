@@ -5,34 +5,6 @@ import {System} from './core/System.js';
 import {Propagation} from './core/Propagation.js';
 import {QuestionHandler} from './core/QuestionHandler.js';
 import {StateSerializer} from './core/StateSerializer.js';
-import {ExpressionEvaluator} from './evaluator/ExpressionEvaluator.js';
-import {AdvancedExpressionEvaluator} from './evaluator/AdvancedExpressionEvaluator.js';
-
-import {DerivationEngineBase} from './core/DerivationEngineBase.js';
-import {SimpleDerivationEngine} from './core/SimpleDerivationEngine.js';
-import {AdvancedDerivationEngine} from './core/AdvancedDerivationEngine.js';
-
-import {MemoryManagerBase} from './managers/MemoryManagerBase.js';
-import {SimpleMemoryManager} from './managers/SimpleMemoryManager.js';
-import {AdvancedMemoryManager} from './managers/AdvancedMemoryManager.js';
-
-import {ContradictionManagerBase} from './managers/ContradictionManagerBase.js';
-import {SimpleContradictionManager} from './managers/SimpleContradictionManager.js';
-import {AdvancedContradictionManager} from './managers/AdvancedContradictionManager.js';
-
-import {LearningEngineBase} from './managers/LearningEngineBase.js';
-import {SimpleLearningEngine} from './managers/SimpleLearningEngine.js';
-import {AdvancedLearningEngine} from './managers/AdvancedLearningEngine.js';
-
-import {TemporalManagerBase} from './managers/TemporalManagerBase.js';
-import {SimpleTemporalManager} from './managers/SimpleTemporalManager.js';
-import {TemporalReasoner} from './managers/TemporalReasoner.js';
-
-import {CognitiveExecutive} from './managers/CognitiveExecutive.js';
-import {ExplanationSystem} from './managers/ExplanationSystem.js';
-import {GoalManagerBase} from './managers/GoalManagerBase.js';
-import {GoalManager} from './managers/GoalManager.js';
-import {ConceptFormation} from './managers/ConceptFormation.js';
 import {MODULE_DEFINITIONS} from './core/moduleDefinitions.js';
 
 
@@ -89,7 +61,7 @@ export class NAR extends EventEmitter {
 
     _initConfig(config) {
         // First, merge the top-level defaults with the user's config.
-        this.config = { ...DEFAULT_CONFIG, ...config };
+        this.config = {...DEFAULT_CONFIG, ...config};
         this.config.ruleConfig = this.config.ruleConfig || {};
 
         // Now, for each module, ensure its configuration is properly merged,
@@ -100,7 +72,7 @@ export class NAR extends EventEmitter {
             const defaultModuleConfig = DEFAULT_CONFIG[instanceName] || {}; // This will be empty, but it's good practice
 
             // Explicitly merge the module's configuration.
-            this.config[instanceName] = { ...defaultModuleConfig, ...(this.config[instanceName] || {}), ...userModuleConfig };
+            this.config[instanceName] = {...defaultModuleConfig, ...(this.config[instanceName] || {}), ...userModuleConfig};
         }
     }
 

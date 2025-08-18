@@ -1,10 +1,6 @@
 import {DerivationEngineBase} from './DerivationEngineBase.js';
-import {TruthValue} from '../support/TruthValue.js';
-import {getArgId, hash, id} from '../support/utils.js';
-import {getInverseTemporalRelation, composeTemporalRelations} from '../support/temporalUtils.js';
-import {config} from '../config/index.js';
+import {mergeConfig} from '../support/utils.js';
 import {advancedDerivationEngineConfig} from "../config/AdvancedDerivationEngine.config.js";
-import {mergeConfig} from "../support/utils.js";
 import {InheritanceRule} from './derivation-rules/InheritanceRule.js';
 import {SimilarityRule} from './derivation-rules/SimilarityRule.js';
 import {ImplicationRule} from './derivation-rules/ImplicationRule.js';

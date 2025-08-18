@@ -1,4 +1,4 @@
-import {id, hash} from '../../support/utils.js';
+import {hash, id} from '../../support/utils.js';
 
 export class DerivationRuleBase {
     constructor(nar, config, name, condition) {

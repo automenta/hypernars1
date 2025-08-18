@@ -9,11 +9,11 @@ export default {
                 // The temporal property is attached to the implication hyperedge.
                 // We need a way to create an implication and attach a temporal property to it.
                 // Based on my changes, I can pass a `temporal` object in the options.
-                const temporalData = { interval: 30 }; // 30 seconds
+                const temporalData = {interval: 30}; // 30 seconds
                 nar.api.implication(
                     nar.api.term('A'),
                     nar.api.addHyperedge('Conjunction', [nar.api.term('B'), nar.api.term('C')]),
-                    { temporal: temporalData }
+                    {temporal: temporalData}
                 );
                 nar.run(10);
             },

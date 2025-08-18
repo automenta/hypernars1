@@ -1,4 +1,4 @@
-import {describe, expect, it, beforeEach} from '@jest/globals';
+import {beforeEach, describe, expect, it} from '@jest/globals';
 import {State} from './State.js';
 import {TrieIndex} from '../support/TrieIndex.js';
 import {StructuralIndex} from '../support/StructuralIndex.js';

@@ -19,49 +19,56 @@ comprehensive temporal framework with:
  * @example predict('traffic_jam', 'during(commute)', 30) // Predict in 30 minutes
  */
 temporal: {
-  /**
-   * Define temporal interval with start/end times
-   * @param {string} term - Term being described
-   * @param {string|number} start - Start time or duration pattern
-   * @param {string|number} [end] - End time (if start is absolute)
-   * @param {Object} [options] - Additional options
-   */
-  during(term, start, end, options = {}) {
-    // Handle duration patterns like "daily", "weekly", etc.
-    if (typeof end === 'string' && !end.includes(':')) {
-      return this._addTemporalInterval(term, start, null, end, options);
+    /**
+     * Define temporal interval with start/end times
+     * @param {string} term - Term being described
+     * @param {string|number} start - Start time or duration pattern
+     * @param {string|number} [end] - End time (if start is absolute)
+     * @param {Object} [options] - Additional options
+     */
+    during(term, start, end, options = {})
+    {
+        // Handle duration patterns like "daily", "weekly", etc.
+        if (typeof end === 'string' && !end.includes(':')) {
+            return this._addTemporalInterval(term, start, null, end, options);
+        }
+        return this._addTemporalInterval(term, start, end, null, options);
     }
-    return this._addTemporalInterval(term, start, end, null, options);
-  },
-  
-  /**
-   * Define relative temporal relationship
-   * @param {string} term1 - First term
-   * @param {string} term2 - Second term
-   * @param {string} relation - 'before', 'after', 'during', 'overlaps'
-   * @param {Object} [options] - Confidence and priority
-   */
-  relate(term1, term2, relation, options = {}) {
-    return this._addTemporalRelation(term1, term2, relation, options);
-  },
-  
-  /**
-   * Project future events based on patterns
-   * @param {string} event - Event to project
-   * @param {string} pattern - Temporal pattern
-   * @param {number} horizon - Minutes into future to project
-   */
-  predict(event, pattern, horizon) {
-    return this._addTemporalProjection(event, pattern, horizon);
-  },
-  
-  /**
-   * Get current temporal context
-   * @returns {Object} Current time context
-   */
-  getContext() {
-    return this._getTemporalContext();
-  }
+,
+
+    /**
+     * Define relative temporal relationship
+     * @param {string} term1 - First term
+     * @param {string} term2 - Second term
+     * @param {string} relation - 'before', 'after', 'during', 'overlaps'
+     * @param {Object} [options] - Confidence and priority
+     */
+    relate(term1, term2, relation, options = {})
+    {
+        return this._addTemporalRelation(term1, term2, relation, options);
+    }
+,
+
+    /**
+     * Project future events based on patterns
+     * @param {string} event - Event to project
+     * @param {string} pattern - Temporal pattern
+     * @param {number} horizon - Minutes into future to project
+     */
+    predict(event, pattern, horizon)
+    {
+        return this._addTemporalProjection(event, pattern, horizon);
+    }
+,
+
+    /**
+     * Get current temporal context
+     * @returns {Object} Current time context
+     */
+    getContext()
+    {
+        return this._getTemporalContext();
+    }
 }
 ```
 
@@ -250,82 +257,95 @@ Improved the budget system to better adhere to AIKR principles:
  * Advanced resource management with dynamic allocation
  */
 _resources: {
-  /**
-   * Allocate resources based on task importance and context
-   * @param {Object} task - Task to allocate resources for
-   * @param {string} task.type - Task type
-   * @param {Array} task.args - Task arguments
-   * @param {Object} [context] - Current reasoning context
-   * @returns {Budget} Allocated budget
-   */
-  allocateResources(task, context = {}) {
-    // Base priority on task type
-    let basePriority = 0.5;
-    switch(task.type) {
-      case 'question': basePriority = 0.9; break;
-      case 'critical-event': basePriority = 0.95; break;
-      case 'derivation': basePriority = 0.6; break;
-      case 'revision': basePriority = 0.7; break;
+    /**
+     * Allocate resources based on task importance and context
+     * @param {Object} task - Task to allocate resources for
+     * @param {string} task.type - Task type
+     * @param {Array} task.args - Task arguments
+     * @param {Object} [context] - Current reasoning context
+     * @returns {Budget} Allocated budget
+     */
+    allocateResources(task, context = {})
+    {
+        // Base priority on task type
+        let basePriority = 0.5;
+        switch (task.type) {
+            case 'question':
+                basePriority = 0.9;
+                break;
+            case 'critical-event':
+                basePriority = 0.95;
+                break;
+            case 'derivation':
+                basePriority = 0.6;
+                break;
+            case 'revision':
+                basePriority = 0.7;
+                break;
+        }
+
+        // Adjust based on context
+        if (context.urgency) {
+            basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
+        }
+
+        if (context.importance) {
+            basePriority = Math.min(1.0, basePriority + context.importance * 0.2);
+        }
+
+        // Apply current resource availability
+        const availability = this._getResourceAvailability();
+        const priority = basePriority * availability;
+
+        // Determine durability based on task nature
+        let durability;
+        if (task.type === 'question' || task.type === 'critical-event') {
+            durability = 0.9; // Need sustained attention
+        } else {
+            durability = 0.6; // Shorter attention span for derivations
+        }
+
+        // Quality depends on resource availability
+        const quality = Math.sqrt(availability) * 0.8;
+
+        return new Budget(priority, durability, quality);
     }
-    
-    // Adjust based on context
-    if (context.urgency) {
-      basePriority = Math.min(1.0, basePriority + context.urgency * 0.3);
+,
+
+    /**
+     * Get current resource availability (0-1)
+     * @returns {number}
+     */
+    _getResourceAvailability()
+    {
+        // Calculate based on recent usage and system load
+        const recentUsage = this._calculateRecentResourceUsage();
+        return Math.max(0.1, 1.0 - recentUsage * 0.7);
     }
-    
-    if (context.importance) {
-      basePriority = Math.min(1.0, basePriority + context.importance * 0.2);
+,
+
+    /**
+     * Prune low-value reasoning paths
+     * @param {number} [threshold=0.2] - Minimum value to keep
+     */
+    pruneLowValuePaths(threshold = 0.2)
+    {
+        const pathsToPrune = [];
+
+        // Check event queue
+        for (const event of this.eventQueue.heap) {
+            if (event.budget.total() < threshold) {
+                pathsToPrune.push(event);
+            }
+        }
+
+        // Remove low-value paths
+        for (const event of pathsToPrune) {
+            this.eventQueue.remove(event);
+        }
+
+        return pathsToPrune.length;
     }
-    
-    // Apply current resource availability
-    const availability = this._getResourceAvailability();
-    const priority = basePriority * availability;
-    
-    // Determine durability based on task nature
-    let durability;
-    if (task.type === 'question' || task.type === 'critical-event') {
-      durability = 0.9; // Need sustained attention
-    } else {
-      durability = 0.6; // Shorter attention span for derivations
-    }
-    
-    // Quality depends on resource availability
-    const quality = Math.sqrt(availability) * 0.8;
-    
-    return new Budget(priority, durability, quality);
-  },
-  
-  /**
-   * Get current resource availability (0-1)
-   * @returns {number}
-   */
-  _getResourceAvailability() {
-    // Calculate based on recent usage and system load
-    const recentUsage = this._calculateRecentResourceUsage();
-    return Math.max(0.1, 1.0 - recentUsage * 0.7);
-  },
-  
-  /**
-   * Prune low-value reasoning paths
-   * @param {number} [threshold=0.2] - Minimum value to keep
-   */
-  pruneLowValuePaths(threshold = 0.2) {
-    const pathsToPrune = [];
-    
-    // Check event queue
-    for (const event of this.eventQueue.heap) {
-      if (event.budget.total() < threshold) {
-        pathsToPrune.push(event);
-      }
-    }
-    
-    // Remove low-value paths
-    for (const event of pathsToPrune) {
-      this.eventQueue.remove(event);
-    }
-    
-    return pathsToPrune.length;
-  }
 }
 ```
 
@@ -338,82 +358,84 @@ Improved the explanation capabilities to provide more useful outputs:
  * Advanced explanation generation with multiple formats
  */
 explain(hyperedgeId, {
-  depth = 5,
-  format = 'detailed', // 'concise', 'detailed', 'technical'
-  includeConfidence = true,
-  maxAlternatives = 3
-} = {}) {
-  const path = [];
-  this._traceDerivation(hyperedgeId, path, depth);
-  
-  if (path.length === 0) return "No derivation path found";
-  
-  switch(format) {
-    case 'concise':
-      return this._formatConciseExplanation(path, includeConfidence);
-      
-    case 'technical':
-      return this._formatTechnicalExplanation(path);
-      
-    case 'detailed':
-    default:
-      return this._formatDetailedExplanation(
-        hyperedgeId, 
-        path, 
-        includeConfidence,
-        maxAlternatives
-      );
-  }
+    depth = 5,
+    format = 'detailed', // 'concise', 'detailed', 'technical'
+    includeConfidence = true,
+    maxAlternatives = 3
+} = {})
+{
+    const path = [];
+    this._traceDerivation(hyperedgeId, path, depth);
+
+    if (path.length === 0) return "No derivation path found";
+
+    switch (format) {
+        case 'concise':
+            return this._formatConciseExplanation(path, includeConfidence);
+
+        case 'technical':
+            return this._formatTechnicalExplanation(path);
+
+        case 'detailed':
+        default:
+            return this._formatDetailedExplanation(
+                hyperedgeId,
+                path,
+                includeConfidence,
+                maxAlternatives
+            );
+    }
 }
 
-_formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives) {
-  const hyperedge = this.hypergraph.get(hyperedgeId);
-  if (!hyperedge) return "Hyperedge not found";
-  
-  // Start with the conclusion
-  let explanation = `CONCLUSION: ${this._formatHyperedge(hyperedge)}\n`;
-  if (includeConfidence) {
-    const truth = hyperedge.getTruth();
-    explanation += `Confidence: ${truth.expectation().toFixed(2)} ` +
-                  `(${truth.frequency.toFixed(2)} frequency, ` +
-                  `${truth.confidence.toFixed(2)} confidence)\n\n`;
-  }
-  
-  // Show main derivation path
-  explanation += "PRIMARY REASONING PATH:\n";
-  path.forEach((step, i) => {
-    explanation += `${i + 1}. ${this._formatStep(step, includeConfidence)}\n`;
-  });
-  
-  // Check for contradictions or alternatives
-  if (hyperedge.beliefs && hyperedge.beliefs.length > 1) {
-    const alternatives = hyperedge.beliefs
-      .slice(1, maxAlternatives + 1)
-      .map((belief, idx) => ({
-        belief,
-        path: this._findAlternativePath(hyperedgeId, belief)
-      }));
-    
-    if (alternatives.length > 0) {
-      explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1}):\n`;
-      alternatives.forEach((alt, i) => {
-        explanation += `${i + 1}. Based on different evidence:\n`;
-        explanation += `   Confidence: ${alt.belief.truth.expectation().toFixed(2)}\n`;
-        if (alt.path && alt.path.length > 0) {
-          explanation += `   Reasoning path: ${alt.path.map(s => s.type).join(' → ')}\n`;
-        }
-      });
+_formatDetailedExplanation(hyperedgeId, path, includeConfidence, maxAlternatives)
+{
+    const hyperedge = this.hypergraph.get(hyperedgeId);
+    if (!hyperedge) return "Hyperedge not found";
+
+    // Start with the conclusion
+    let explanation = `CONCLUSION: ${this._formatHyperedge(hyperedge)}\n`;
+    if (includeConfidence) {
+        const truth = hyperedge.getTruth();
+        explanation += `Confidence: ${truth.expectation().toFixed(2)} ` +
+            `(${truth.frequency.toFixed(2)} frequency, ` +
+            `${truth.confidence.toFixed(2)} confidence)\n\n`;
     }
-  }
-  
-  // Add temporal context if relevant
-  const temporalContext = this.temporal.getContext();
-  if (temporalContext.currentPeriod) {
-    explanation += `\nTEMPORAL CONTEXT: ${temporalContext.currentPeriod}`;
-    if (temporalContext.season) explanation += `, ${temporalContext.season}`;
-  }
-  
-  return explanation;
+
+    // Show main derivation path
+    explanation += "PRIMARY REASONING PATH:\n";
+    path.forEach((step, i) => {
+        explanation += `${i + 1}. ${this._formatStep(step, includeConfidence)}\n`;
+    });
+
+    // Check for contradictions or alternatives
+    if (hyperedge.beliefs && hyperedge.beliefs.length > 1) {
+        const alternatives = hyperedge.beliefs
+            .slice(1, maxAlternatives + 1)
+            .map((belief, idx) => ({
+                belief,
+                path: this._findAlternativePath(hyperedgeId, belief)
+            }));
+
+        if (alternatives.length > 0) {
+            explanation += `\nALTERNATIVE PERSPECTIVES (${alternatives.length} of ${hyperedge.beliefs.length - 1}):\n`;
+            alternatives.forEach((alt, i) => {
+                explanation += `${i + 1}. Based on different evidence:\n`;
+                explanation += `   Confidence: ${alt.belief.truth.expectation().toFixed(2)}\n`;
+                if (alt.path && alt.path.length > 0) {
+                    explanation += `   Reasoning path: ${alt.path.map(s => s.type).join(' → ')}\n`;
+                }
+            });
+        }
+    }
+
+    // Add temporal context if relevant
+    const temporalContext = this.temporal.getContext();
+    if (temporalContext.currentPeriod) {
+        explanation += `\nTEMPORAL CONTEXT: ${temporalContext.currentPeriod}`;
+        if (temporalContext.season) explanation += `, ${temporalContext.season}`;
+    }
+
+    return explanation;
 }
 ```
 
@@ -426,70 +448,77 @@ Added the ability for the system to adapt its own derivation rules:
  * Self-optimizing derivation rule management
  */
 derivation: {
-  /**
-   * Register a custom derivation rule
-   * @param {string} name - Rule name
-   * @param {Function} condition - When to apply (returns boolean)
-   * @param {Function} action - What to do when applied
-   * @param {Object} [options] - Rule options
-   */
-  registerRule(name, condition, action, options = {}) {
-    if (!this.derivation.rules) this.derivation.rules = new Map();
-    
-    this.derivation.rules.set(name, {
-      condition,
-      action,
-      priority: options.priority || 0.5,
-      applicability: options.applicability || 0.5,
-      successRate: options.successRate || 0.5,
-      lastUsed: 0,
-      usageCount: 0
-    });
-    
-    // Sort rules by priority
-    this.derivation._sortRules();
-  },
-  
-  /**
-   * Evaluate and potentially update derivation rules
-   */
-  evaluateRules() {
-    const now = Date.now();
-    
-    // Update success rates based on recent outcomes
-    for (const [name, rule] of this.derivation.rules) {
-      if (rule.lastUsed && now - rule.lastUsed < 60000) {
-        // Check if recent derivations were useful
-        const wasUseful = this._checkRuleUsefulness(name);
-        if (wasUseful !== null) {
-          rule.successRate = rule.successRate * 0.9 + wasUseful * 0.1;
-        }
-      }
-      
-      // Adjust priority based on success rate and applicability
-      rule.priority = rule.successRate * 0.7 + rule.applicability * 0.3;
+    /**
+     * Register a custom derivation rule
+     * @param {string} name - Rule name
+     * @param {Function} condition - When to apply (returns boolean)
+     * @param {Function} action - What to do when applied
+     * @param {Object} [options] - Rule options
+     */
+    registerRule(name, condition, action, options = {})
+    {
+        if (!this.derivation.rules) this.derivation.rules = new Map();
+
+        this.derivation.rules.set(name, {
+            condition,
+            action,
+            priority: options.priority || 0.5,
+            applicability: options.applicability || 0.5,
+            successRate: options.successRate || 0.5,
+            lastUsed: 0,
+            usageCount: 0
+        });
+
+        // Sort rules by priority
+        this.derivation._sortRules();
     }
-    
-    this.derivation._sortRules();
-  },
-  
-  /**
-   * Get active rules for current context
-   * @param {Object} context - Current reasoning context
-   * @returns {Array} Active rules
-   */
-  getActiveRules(context) {
-    return [...this.derivation.rules.values()]
-      .filter(rule => rule.condition(context))
-      .sort((a, b) => b.priority - a.priority);
-  },
-  
-  _sortRules() {
-    // Sort rules internally
-    const sorted = new Map([...this.derivation.rules.entries()]
-      .sort(([,a], [,b]) => b.priority - a.priority));
-    this.derivation.rules = sorted;
-  }
+,
+
+    /**
+     * Evaluate and potentially update derivation rules
+     */
+    evaluateRules()
+    {
+        const now = Date.now();
+
+        // Update success rates based on recent outcomes
+        for (const [name, rule] of this.derivation.rules) {
+            if (rule.lastUsed && now - rule.lastUsed < 60000) {
+                // Check if recent derivations were useful
+                const wasUseful = this._checkRuleUsefulness(name);
+                if (wasUseful !== null) {
+                    rule.successRate = rule.successRate * 0.9 + wasUseful * 0.1;
+                }
+            }
+
+            // Adjust priority based on success rate and applicability
+            rule.priority = rule.successRate * 0.7 + rule.applicability * 0.3;
+        }
+
+        this.derivation._sortRules();
+    }
+,
+
+    /**
+     * Get active rules for current context
+     * @param {Object} context - Current reasoning context
+     * @returns {Array} Active rules
+     */
+    getActiveRules(context)
+    {
+        return [...this.derivation.rules.values()]
+            .filter(rule => rule.condition(context))
+            .sort((a, b) => b.priority - a.priority);
+    }
+,
+
+    _sortRules()
+    {
+        // Sort rules internally
+        const sorted = new Map([...this.derivation.rules.entries()]
+            .sort(([, a], [, b]) => b.priority - a.priority));
+        this.derivation.rules = sorted;
+    }
 }
 ```
 

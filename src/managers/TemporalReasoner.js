@@ -371,7 +371,12 @@ export class TemporalReasoner extends TemporalManagerBase {
                     queue.push({event: c.event2, path: [...path, c]});
                 } else if (c.event2 === currentEvent && !visited.has(c.event1)) {
                     visited.add(c.event1);
-                    const inverseConstraint = {...c, event1: c.event2, event2: c.event1, relation: this._getInverseTemporalRelation(c.relation)};
+                    const inverseConstraint = {
+                        ...c,
+                        event1: c.event2,
+                        event2: c.event1,
+                        relation: this._getInverseTemporalRelation(c.relation)
+                    };
                     queue.push({event: c.event1, path: [...path, inverseConstraint]});
                 }
             }

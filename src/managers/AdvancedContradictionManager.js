@@ -2,10 +2,8 @@ import {ContradictionManagerBase} from './ContradictionManagerBase.js';
 import {TruthValue} from '../support/TruthValue.js';
 import {Hyperedge} from '../support/Hyperedge.js';
 import {Budget} from '../support/Budget.js';
-import {id} from '../support/utils.js';
 import {config} from '../config/index.js';
 import {ContradictionStrategyFactory} from './contradictionStrategies/ContradictionStrategyFactory.js';
-import {mergeConfig} from "../support/utils.js";
 
 const defaultConfig = config.advancedContradictionManager;
 
@@ -379,7 +377,7 @@ export class AdvancedContradictionManager extends ContradictionManagerBase {
             defaultSourceReliability,
             recencyDecayHours
         } = this.config;
-        const { temporalHorizon } = this.nar.config;
+        const {temporalHorizon} = this.nar.config;
 
         const now = Date.now();
         const evidenceList = hyperedge.evidence?.filter(e => e.beliefId === belief.id) || [];
