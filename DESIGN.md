@@ -210,15 +210,30 @@ class TruthValue {
     static revise(t1: TruthValue, t2: TruthValue): TruthValue {
         const f1 = t1.f, c1 = t1.c, d1 = t1.d;
         const f2 = t2.f, c2 = t2.c, d2 = t2.d;
-        const w1 = c1 * (1-c2);
-        const w2 = c2 * (1-c1);
-        const w = w1 + w2;
-        if (w === 0) return new TruthValue(0, 0, 1); // Total contradiction
-        const f_rev = (f1 * w1 + f2 * w2) / w;
-        const c_rev = w / (w + (1-c1)*(1-c2));
-        // Doubt is increased by conflicting evidence and merged from parents.
+
+        // The weights w1 and w2 represent the relative confidence of each piece of evidence.
+        // A piece of evidence is weighted by its own confidence, discounted by the confidence of the other.
+        const w1 = c1 * (1 - c2);
+        const w2 = c2 * (1 - c1);
+        const w_sum = w1 + w2;
+
+        // If the sum of weights is zero, it implies both c1 and c2 are 1, which represents a logical contradiction.
+        // In this case, the result is maximum doubt and zero confidence.
+        if (w_sum === 0) return new TruthValue((f1+f2)/2, 0, 1); // Total contradiction
+
+        // The revised frequency is the weighted average of the two frequencies.
+        const f_rev = (f1 * w1 + f2 * w2) / w_sum;
+        // The revised confidence is the sum of the weights divided by the sum of weights plus the product of ignorances.
+        // This formula ensures that confidence grows with consistent evidence.
+        const c_rev = w_sum / (w_sum + (1 - c1) * (1 - c2));
+
+        // Doubt has two components: inherited doubt and conflict-generated doubt.
+        // 1. Inherited doubt is merged: `1 - (1 - d1) * (1 - d2)`
+        // 2. Conflict-generated doubt is proportional to the difference in frequencies.
         const d_conflict = Math.abs(f1 - f2) / 2;
+        // The final doubt is the union of these two sources.
         const d_rev = 1 - (1 - d1) * (1 - d2) * (1 - d_conflict);
+
         return new TruthValue(f_rev, c_rev, d_rev);
     }
 
@@ -237,14 +252,18 @@ class TruthValue {
     static and(t1: TruthValue, t2: TruthValue): TruthValue {
         const f = t1.f * t2.f;
         const c = t1.c * t2.c;
-        return new TruthValue(f, c);
+        // Doubt in a conjunction is the union of the doubt of its parts.
+        const d = 1 - (1 - t1.d) * (1 - t2.d);
+        return new TruthValue(f, c, d);
     }
 
     // NAL Union: Combines two statements disjunctively.
     static or(t1: TruthValue, t2: TruthValue): TruthValue {
         const f = 1 - (1 - t1.f) * (1 - t2.f);
         const c = t1.c * t2.c;
-        return new TruthValue(f, c);
+        // Doubt in a disjunction is the union of the doubt of its parts.
+        const d = 1 - (1 - t1.d) * (1 - t2.d);
+        return new TruthValue(f, c, d);
     }
 }
 
@@ -293,12 +312,14 @@ class Budget {
 
     // Merges budgets from parent tasks.
     static merge(b1: Budget, b2: Budget): Budget {
-        // A simple averaging strategy. More sophisticated strategies could be used.
-        return new Budget(
-            (b1.priority + b2.priority) / 2,
-            (b1.durability + b2.durability) / 2,
-            (b1.quality + b2.quality) / 2
-        );
+        // A more sophisticated merging strategy that prevents the system from getting
+        // stuck in low-quality reasoning loops. Priority and Durability are averaged,
+        // but the new quality is the product of the parent qualities, reflecting that
+        // a conclusion is only as strong as its weakest link.
+        const priority = (b1.priority + b2.priority) / 2;
+        const durability = (b1.durability + b2.durability) / 2;
+        const quality = b1.quality * b2.quality;
+        return new Budget(priority, durability, quality);
     }
 }
 
@@ -742,11 +763,15 @@ class AbductionRule implements InferenceRule {
         // 1. Create the new statement: <S --> P>
         const derivedStatement = new InheritanceStatement(s2.terms[0], s1.terms[0]);
 
-        // 2. Calculate the new truth value (simplified abduction)
+        // 2. Calculate the new truth value (abduction)
+        // The conclusion <S --> P> is a hypothesis. Its frequency is inherited from the major
+        // premise <P --> M>. Its confidence is a product of the parent confidences, further
+        // weighted by the frequency of the minor premise <S --> M>, which represents the
+        // evidential support for the hypothesis.
         const t1 = task.parentBeliefs[0].truth;
         const t2 = belief.truth;
         const f_new = t1.f;
-        const c_new = t1.c * t2.c * t2.f; // Simplified abduction confidence
+        const c_new = t1.c * t2.c * t2.f;
         const derivedTruth = new TruthValue(f_new, c_new);
 
         // 3. Calculate the new budget
@@ -808,11 +833,16 @@ class InductionRule implements InferenceRule {
         // 1. Create the new statement: <S --> P>
         const derivedStatement = new InheritanceStatement(s2.terms[1], s1.terms[1]);
 
-        // 2. Calculate the new truth value (simplified induction)
-        const t1 = task.parentBeliefs[0].truth;
-        const t2 = belief.truth;
+        // 2. Calculate the new truth value (induction)
+        // The frequency is inherited from the second premise, as it provides the evidence for the
+        // relationship between the new subject and the shared term. The confidence is more complex.
+        // It is proportional to the evidence for the predicate (M->P) and the evidence for the
+        // subject's relation to the evidence (M->S). The full NAL formula is complex, involving
+        // the total evidence for M. This is a standard, effective approximation.
+        const t1 = task.parentBeliefs[0].truth; // M -> P
+        const t2 = belief.truth;               // M -> S
         const f_new = t2.f;
-        const c_new = t1.c * t2.c * t1.f; // Simplified, actual formula is complex
+        const c_new = t1.c * t2.c * t1.f;
         const derivedTruth = new TruthValue(f_new, c_new);
 
         // 3. Calculate the new budget
@@ -900,9 +930,38 @@ The Memory System is the core of the system's knowledge base, structured as a dy
     -   **3. Strategy Selection & Resolution**: Based on the analysis, a strategy is chosen. This is a rule-based decision process:
         -   **IF** `strength(B1) >> strength(B2)` **THEN** apply **DominantEvidence**: The weaker belief `B2` is removed. The budget of `B1` is boosted.
         -   **IF** `strength(B1) ~= strength(B2)` **THEN** apply **Merge**: The truth values of `B1` and `B2` are revised together using `TruthValue.revise()`. The resulting belief replaces the old one. The doubt (`d`) component of the new truth value will naturally increase, indicating uncertainty.
-        -   **IF** `B1` is a general statement (e.g., `<bird --> flyer>`) and `B2` represents a conflicting special case (e.g., a high-confidence belief `<penguin --> not_a_flyer>` derived from input, where the system also knows `<penguin --> bird>`), **THEN** apply **Specialize**. This is a multi-step process for learning exceptions:
+        -   **IF** `B1` is a general statement (e.g., `<bird --> flyer>`) and `B2` represents a conflicting special case (e.g., a high-confidence belief `<penguin --> not_a_flyer>` derived from input, where the system also knows `<penguin --> bird>`), **THEN** apply **Specialize**. This is a multi-step process for learning exceptions, which can be visualized as follows:
+
+            ```mermaid
+            graph TD
+                subgraph "Initial State"
+                    B_Gen("Belief: <bird --> flyer> (High Conf)")
+                    B_Spec("Belief: <penguin --> bird> (High Conf)")
+                    B_Ex("Input: <penguin --> not_a_flyer> (Very High Conf)")
+                end
+
+                subgraph "Reasoning Process"
+                    B_Gen -- "Derives" --> D1("<penguin --> flyer>")
+                    D1 -- "Contradicts" --> B_Ex
+                end
+
+                subgraph "Resolution: Specialize Strategy"
+                    style R1 fill:#fdd
+                    style R2 fill:#dfd
+                    style R3 fill:#dfd
+                    R1("1. Revise <bird --> flyer> with counter-evidence, lowering its confidence")
+                    R2("2. Preserve specific knowledge <penguin --> not_a_flyer>")
+                    R3("3. Create new, more precise belief <(&, bird, (-, penguin)) --> flyer>")
+                end
+
+                B_Ex -- "Triggers" --> R1
+                B_Ex -- "Leads to" --> R2
+                B_Gen -- "Is refined into" --> R3
+
+            ```
+            This strategy involves the following steps:
             1.  **Reduce Confidence of General Rule**: The system first reduces the confidence of the general belief `<bird --> flyer>`. It is not wrong, just incomplete. This is done by revising it with the conflicting evidence, which will naturally lower its confidence and increase its doubt.
-            2.  **Identify the Exception**: The system identifies `penguin` as the term representing the exception.
+            2.  **Identify the Exception**: The system identifies `penguin` as the term representing the exception, based on the high-confidence conflicting evidence.
             3.  **Construct Compound Term**: A new, more specific subject term is constructed to explicitly exclude the exception. This term is `(&, bird, (-, penguin))`, which represents "a bird that is not a penguin". This requires the system's `Term` logic to support conjunction (`&`) and negation (`-`).
             4.  **Inject New Learning Task**: The system injects a new, high-priority task into the reasoning cycle. The goal of this task is to form the new, more accurate belief: `(<(&, bird, (-, penguin)) --> flyer>)`. This task is derived from the original `<bird --> flyer>` belief but is now conditioned on the more specific, non-exceptional term.
             5.  **Preserve Specific Knowledge**: The specific, high-confidence belief `<penguin --> not_a_flyer>` is preserved as it is considered more specific and therefore more likely to be correct in its narrow context.
@@ -1350,7 +1409,63 @@ As the system evolves, its core data structures (`Statement`, `TruthValue`, `Bud
 
 This approach ensures that the system can gracefully handle its own evolution, preserving learned knowledge across software updates.
 
-## 11. Error Handling and System Resilience
+## 11. Metacognition and Self-Improvement ("Dogfooding")
+
+A key aspiration for a general reasoning system is the ability to reason about *itself*. This principle, often called "dogfooding" (as in "eating your own dog food"), means applying the system's own reasoning capabilities to its documentation, its code, its performance, and even its own development. This section outlines the architectural provisions for this powerful metacognitive loop.
+
+The core idea is to treat the system's own artifacts and state as just another source of knowledge, which can be ingested and reasoned about using the same NAL engine that powers all other cognitive functions.
+
+### 11.1. Framework for Self-Reasoning
+
+To enable self-reasoning, two primary mechanisms are required:
+
+1.  **Internal State Grounding**: Key internal metrics and configurations are exposed as grounded symbols. The `SymbolGroundingInterface` is used to create a read-only bridge to the system's internal state. When the system needs to know its own state, it can query a term like `{self.metrics.inference_rate}`. The registered handler for this term directly calls `kernel.getMetrics().inferenceRate` and injects the value back into the system as a belief.
+
+2.  **Artifact Ingestion and Parsing**: System artifacts like this `DESIGN.md` document or JavaScript source files are ingested as plain text. A specialized, grounded parser function is then used to transform this text into a structured set of NAL beliefs. For example, a Markdown parser could be grounded to the term `parser.markdown`. A task like `(<(parse, 'DESIGN.md', using, {parser.markdown}) ==> (knowledge, beliefs)>.)` would trigger the parser, which would then inject a series of beliefs into memory, such as:
+    *   `(<'DESIGN.md' --> (has_section, 'System Architecture')>).`
+    *   `(<'TruthValue' --> (is_defined_in, 'DESIGN.md')>).`
+    *   `(<'AbductionRule' --> (has_property, 'simplified_formula')>).`
+
+With its own design and state represented as knowledge, the system can be given goals to analyze, debug, or optimize itself.
+
+### 11.2. Use Case: Design Document Analysis
+
+The system can be tasked with validating its own design for consistency.
+
+-   **Goal**: `nalq("<?term --> (is_inconsistent_with, ?another_term)>.")`
+-   **Process**:
+    1.  The `DESIGN.md` file is ingested and parsed into a rich set of beliefs about the system's specified components and behaviors.
+    2.  The system is equipped with general knowledge about what constitutes a design inconsistency. For example:
+        *   `(<((<X --> (has_feature, F)>.) & (<X --> (has_feature, not_F)>.)) ==> (<X --> is_inconsistent_with, X)>).`
+        *   `(<((<Y --> is_part_of, X>.) & (<Y --> is_part_of, Z)>.)) ==> (<Y --> has_ambiguous_parent, Y)>).` (if a component can only have one parent).
+    3.  The system uses standard deduction, abduction, and other inference rules to apply these patterns to the knowledge base derived from its design document.
+    4.  If an inconsistency is found, the `is_inconsistent_with` belief is formed, providing a direct answer to the original question. This allows the system to act as a "design linter" for its own blueprint.
+
+### 11.3. Use Case: Adaptive Performance Tuning
+
+This use case extends the `MetaReasoner` cognitive manager from a simple reactive monitor to a proactive, learning-based optimizer.
+
+-   **From Reactive to Proactive**: Instead of just reacting to a hardcoded threshold (e.g., ">50 contradictions in 1 minute"), the `MetaReasoner` forms beliefs about performance trends over time.
+-   **Process**:
+    1.  **Observation**: The manager observes internal metrics over time, creating temporal beliefs like `(<(contradiction_rate, [t1, t2]) --> (is, 'low')>.)` and `(<(contradiction_rate, [t2, t3]) --> (is, 'high')>.)`.
+    2.  **Temporal Inference**: Using the `TemporalReasoner`, it can infer a trend, such as `(<(contradiction_rate) --> (is, 'increasing')>.)`.
+    3.  **Meta-Rules**: It possesses meta-rules like `(<(metric, X, is, 'increasing')) ==> (should_investigate, X)>`.
+    4.  **Goal Generation**: This leads to the generation of a new, specific goal: `nal("goal: <(investigate, contradiction_rate)>.")`.
+    5.  **Rule Utility Analysis**: A key part of this investigation involves reasoning about the utility of its own inference rules. The `MetaReasoner` can observe which rules are contributing to low-quality or contradictory conclusions. It can form beliefs like `(<(rule, 'AbductionRule'), (generates, low_quality_tasks)>.)`. This could lead it to dynamically lower the budget allocated to tasks generated by that rule, or even to disable the rule temporarily.
+
+### 11.4. Use Case: Automated Test Generation
+
+A `TestGenerationManager` can be added to the cognitive manager layer to proactively find gaps in the system's "experience" and generate novel test cases.
+
+-   **Goal**: To increase test coverage or explore underused parts of the system.
+-   **Process**:
+    1.  **Observation**: The manager tracks the usage frequency of all inference rules, statement copulas, and even specific concepts. It might form a belief like `(<(rule, 'InductionRule'), (usage_frequency, 'very_low')>.)`.
+    2.  **Coverage Goal**: The manager has a standing, high-level goal to `(ensure, (coverage, 'high'))`.
+    3.  **Hypothesis Generation**: When it detects a low-usage component, it generates a specific goal to exercise it, e.g., `nal("goal: <(execute, (rule, 'InductionRule'))>.")`.
+    4.  **Means-Ends Analysis**: To achieve this goal, the system must find or create a situation where the induction rule can be applied. This involves searching its knowledge base for two beliefs that match the `(M --> P)` and `(M --> S)` pattern. If none exist, it may even attempt to construct hypothetical input that would create such a state.
+    5.  **Test Case Proposal**: Once it has identified or created the necessary premises, the system can log the premises and the expected conclusion as a "proposed test case" for a human developer to review and add to the official test suite. This turns the system into an active participant in its own quality assurance process.
+
+## 12. Error Handling and System Resilience
 
 A production-grade reasoning system must be resilient to errors, whether from invalid user input, environmental failures, or internal inconsistencies. The system's design incorporates error handling at the API boundary and for internal operations.
 

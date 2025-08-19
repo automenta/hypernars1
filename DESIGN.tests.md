@@ -139,7 +139,16 @@ Tests system interfaces
 | API-03 | `api_events.test.js` | Event subscription mechanism | Event Bus | Fires 'answer' and 'contradiction' events correctly |
 | API-04 | `api_explain.test.js` | Explanation generation via `explain` | Explainability | Returns valid, structured derivation paths |
 
-### 9. Hypergraph & Structural Integrity
+### 9. Metacognition & Self-Reasoning
+Tests the system's ability to reason about and optimize itself.
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| META-01 | `self_analysis_design.test.js` | Ingests its own `DESIGN.md` file and identifies a planted, known inconsistency between two statements in the document. | Artifact Ingestion, Self-Reasoning | Detects that feature X is described as both 'fast' and 'slow' in different sections. |
+| META-02 | `self_optimizing_rules.test.js` | The `MetaReasoner` observes that a specific rule (`AbductionRule`) is producing many low-quality tasks and dynamically lowers its budget priority. | Adaptive Performance Tuning | Budget for abduction-derived tasks is reduced; a belief about the rule's low utility is formed. |
+| META-03 | `self_generating_tests.test.js` | The `TestGenerationManager` identifies that the `InductionRule` is under-utilized and generates a set of premises to trigger it. | Automated Test Generation | A new goal to `(execute, InductionRule)` is created; a valid test case is proposed in logs. |
+
+### 10. Hypergraph & Structural Integrity
 Tests hypergraph consistency and operations
 
 | Test | File | Description | Functionality Tested | Key Assertions |
@@ -342,3 +351,33 @@ Feature: HyperNARS Core Reasoning Capabilities
     And when the system's memory is at full capacity
     And a new high-priority belief is added
     Then the system should forget a belief that has a very low relevance score (a combination of low activation and low confidence)
+
+  Scenario: Self-Analysis of the Design Document (META-01)
+    Given the system has ingested a version of its DESIGN.md file
+    And this version contains the statements:
+      | statement                                                | truth       |
+      | "<(feature, 'RealTime_Dashboard') --> (has_property, 'fast')>." | <%1.0,0.9%> |
+      | "<(feature, 'RealTime_Dashboard') --> (has_property, 'slow')>." | <%1.0,0.9%> |
+    And the system knows that `(<((<X --> (has_property, P)>. & <X --> (has_property, !P)>.) ==> <X --> (is, 'inconsistent')>.)`
+    When the system is given the goal `nalq("<?x --> (is, 'inconsistent')>.")`
+    And the system runs for 200 steps
+    Then the system should produce an answer where `x` is `(feature, 'RealTime_Dashboard')`
+
+  Scenario: Self-Optimization of Inference Rules (META-02)
+    Given the system's `MetaReasoner` is active
+    And the `AbductionRule` has generated 20 tasks in the last 100 cycles
+    And 18 of those tasks resulted in beliefs that were later contradicted
+    When the `MetaReasoner` analyzes rule performance
+    Then the system should form a belief like `<(rule, 'AbductionRule') --> (has_utility, 'low')>` with high confidence
+    And the system should adjust a configuration parameter to lower the default budget quality for tasks derived from `AbductionRule`
+
+  Scenario: Self-Generation of a New Test Case (META-03)
+    Given the system's `TestGenerationManager` is active
+    And the system has run for 1000 cycles
+    And the `InductionRule` has been used 0 times, while other rules were used > 50 times
+    When the `TestGenerationManager` analyzes rule usage frequency
+    Then the system should generate a new goal: `goal: <(execute, (rule, 'InductionRule'))>.`
+    And in pursuit of this goal, the system should identify or create premises like:
+      | premise1            | premise2            |
+      | "<raven --> is_black>." | "<raven --> is_bird>." |
+    And the system should log a "Proposed Test Case" containing these premises and the expected conclusion `<bird --> is_black>.`
