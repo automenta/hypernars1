@@ -55,6 +55,17 @@ Managers can inject new tasks into the system via a dedicated `Kernel.addTask(ta
 +-------------------------------------------------+
 ```
 
+### Cognitive Manager Roles
+
+The Cognitive Managers are specialized modules that handle complex, cross-cutting concerns. They operate by subscribing to events from the Reasoning Kernel and can inject new tasks back into the system.
+
+-   **Goal Manager**: Manages the system's goals, decomposing them into sub-goals and generating tasks to satisfy them.
+-   **Temporal Reasoner**: Provides a comprehensive framework for understanding and reasoning about time. It handles not just simple before/after relationships but also temporal intervals, durations, and predictive projections based on recurring patterns.
+-   **Learning Engine**: Responsible for abstracting knowledge, forming new concepts, and adapting existing rules based on experience.
+-   **Contradiction Manager**: Implements sophisticated, evidence-based strategies for detecting and resolving contradictions. Instead of simple resolution, it analyzes evidence strength, source reliability, and recency to make a judgment.
+-   **Meta Reasoner**: Acts as the system's "cognitive executive." It monitors the system's overall performance, tracking metrics like inference rate and contradiction rate. Based on this analysis, it can dynamically adapt the system's reasoning strategies to optimize performance and resource allocation.
+-   **Explanation System**: Generates human-readable explanations for the system's conclusions. It can produce multi-format explanations (concise, detailed, technical) that include the full derivation path, confidence levels, and alternative or contradictory perspectives.
+
 ## 2. Core Data Structures
 
 The core data structures will be designed as immutable objects to ensure functional purity and thread safety.
@@ -94,11 +105,25 @@ class TruthValue {
 
 // Represents the allocation of computational resources.
 class Budget {
-    readonly p: number; // priority in [0, 1]
-    readonly d: number; // durability in [0, 1]
-    readonly q: number; // quality in [0, 1]
+    readonly priority: number;   // in [0, 1]
+    readonly durability: number; // in [0, 1]
+    readonly quality: number;    // in [0, 1]
 
-    constructor(p: number, d: number, q: number);
+    constructor(priority: number, durability: number, quality: number);
+
+    /**
+     * Dynamically allocates a budget for a task based on its type,
+     * the current system context, and overall system load.
+     * @param task The task to be budgeted.
+     * @param context An object containing contextual factors like
+     *                { urgency, importance, noveltyScore, systemLoad }.
+     */
+    static dynamicAllocate(task: Task, context: object): Budget;
+
+    /**
+     * Merges two budgets, for example when a new task is derived from two parents.
+     * The default strategy is to average the components.
+     */
     static merge(b1: Budget, b2: Budget): Budget;
 }
 
@@ -139,6 +164,9 @@ function reasoningCycle() {
     hooks.run('beforeCycle', system);
 
     // 1. Task Selection from Memory
+    // Tasks are selected from a priority queue. Their budgets are allocated
+    // dynamically via Budget.dynamicAllocate() when they are first created,
+    // considering task type, context, and system load.
     task = memory.selectTaskFromOverallExperience();
     if (!task) { system.wait(); continue; }
     hooks.run('afterTaskSelection', task);
@@ -174,14 +202,14 @@ The Inference Engine applies NAL rules. It is a stateless, extensible component.
 
 -   **Extensible Rule System**: The engine will use a registry `Map<string, InferenceRule>` where new rules can be added at runtime via `registerRule`.
 -   **Rule Categories**:
-    -   **Syllogistic Rules**: Deduction, Induction, Abduction, Exemplification.
-    -   **Conditional Rules**: Analogy, Resemblance, Detachment.
+    -   **Core Syllogistic & Conditional Rules**: Deduction, Induction, Abduction, Analogy, etc.
     -   **Compositional Rules**: Intersection, Union.
-    -   **Temporal Rules**: Sequence, Before/After.
--   **Example Rule (Analogy)**:
-    -   **Premises**: `<M --> P>` and `<S <-> M>`
-    -   **Conclusion**: `<S --> P>`
-    -   **Truth Value Function**: `f = f1 * f2`, `c = c1 * c2 * f2`
+    -   **Advanced Temporal Reasoning**: The system moves beyond simple "before/after" rules. Temporal reasoning is primarily handled by the `TemporalReasoner` manager, which implements a form of **Allen's Interval Algebra**. It supports all 13 interval relations (meets, overlaps, during, etc.). The system performs temporal constraint propagation and can predict future events based on learned patterns and recurring events (e.g., "daily", "weekly").
+
+-   **Self-Optimizing Rule System**: To ensure efficiency, the Inference Engine will feature a self-optimizing mechanism.
+    -   **Performance Tracking**: The system will monitor the success rate and applicability of each inference rule. A "successful" inference is one that leads to a useful conclusion (e.g., one that answers a question or resolves a contradiction).
+    -   **Dynamic Prioritization**: The budget allocated to tasks derived by a rule will be weighted by the rule's historical success rate. Rules that are more effective will be favored, while inefficient or noisy rules will be used more sparingly.
+    -   This feedback loop allows the system to adapt its reasoning strategy based on the specific problem domain.
 
 ```typescript
 interface InferenceRule {
@@ -205,64 +233,95 @@ The Memory System is a concept graph managed by several algorithms.
     -   `Activation_new(C) = Activation_old(C) * (1 - decay_rate) + InputActivation`
 -   **Forgetting Algorithm**: Periodically removes tasks and beliefs with low "relevance".
     -   `Relevance = priority * activation`
--   **Contradiction Handling**: Managed by the `ContradictionManager`. It subscribes to `belief-revised` events.
-    -   **Example Strategy (Source Reliability)**:
-        ```pseudocode
-        function resolveBySourceReliability(belief1, belief2) {
-            reliability1 = getSourceReliability(belief1.source);
-            reliability2 = getSourceReliability(belief2.source);
-
-            if (abs(reliability1 - reliability2) > RELIABILITY_THRESHOLD) {
-                // Suppress the less reliable belief
-                suppressBelief(reliability1 > reliability2 ? belief2 : belief1);
-            } else {
-                // Merge with weighted confidence
-                mergeBeliefs(belief1, belief2, [reliability1, reliability2]);
-            }
-        }
-        ```
+-   **Contradiction Handling**: Managed by the `ContradictionManager`, this is a sophisticated, multi-stage process designed to handle conflicting information robustly.
+    -   **1. Detection**: The manager subscribes to `belief-revised` events. When a new belief is added that contradicts an existing one, the contradiction is logged.
+    -   **2. Evidence-Based Analysis**: The system does not use a single, fixed resolution strategy. Instead, it first calculates an `evidenceStrength` for each conflicting belief. This metric synthesizes multiple factors:
+        -   The belief's intrinsic truth value (frequency and confidence).
+        -   The strength and recency of external evidence supporting the belief.
+        -   The historical reliability of the information sources.
+    -   **3. Strategy Selection**: Based on the evidence analysis, the manager selects the most appropriate strategy from a pool of options, including:
+        -   **DominantEvidence**: If one belief is backed by significantly stronger evidence, it wins.
+        -   **Merge**: If beliefs have comparable evidence, their truth values are merged.
+        -   **Specialize**: If contradictions appear to arise from different contexts, the system may create a new, more specific concept to resolve the conflict (e.g., `<penguin --> flyer>` might be false, but `<penguin(in_water) --> flyer>` might be true in the sense of "flying" through water).
+        -   **SourceReliability**: Prioritizes the belief from the more reliable source.
+        -   **RecencyBiased**: Gives preference to the most recent information.
+    -   **4. Resolution**: The chosen strategy is executed, which may result in revising beliefs, deleting beliefs, or creating new concepts. This entire process is designed to be extensible, allowing new resolution strategies to be added.
 
 ## 6. I/O and Public API
 
 The public API will be designed to be clean, language-agnostic, and powerful. It will be event-driven and asynchronous.
 
 -   **Input/Output API**:
-    -   `nal(statement: string): Promise<InputResult>`: Asynchronously inputs a NAL statement.
-    -   `nalq(question: string, options?: QueryOptions): Promise<Answer>`: Asks a NAL question.
+    -   `nal(statement: string, options?: object): Promise<InputResult>`: Asynchronously inputs a NAL statement. The `options` object can provide context like `{ timestamp, source, truth, budget }`.
+    -   `nalq(question: string, options?: object): Promise<Answer>`: Asks a NAL question. The `options` can specify query parameters like `{ timeout, urgency }`.
     -   `on(event: 'answer' | 'contradiction' | 'goal-achieved', callback: (data: any) => void): void`: Subscribes to system events.
 -   **Control & Configuration API**:
     -   `run(steps: number): Promise<void>`: Runs the reasoning cycle for a number of steps.
     -   `pause(): void` / `resume(): void`: Controls the reasoning loop.
-    -   `setConfig(key: string, value: any): void`: Dynamically changes system parameters.
+    -   `setConfig(key: string, value: any): void`: Dynamically changes system parameters (e.g., budget thresholds, strategy flags).
+    -   `configureStrategy(config: object): void`: Configures when to apply specific reasoning strategies based on context.
 -   **Inspection & Explainability API**:
     -   `getConcept(term: string): Promise<Concept | null>`: Retrieves the full state of a concept.
     -   `getBeliefs(statement: string): Promise<Belief[]>`: Gets all beliefs for a given statement.
-    -   `explain(statement: string, options?: ExplainOptions): Promise<Explanation>`: Returns a structured explanation object.
-    -   `getSystemHealth(): Promise<SystemStatus>`: Returns metrics on performance and memory.
+    -   `getMetrics(): Promise<SystemMetrics>`: Returns detailed metrics on performance, memory usage, contradiction rates, etc.
+    -   `explain(statement: string, options?: ExplainOptions): Promise<Explanation>`: Returns a rich, structured explanation for a belief. This is a core feature for transparency and debugging.
 
 -   **Example API Usage**:
     ```javascript
     const nar = new HyperNARS();
     nar.on('answer', (ans) => console.log('Answer found:', ans.statement.toString()));
 
-    await nar.nal('<bird --> animal>.');
+    await nar.nal('<bird --> animal>.', { source: 'user_input' });
     await nar.nal('<penguin --> bird>.');
 
     const answer = await nar.nalq('<penguin --> animal>?');
-    console.log(answer.truth.e); // Expectation of the answer
 
-    const explanation = await nar.explain(answer.statement.toString());
+    // Get a detailed, human-readable explanation
+    const explanation = await nar.explain(answer.statement.toString(), { format: 'detailed' });
     console.log(explanation.summary);
+
+    // Get a counterfactual explanation
+    const counterfactual = await nar.explain(answer.statement.toString(), {
+      perspective: 'counterfactual',
+      alternative: '<penguin --> mammal>.'
+    });
+    console.log(counterfactual);
     ```
 
 ```typescript
+// Options for the explain() method
+interface ExplainOptions {
+  format?: 'detailed' | 'concise' | 'technical' | 'json' | 'story';
+  perspective?: 'evidential' | 'causal' | 'counterfactual';
+  depth?: number;
+  maxAlternatives?: number;
+  // Used for counterfactual perspective
+  alternative?: string;
+}
+
+// The rich object returned by the explain() method
 interface Explanation {
+  // The conclusion being explained
   conclusion: Statement;
-  confidence: number;
-  derivationPath: DerivationStep[];
-  alternativePaths: DerivationStep[][];
-  // Natural language summary
+  // A human-readable summary of the reasoning path
   summary: string;
+  // The detailed, tree-structured derivation path
+  derivationPath: DerivationStep[];
+  // Any alternative or conflicting beliefs about the conclusion
+  alternativePaths: DerivationStep[][];
+  // The temporal context in which the reasoning occurred
+  temporalContext: object;
+  // The raw data for visualization libraries
+  visual?: { nodes: object[], edges: object[] };
+}
+
+interface DerivationStep {
+    id: string;
+    type: string;
+    args: string[];
+    truth: TruthValue;
+    derivationRule: string;
+    premises: DerivationStep[];
 }
 ```
 
@@ -278,21 +337,48 @@ The system will be designed for extensibility through a plugin architecture.
 
 - **Example Plugin (`MetaReasoner`)**
     ```typescript
-    class SimpleMetaReasoner implements CognitiveManager {
+    class AdvancedMetaReasoner implements CognitiveManager {
         private nar: HyperNARS_API;
-        private performanceLog: Map<string, number> = new Map();
 
         constructor(nar: HyperNARS_API) {
             this.nar = nar;
-            this.nar.getHooks().register('afterCycle', () => this.analyzePerformance());
+            // Periodically run self-monitoring
+            setInterval(() => this.selfMonitor(), 10000);
         }
 
-        private analyzePerformance() {
-            const health = this.nar.getSystemHealth();
-            if (health.inferenceQueue > 1000) {
-                // If queue is too long, increase the budget threshold to be more selective
-                const currentThreshold = this.nar.getConfig('budgetThreshold');
-                this.nar.setConfig('budgetThreshold', currentThreshold * 1.1);
+        private async selfMonitor() {
+            const metrics = await this.nar.getMetrics();
+            const issues = [];
+
+            // 1. Detect issues based on metrics
+            if (metrics.contradictionRate > 0.3) {
+                issues.push('high-contradiction-rate');
+            }
+            if (metrics.inferenceRate < 10) { // inferences per second
+                issues.push('low-inference-rate');
+            }
+            if (metrics.memoryUsage > 0.9) {
+                issues.push('high-memory-pressure');
+            }
+
+            // 2. Adapt reasoning strategy if issues are detected
+            if (issues.length > 0) {
+                this.adaptReasoning(issues, metrics);
+            }
+        }
+
+        private adaptReasoning(issues: string[], metrics: SystemMetrics) {
+            if (issues.includes('high-contradiction-rate')) {
+                // If contradiction rate is high, be more skeptical.
+                // Increase the confidence threshold for accepting new beliefs.
+                const currentThreshold = this.nar.getConfig('newBeliefConfidenceThreshold');
+                this.nar.setConfig('newBeliefConfidenceThreshold', currentThreshold * 1.2);
+            }
+
+            if (issues.includes('low-inference-rate')) {
+                // If inference is slow, be less selective to encourage exploration.
+                const currentThreshold = this.nar.getConfig('taskSelectionBudgetThreshold');
+                this.nar.setConfig('taskSelectionBudgetThreshold', currentThreshold * 0.9);
             }
         }
     }
