@@ -96,10 +96,18 @@ For example, a user can configure the system to use a `SimpleMemoryManager` for 
 
 The Cognitive Managers are specialized, pluggable modules that handle complex, cross-cutting concerns. They operate by subscribing to events from the Reasoning Kernel and can inject new tasks back into the system to influence its behavior.
 
--   **Goal Manager**: Manages the system's goals.
-    -   *Subscribes to*: `belief-updated`, `belief-added`.
-    -   *Action*: When a belief indicates progress toward an active goal, the manager can increase the priority of related tasks. When a goal is satisfied, it may derive new goals.
-    -   *Injects*: High-priority tasks aimed at satisfying goals (e.g., questions to acquire missing knowledge).
+-   **Goal Manager**: The Goal Manager is responsible for the entire lifecycle of goal-oriented behavior, from receiving a high-level goal to decomposing it into actionable steps and monitoring its progress. It operates as a sophisticated planner and execution monitor.
+    -   *Subscribes to*: `belief-updated`, `belief-added`, `afterCycle`.
+    -   **Goal Lifecycle**: Manages goals with a defined lifecycle (`active`, `waiting`, `achieved`, `abandoned`). Goals can have deadlines and are abandoned if not met in time.
+    -   **Action - The Execution Loop**:
+        1.  **Prioritization**: In each cycle, the manager identifies the most urgent active goal based on its priority and proximity to its deadline.
+        2.  **Satisfaction Check**: It first checks if the goal is already satisfied by querying the system's belief base against a configurable `achievedThreshold`.
+        3.  **Action Selection**: If the goal is not met, it searches for known procedural rules (`<(*, Pre, Op)> ==> <Effect>`) where the `Effect` matches the current goal. It scores all applicable actions based on a utility calculation: `score = (reliability * goal_utility) - (action_cost)`. `Reliability` is the confidence of the procedural rule, and `action_cost` is derived from the budget of the operation.
+        4.  **Execution & Sub-goaling**:
+            - If a suitable action is found and its preconditions are met, the manager triggers the `OperationalRule` to execute it.
+            - If no single action can satisfy the goal, the manager attempts to **decompose** it. If the goal is a conjunction (e.g., `goal: <(&&, A, B)>`), it creates new sub-goals for `A` and `B` and sets the parent goal's status to `waiting`.
+            - If preconditions for a selected action are not met, it generates new, high-priority sub-goals to satisfy those preconditions.
+    -   *Injects*: New sub-goals to decompose complex problems or satisfy the preconditions for an action. It also injects high-priority tasks to find information relevant to its current goal.
 
 -   **Temporal Reasoner**: Provides a comprehensive framework for understanding and reasoning about time.
     -   *Subscribes to*: `belief-added` (specifically for statements with temporal copulas).
@@ -840,6 +848,11 @@ The Memory System is the core of the system's knowledge base, structured as a dy
     -   `Activation_in(S, C)` is the activation transferred from a source concept `S` to target `C`. This is calculated as: `Activation_in = task.budget.priority * belief.truth.confidence * relevance_factor`, where `relevance_factor` can be a constant or a function of the type of connection. The activation is then distributed among all connected concepts.
     -   `decay_rate` is a system parameter that determines how quickly concepts lose activation over time.
 
+-   **Indexing Strategies for Efficient Retrieval**: To quickly find relevant information within the vast concept graph, the Memory System employs several specialized index data structures. These indexes are crucial for performance, allowing the system to avoid slow, linear scans of its knowledge base.
+    -   **Term-based Index (`TrieIndex`)**: A Trie (prefix tree) is used to index all concept terms. This allows for highly efficient prefix-based searches, which are essential for features like autocompleting queries in a user interface or finding all terms within a certain category (e.g., searching for `animal:*`). Each node in the Trie can store a set of `Concept` IDs, enabling rapid retrieval of all terms matching a given prefix.
+    -   **Structural Index (`StructuralIndex`)**: This index groups statements (hyperedges) based on their structure. It uses a key composed of the statement's copula and its arity (number of terms), e.g., `"inheritance:2"` or `"conjunction:3"`. This enables the inference engine to quickly retrieve all statements of a particular form, which is fundamental for pattern-matching in inference rules. For example, when looking for premises for a deduction, it can directly query for all `inheritance:2` statements.
+    -   **Temporal Index (`TemporalIndex`)**: To reason about events in time, the system requires an index that can efficiently query for events that overlap with a given time interval. While the current implementation uses a simple array for this purpose (which is inefficient), the design specifies that a more advanced data structure, such as an **Interval Tree**, should be used. This would allow for `O(log n + k)` query time (where `n` is the number of events and `k` is the number of reported results), which is essential for a responsive `TemporalReasoner`.
+
 -   **Contextual Attention**: In addition to activation spreading, the system uses a `contextStack` to manage focus for short-term tasks. When the system begins a complex process (like answering a question), it can `push` a context onto the stack. This context temporarily boosts the importance of related concepts, ensuring they remain available for the duration of the task. The context is `pop`ped upon completion.
 
 -   **Forgetting Algorithms**: To manage finite memory resources, the system must forget less important information. This is handled by a `ForgettingManager` using multiple complementary strategies:
@@ -848,8 +861,13 @@ The Memory System is the core of the system's knowledge base, structured as a dy
     -   **Dynamic Capacity Adjustment**: The `beliefCapacity` of concepts is not fixed. The system monitors the total number of concepts in memory. If the number exceeds a high-water mark, the default capacity is lowered to conserve memory. If it drops below a low-water mark, capacity is increased. This is a form of system homeostasis.
     -   **Event Queue Pruning**: The system periodically removes low-budget tasks from the main event queue, preventing the attention system from getting clogged with low-value processing.
 
--   **Contradiction Handling**: This is managed by the `ContradictionManager` and is a sophisticated, multi-stage process. When a `contradiction-detected` event is fired, the manager executes the following logic:
-    -   (Content of contradiction handling steps is unchanged)
+-   **Contradiction Handling**: This is managed by the `ContradictionManager` and is a sophisticated, multi-stage process. When a `contradiction-detected` event is fired, the manager can employ one of several configurable strategies to resolve the conflict. The choice of strategy can be determined by the `CognitiveExecutive` based on the context of the contradiction. The available strategies include:
+    -   **`DominantEvidenceStrategy` (Default)**: Identifies the single belief with the highest evidence strength. This "winning" belief is kept, while all other conflicting beliefs are "weakened" by having their confidence and budget reduced and their doubt increased. This is a conservative strategy that trusts the strongest evidence without discarding other viewpoints entirely.
+    -   **`MergeStrategy`**: Takes the two strongest conflicting beliefs and merges them using the NAL revision formula (`TruthValue.revise`). This creates a new, synthesized belief that incorporates evidence from both parents. This strategy is useful for integrating conflicting information into a single, more nuanced belief.
+    -   **`EvidenceWeightedStrategy`**: A more comprehensive merge, this strategy calculates a new truth value and budget by taking a weighted average of *all* conflicting beliefs. The weight for each belief is its evidence strength. This results in a single new belief that represents the consensus of all available evidence.
+    -   **`RecencyBiasedStrategy`**: A simple but effective strategy that resolves a conflict by keeping only the most recent belief and discarding all others. This is useful in dynamic environments where newer information is more likely to be correct.
+    -   **`SourceReliabilityStrategy`**: Similar to `EvidenceWeightedStrategy`, but the weight for each belief is determined by the historical reliability of its source, modulated by the belief's priority. This allows the system to trust information from sources that have been proven trustworthy in the past.
+    -   **`SpecializationStrategy`**: Instead of merging or deleting beliefs, this strategy resolves a contradiction by creating a more specific, contextual belief. For example, if the system believes `<bird --> flyer>` but encounters a strong contradiction with `<penguin --> not_a_flyer>`, this strategy might generate a new belief like `<(&, bird, (-, penguin)) --> flyer>`, resolving the conflict by creating a more nuanced rule. This is a key mechanism for learning and refining knowledge.
 
 ## 6. I/O and Public API
 
@@ -1010,21 +1028,54 @@ This example shows how safety is not just a hard-coded "if statement" but an int
 ## 14. Error Handling and System Resilience
 (Content unchanged)
 
-## 15. Debugging and Diagnostics
+## 15. Interactive Debugging and Diagnostics (TUI)
 
-The emergent and non-deterministic nature of a NARS-like system makes debugging exceptionally challenging. To address this, the system will be designed from the ground up with a rich suite of built-in debugging and diagnostic tools. These tools are not afterthoughts but are integral to the system's architecture, accessible via the public API.
+The emergent and non-deterministic nature of a NARS-like system makes debugging exceptionally challenging. To address this, the system includes a comprehensive, interactive Text-based User Interface (TUI) for real-time inspection and control. This TUI is not merely a passive log viewer but an active diagnostics console that allows a developer to interact with the reasoning process as it unfolds. It is built using a terminal rendering library for React (e.g., Ink).
 
-### 1. Interactive REPL (Read-Eval-Print Loop)
-(Content unchanged)
+### 15.1. TUI Architecture
 
-### 2. Verbose, Structured Logging
-(Content unchanged)
+The TUI is structured around a main application component (`App.js`) that manages state and a `MainLayout` that organizes various specialized view components into a tabbed interface. This allows the user to switch between different perspectives on the system's internal state. A shared `TuiContext` provides all components with access to the core NAR system instance and its control functions.
 
-### 3. Derivation Path Visualization
-(Content unchanged)
+### 15.2. Core Components and Views
 
-### 4. Sanity Check and Integrity Validation API
-(Content unchanged)
+The TUI provides a multi-pane layout that typically includes a status bar, a main content view (tab-switchable), and an interaction/log panel.
 
-### 5. Diagnostic Tracing
-The `CognitiveExecutive` maintains a rolling in-memory trace of its significant decisions, such as parameter adaptations and changes in reasoning focus. This trace is accessible via an API method (`getTrace()`) and provides a high-level narrative of the system's self-regulation, which is invaluable for understanding its behavior over time.
+-   **Status View**: A persistent header or footer that displays key real-time metrics, such as:
+    -   **System Status**: `Running`, `Paused`, `Idle`.
+    -   **SPS (Steps Per Second)**: The current inference rate.
+    -   **Run Delay**: The configured delay between reasoning cycles.
+    -   **Active Concepts / Beliefs / Tasks**: A high-level count of entities in memory.
+
+-   **Tabbed Views**: The main panel of the TUI allows the user to switch between several views, each focused on a different aspect of the system:
+    -   **Memory View**: Displays a list of all concepts currently in memory, sorted by activation. The user can navigate this list and select a concept to open a detailed `ConceptView`.
+    -   **Queue View**: Shows the contents of the main task priority queue, allowing the user to see which tasks are about to be processed.
+    -   **System View**: A dashboard showing the current values of key system parameters and configurations.
+    -   **Contradiction View**: Lists all active contradictions that have been detected but not yet resolved.
+    -   **Temporal View**: Visualizes the temporal relationships between events known to the system.
+
+-   **Concept View**: When a concept is selected from the Memory View, this detailed view opens, showing:
+    -   The concept's term.
+    -   Its current activation level.
+    -   A list of all beliefs held by the concept, including their truth values and budgets.
+    -   The tasks currently in the concept's local task queue.
+
+-   **Interaction View**: A command-line input box and a log panel.
+    -   **Command Input**: Allows the user to directly inject NAL statements, ask questions, or issue control commands.
+        -   `nal(...)`: Inputs a belief or goal.
+        -   `/ask <question>`: Asks a question and displays the answer.
+        -   `/run <steps>`: Runs the system for a specific number of steps.
+        -   `/contradict <b1> <b2>`: Manually flags two beliefs as contradictory.
+        -   `/resolve <id> <strategy>`: Manually resolves a contradiction with a specific strategy.
+        -   `/quit`: Exits the TUI.
+    -   **Log Panel**: Displays a stream of real-time events from the system, including task processing, belief revisions, contradictions, and errors.
+
+### 15.3. Keyboard Controls
+
+The TUI is fully controllable via the keyboard:
+-   **`s`**: Start the reasoning loop.
+-   **`p`**: Pause the reasoning loop.
+-   **`t`**: Execute a single step.
+-   **`c`**: Clear the system's memory.
+-   **`+` / `-`**: Increase or decrease the run delay.
+-   **`1`-`5`**: Switch between the main tabs.
+-   **`Esc`**: Exit the TUI or close the current detailed view.

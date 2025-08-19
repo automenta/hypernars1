@@ -56,6 +56,17 @@ Tests evidence-based contradiction resolution
 | 45 | `knowledge_unlearning.js` | Active belief revision | Confidence adjustment | Confidence drops with contradictory evidence |
 | 52 | `enhanced_contradiction.test.js` | Evidence-based resolution | Specialized belief creation | Creates context-specific beliefs for contradictions |
 
+#### Proposed Tests for Contradiction Strategies
+
+| ID | Title | Objective | Key Assertions |
+|------|------------------------------------|------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| CS-01| Dominant Evidence Strategy | Verify that when a contradiction occurs, the belief with the strongest evidence is retained while others are weakened. | The confidence of the dominant belief remains high; the confidence of other beliefs is reduced by the configured factor. |
+| CS-02| Merge Strategy | Verify that the two strongest conflicting beliefs are merged into a new belief using the revision formula. | A new belief is created with a truth value derived from the NAL revision formula; the original beliefs are removed or replaced. |
+| CS-03| Evidence-Weighted Strategy | Verify that all conflicting beliefs are merged into a single belief based on a weighted average of their evidence. | A single new belief exists whose truth value is the weighted average of all prior conflicting beliefs. |
+| CS-04| Recency-Biased Strategy | Verify that in a conflict, only the most recent belief is kept. | After resolution, only the belief with the latest timestamp remains; all others are discarded. |
+| CS-05| Source Reliability Strategy | Verify that beliefs from more reliable sources are given more weight in contradiction resolution. | Given a conflict between a reliable and an unreliable source, the resulting belief's truth value is skewed towards the reliable source's belief. |
+| CS-06| Specialization Strategy | Verify that the system can resolve a contradiction by creating a more specific, contextual rule. | The general belief (e.g., `<bird --> flyer>`) is revised or replaced by a more specific one (e.g., `<(&, bird, (-, penguin)) --> flyer>`). |
+
 ### 3. Temporal Reasoning
 Tests time-based event handling
 
@@ -96,6 +107,7 @@ Tests goal-oriented behavior
 | 42 | `goal_driven_learning.js` | Learning from goal failure | Strategy adaptation | Revises beliefs when actions lead to failure |
 | 44 | `competing_goals.js` | Resource-aware competition | Action selection | Selects actions under resource constraints |
 | 59 | `competing_goals_resource.test.js` | Resource-constrained goals | Dynamic prioritization | Allocates more resources to higher-priority goals |
+| GD-01| Goal Decomposition | Verify that a conjunctive goal is correctly decomposed into sub-goals. | Given `goal: <(&&, A, B)>`, the system creates two new active goals for `A` and `B`, and the original goal's status becomes `waiting`. |
 
 ### 6. Advanced Capabilities
 Tests higher-order cognitive functions
