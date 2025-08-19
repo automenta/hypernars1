@@ -189,15 +189,6 @@ The following `npm` scripts should be configured in `package.json` to execute di
 
 ## Special Notes
 
-### Skipped Tests
-| Test | File | Reason for Skipping |
-|------|------|---------------------|
-| 08 | `goal_oriented_reasoning.js` | Bug in derivation engine |
-| 15 | `goal_oriented_contradiction.js` | Bug in query engine's Product type handling |
-| 16 | `concept_formation_contradiction.js` | Deeper bug in reasoning engine |
-| 18 | `temporal_paradox.js` | Deeper bug in reasoning engine |
-| 37 | `unlearning_and_forgetting.test.js` | Highly dependent on specific memory config |
-
 ### Composite Tests
 - **Test 12**: Cross-concern cases (6 sub-tests)
 - **Test 21**: Cross-functional tests (2 sub-tests)

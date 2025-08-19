@@ -1379,6 +1379,22 @@ While the core reasoning cycle is conceptually serial, the proposed architecture
 
 The design prioritizes logical correctness first, but these opportunities for performance enhancement are a key consideration for the implementation phase.
 
+### 9.1. Actor Lifecycle and Supervision
+
+To make the Actor Model implementation robust and resource-efficient, a clear lifecycle for `Concept` actors must be defined, managed by a dedicated `Supervisor` within the `ControlUnit`.
+
+-   **Creation / Awakening**: Actors are not all created at startup. They are created "on-demand" when a new `Term` is encountered for the first time. If an actor has been passivated, a message sent to it will trigger the `Supervisor` to "awaken" it by loading its state back into memory.
+
+-   **Passivation (Suspension)**: To manage memory under AIKR, actors for concepts with low activation levels can be passivated. The `Supervisor` periodically identifies candidate actors (e.g., those not accessed for N cycles). It then sends a `Passivate` message, causing the actor to serialize its internal state (beliefs, task queue) to a cheaper, persistent storage (like a local database or file) and then shut down. This frees up memory for more active concepts.
+
+-   **Termination**: Actors are terminated when their corresponding `Concept` is permanently forgotten according to the memory management algorithm (see Section 5). The `Supervisor` will instruct the actor to terminate, and its passivated state will be marked for garbage collection.
+
+-   **Supervision and Fault Tolerance**: The `Supervisor` is also responsible for fault tolerance. If a `Concept` actor crashes due to an unexpected internal error, the supervisor will catch the failure. Its recovery strategy can be configured:
+    -   **Restart:** The default strategy. The supervisor logs the error, and restarts the actor from its last known-good passivated state.
+    -   **Isolate:** For repeated failures, the supervisor can isolate the actor, preventing it from being selected for processing and injecting a high-priority goal for the `Cognitive Executive` to analyze the problematic concept, e.g., `goal: <(investigate, (faulty_concept, 'term_X'))>.`
+
+This lifecycle management ensures that the system can scale to millions of concepts without holding them all in active memory, while the supervision strategy provides resilience against internal failures.
+
 ## 10. State Serialization and Persistence
 
 To ensure that the system's learned knowledge and state can be preserved across sessions, a robust serialization mechanism is required. The entire state of the `Reasoning Kernel`—including the full `Concept` graph, all `Beliefs`, and pending `Tasks`—must be serializable to a persistent format.
@@ -1492,27 +1508,50 @@ As the system evolves, its core data structures (`Statement`, `TruthValue`, `Bud
 
 This approach ensures that the system can gracefully handle its own evolution, preserving learned knowledge across software updates.
 
-## 11. Self-Governing Evolution: A Metacognitive Core
+## 11. Self-Governing Evolution: An Ambition for Autonomy
 
-The ultimate goal of a general reasoning system is not just to learn about the external world, but to learn about and improve *itself*. This section reframes the concept of metacognition from a passive monitoring function to an active, goal-driven process of **Self-Governing Evolution**. The system is designed to use its own reasoning capabilities to analyze its architecture, tests, and code, identify flaws or areas for improvement, and propose concrete solutions.
+The ultimate ambition for a general reasoning system is not just to learn about the external world, but to learn about and improve *itself*. This section reframes metacognition from a passive monitoring function to an active, goal-driven process of **Self-Governing Evolution**. The system is designed to use its own reasoning capabilities to analyze its architecture, tests, and code, identify flaws or areas for improvement, and propose concrete, actionable solutions.
 
-This creates a powerful, self-reinforcing feedback loop, making the system an active participant in its own development.
+This creates a powerful, self-reinforcing feedback loop, making the system an active participant in its own development and embodying the principle of ambitious, continuous self-improvement.
 
-### 11.1. The Metacognitive Loop
+### 11.1. The Metacognitive Loop: From Data to Action
 
-The process of self-governing evolution follows a continuous, four-stage loop, orchestrated by the `Cognitive Executive` and other specialized managers:
+The process of self-governing evolution follows a continuous, four-stage loop, orchestrated by the `Cognitive Executive` and other specialized managers. This loop is not merely a sequence of steps but a dynamic interplay of reasoning processes.
 
-1.  **Ingestion & Self-Representation:** The system ingests its own artifacts—`DESIGN.md`, `DESIGN.tests.md`, source code (`*.js`), and guideline documents (`AGENTS.md`)—as raw data. Grounded parser functions transform this data into a rich, structured knowledge base of NAL beliefs. For example:
+```mermaid
+graph TD
+    subgraph Metacognitive Loop
+        direction LR
+        A[1. Ingestion & Self-Representation] --> B[2. Analysis & Goal Generation];
+        B --> C[3. Planning & Solution Formulation];
+        C --> D[4. Action & Proposal Generation];
+        D --> A;
+    end
+
+    subgraph Details
+        direction TB
+        A_Details("Grounded parsers convert artifacts<br/>(DESIGN.md, *.js, AGENTS.md)<br/>into a NAL knowledge base.<br/>e.g., `<(function, 'X') --> (has_complexity, 12)>`");
+        B_Details("Cognitive Executive uses meta-rules<br/>to find inconsistencies, quality issues, or test gaps.<br/>e.g., `goal: <(refactor, 'X')>`");
+        C_Details("System 2 Deliberative Mode is triggered<br/>to find the root cause and formulate<br/>a multi-step solution plan.");
+        D_Details("System generates a concrete, human-readable<br/>'patch' file or report for developer review and approval.");
+    end
+
+    A -- "Knowledge" --> A_Details;
+    B -- "Goals" --> B_Details;
+    C -- "Plans" --> C_Details;
+    D -- "Proposals" --> D_Details;
+
+    classDef stage fill:#cde,stroke:#333;
+    class A,B,C,D stage;
+```
+
+1.  **Ingestion & Self-Representation:** The system ingests its own artifacts—`DESIGN.md`, `DESIGN.tests.md`, source code (`*.js`), and guideline documents (`AGENTS.md`)—as raw data. Grounded parser functions transform this data into a rich, structured knowledge base of NAL beliefs.
     *   From `DESIGN.md`: `<'TruthValue' --> (has_property, 'doubt')>.`
-    *   From `DESIGN.tests.md`: `<(test, 'temporal_paradox') --> (is_status, 'skipped')>.`
+    *   From `DESIGN.tests.md`: `<(test, 'temporal_paradox') --> (verifies, 'paradox_identification')>.`
     *   From source code: `(<(function, 'addUser') --> (has_cyclomatic_complexity, 8)>).`
     *   From `AGENTS.md`: `<(guideline) ==> (code_should_be, 'DRY')>.`
 
-2.  **Analysis & Goal Generation:** With its own structure and state represented as knowledge, the `Cognitive Executive` actively analyzes this information to identify problems. It uses a set of meta-rules to detect anomalies and generate corrective goals.
-    *   **Inconsistency Detection:** `(<(<X --> (has, Y)>. & <X --> (has, !Y)>.) ==> (goal: <(resolve_inconsistency, X)>.)>)`
-    *   **Test Gap Analysis:** `(<(test, T, is_status, 'skipped')> ==> (goal: <(fix_test, T)>.)>)`
-    *   **Code Quality Analysis:** `(<(function, F, has_cyclomatic_complexity, >10)> ==> (goal: <(refactor_function, F)>.)>)`
-    *   **Guideline Conformance:** `(<(code_block, C, has_comment, true)> & <(guideline) ==> (code_should_be, 'no_comments')>) ==> (goal: <(remove_comment_from, C)>.)>`
+2.  **Analysis & Goal Generation:** With its own structure and state represented as knowledge, the `Cognitive Executive` actively analyzes this information to identify problems. It uses a set of meta-rules to detect anomalies and generate corrective goals. The `Codebase Integrity Manager` and `Test Generation Manager` are key players here.
 
 3.  **Planning & Solution Formulation:** Once a corrective goal is generated, the system uses its deliberative (System 2) reasoning capabilities to formulate a plan. This may involve:
     *   For a design inconsistency, tracing the sources of the conflicting beliefs to identify the sentences in `DESIGN.md` that need to be changed.
@@ -1523,26 +1562,81 @@ The process of self-governing evolution follows a continuous, four-stage loop, o
     *   **Output Format:** The output could be a standard `diff` file, or a structured JSON object describing the proposed change (e.g., `{ "file": "DESIGN.md", "action": "replace", "lineNumber": 150, "new_text": "..." }`).
     *   **Human in the Loop:** This proposal is then presented to a human developer for review and approval. This maintains safety while leveraging the system's analytical power to accelerate its own development.
 
-### 11.2. Use Case: Resolving a Skipped Test
+### 11.2. Manager Deep Dive: The Engines of Self-Improvement
 
-This use case demonstrates the full loop in action, addressing an issue from its own test suite.
+#### Codebase Integrity Manager
 
-1.  **Ingestion:** The system ingests `DESIGN.tests.md` and creates the belief: `(<(test, 'temporal_paradox') --> (is_status, 'skipped', because, 'deeper_bug_in_reasoning_engine')>.)`.
-2.  **Goal Generation:** The `Cognitive Executive`'s meta-rules detect the 'skipped' status and generate a high-priority goal: `goal: <(resolve, (bug, 'temporal_paradox_test'))>.`
-3.  **Planning (Deliberative Mode):** The system enters System 2 reasoning.
-    *   It analyzes the term 'reasoning_engine' and connects it to Section 3 of its `DESIGN.md` knowledge base.
-    *   It simulates the temporal paradox (`A before B`, `B before A`) and observes that its current `Reflexive Mode` reasoning loop fails to detect the cycle.
-    *   It hypothesizes that the control loop needs a mechanism for detecting such paradoxes. It might review its knowledge of its own `Dual-Process Control Unit` and conclude that this is a trigger for Deliberative Mode.
-4.  **Proposal Generation:** The system generates a report:
+This manager is responsible for ensuring the system's implementation and design are consistent and of high quality.
+
+-   **Trigger:** Activated by a high-level goal like `goal: <(system) --> (achieve, 'self_consistency')>.`
+-   **Core Meta-Rules (Examples):**
+    -   **Design/Implementation Mismatch:** If the design specifies a component `C` has property `P`, but the ingested code shows it has property `!P`, a contradiction is detected.
+        -   `(<(design, C, has, P)> & <(code, C, has, !P)>) ==> goal: <(resolve_discrepancy, C)>.`
+    -   **Code Quality Heuristics:** It uses baked-in rules to flag code that needs improvement.
+        -   `(<(function, F, has_complexity, >10)>) ==> goal: <(refactor, F, 'high_complexity')>.`
+        -   `(<(module, M, is, 'highly_coupled')>) ==> goal: <(decouple, M)>.`
+    -   **Guideline Conformance:** It checks for violations of `AGENTS.md`.
+        -   `(<(code, F, has, 'comment')> & <(guideline, 'no_comments')>) ==> goal: <(remove_comment, F)>.`
+-   **Output:** Generates tasks to investigate and resolve these issues, which may lead to patch proposals.
+
+#### Test Generation Manager
+
+This manager proactively ensures the system's reasoning capabilities are robust by identifying and filling gaps in its test coverage.
+
+-   **Trigger:** Runs periodically (e.g., on `system-idle` events) or when triggered by a goal like `goal: <(system) --> (has, 'full_test_coverage')>.`
+-   **Gap-Finding Algorithm:**
+    1.  **Ingest Test Definitions:** Parse all tests from `DESIGN.tests.md` to create a knowledge base of what is *intended* to be tested.
+        -   `<(test, 'basic_inference') --> (verifies, 'deduction')>.`
+    2.  **Ingest Execution Traces:** Monitor `afterInference` and `rule-utility-updated` events over many cycles to build a model of what components are *actually* being executed.
+        -   `<(rule, 'deduction') --> (has_execution_count, 1250)>.`
+        -   `<(rule, 'exemplification') --> (has_execution_count, 0)>.`
+    3.  **Identify Gaps:** Compare the intended test coverage with the actual execution traces. The manager looks for "under-exercised" components.
+        -   A rule with low or zero execution count is a prime candidate.
+        -   A concept property described in `DESIGN.md` that is never involved in a successful E2E test is another.
+    4.  **Generate Test Goal:** Once a gap is found (e.g., `ExemplificationRule` is under-tested), it generates a high-priority goal to address it.
+        -   `goal: <(create_test_for, 'ExemplificationRule')>.`
+-   **Test Formulation:** In pursuit of the goal, the system uses its reasoning to:
+    1.  **Analyze the Rule's Signature:** It looks up the premises required for `ExemplificationRule`: `(<M --> P>., <M --> S>.)`.
+    2.  **Synthesize Premises:** It searches its existing knowledge base for terms that could fit this structure or creates new, abstract terms (`M_test, P_test, S_test`).
+    3.  **Propose Test Case:** It formulates a complete, human-readable test case and logs it or emits it as an event for developer review. The proposal includes the premises to inject and the expected conclusion to query.
+
+### 11.3. Use Case: Generating a New Test for an Underused Rule
+
+This use case demonstrates the `TestGenerationManager` in action.
+
+1.  **Analysis:** After 5000 cycles, the manager analyzes its execution trace data and creates the beliefs:
+    *   `<(rule, 'DeductionRule', has_execution_count, 4500)>.`
+    *   `<(rule, 'InductionRule', has_execution_count, 500)>.`
+    *   `<(rule, 'ExemplificationRule', has_execution_count, 0)>.`
+    A meta-rule `(<(rule, R, has_execution_count, 0)>) ==> goal: <(increase_coverage_for, R)>` fires.
+2.  **Goal Generation:** A new high-priority goal is created: `goal: <(increase_coverage_for, 'ExemplificationRule')>.`
+3.  **Planning (Deliberative Mode):** The system focuses on this goal.
+    *   It retrieves the logical form of the rule: `(<M --> P>., <M --> S>.) |- <S <-> P>.`
+    *   It decides to create a new test case. It needs to invent terms for M, P, and S. It generates abstract terms: `test_subject`, `test_property_1`, `test_property_2`.
+    *   It formulates the premises needed: `(<test_subject --> test_property_1>.)` and `(<test_subject --> test_property_2>.)`.
+    *   It formulates the expected conclusion: `(<test_property_1 <-> test_property_2>.)`.
+4.  **Proposal Generation:** The system generates a structured report for the developer:
+    ```json
+    {
+      "type": "PROPOSED_TEST_CASE",
+      "manager": "TestGenerationManager",
+      "target": {
+        "type": "InferenceRule",
+        "name": "ExemplificationRule"
+      },
+      "rationale": "Rule has had 0 executions in the last 5000 cycles.",
+      "test_scenario": {
+        "name": "Auto-generated test for Exemplification",
+        "given": [
+          "<test_subject --> test_property_1>.",
+          "<test_subject --> test_property_2>."
+        ],
+        "when": "System runs for 50 cycles.",
+        "then": "The system should believe '<test_property_1 <-> test_property_2>.' with high confidence."
+      }
+    }
     ```
-    PROPOSED CHANGE for DESIGN.md:
-    - File: DESIGN.md
-    - Section: 3.2. System 2: The Deliberative Reasoning Process
-    - Action: ADD to 'Triggers for Deliberative Mode' list.
-    - Text: "- Persistent Paradoxes: Detection of logical or temporal paradoxes (e.g., the Liar Paradox, or `A before B` and `B before A`). This is key to addressing the `temporal_paradox.js` test failure."
-    - Rationale: The current reasoning cycle does not explicitly handle temporal paradoxes. Adding this as a trigger for System 2 Deliberative Mode will allow for the focused resource allocation needed to detect and resolve the issue.
-    ```
-This demonstrates an end-to-end process where the system identifies a weakness in itself and proposes the exact design change required to fix it.
+This demonstrates an end-to-end process where the system identifies a weakness in its own testing and proposes the exact inputs needed to fix it, embodying the principle of delivering an ambitious, self-improving result.
 
 ## 12. System Bootstrapping and Foundational Knowledge
 
