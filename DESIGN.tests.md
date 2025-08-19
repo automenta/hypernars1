@@ -1,8 +1,30 @@
-# Test Suite Documentation
+# HyperNARS Test Suite Blueprint: DESIGN.tests.md
+
+This document outlines the comprehensive testing strategy for the HyperNARS reimplementation. It serves as a blueprint for ensuring the system's correctness, robustness, and adherence to the principles of Non-Axiomatic Logic.
+
+## 1. Testing Philosophy
+
+The testing strategy for HyperNARS is multi-layered, designed to validate the system at different levels of granularity. This approach ensures that individual components are sound, their integrations are seamless, and the overall system behavior is correct and emergent as expected.
+
+-   **Layer 1: Unit Tests**: At the lowest level, unit tests verify the functional correctness of individual, isolated components. These tests focus on pure functions and classes with minimal dependencies.
+    -   *Examples*: `TruthValue` revision formulas, `Budget` allocation logic, individual `InferenceRule` applications.
+    -   *Goal*: Ensure that the foundational building blocks of the logic are mathematically and algorithmically correct.
+
+-   **Layer 2: Integration Tests**: These tests verify the interaction between different components of the system. They focus on the contracts and communication between modules, such as the Reasoning Kernel and the Cognitive Managers.
+    -   *Examples*: A `ContradictionManager` correctly subscribing to `contradiction-detected` events from the kernel and injecting a revision task.
+    -   *Goal*: Ensure that modules are wired together correctly and that their collaboration produces the expected short-term outcomes.
+
+-   **Layer 3: End-to-End (E2E) Scenario Tests**: These are high-level tests that validate the system's reasoning capabilities on complex, multi-step problems. They treat the entire HyperNARS system as a black box, providing input and asserting on the final state of its beliefs after a number of reasoning cycles. Many of these are written in a Gherkin-style (Given/When/Then) format to be both human-readable and executable.
+    -   *Examples*: Complex temporal reasoning chains, belief revision after a series of contradictory inputs, goal-directed behavior.
+    -   *Goal*: Verify that the interaction of all components leads to the desired emergent, intelligent behavior and that the system can solve meaningful problems.
+
+-   **Layer 4: Performance & Scalability Tests**: A special category of tests designed to measure the system's performance under heavy load and identify bottlenecks.
+    -   *Examples*: Stress-testing the memory system with millions of concepts, measuring inference-per-second rate.
+    -   *Goal*: Ensure the system meets performance requirements and remains stable and responsive at scale.
 
 ---
 
-## Test Categories
+## 2. Test Categories
 
 ### 1. Core Inference & Reasoning
 Tests fundamental NARS reasoning capabilities
@@ -157,6 +179,23 @@ This table outlines future tests required for ensuring the system is robust and 
 | ML-01| Meta-Learning Verification | Test the `LearningEngine`'s ability to create new, effective inference rules based on observed patterns. | A new rule is created and its utility increases as it successfully contributes to derivations. |
 | HG-02| Schema Evolution Handling | Test the system's ability to handle changes in statement structure or semantics over time, managed by serialization. | The system can load a state dump from a previous version and either migrate or correctly handle the old data structures. |
 | TGI-01| Temporal-Goal Interaction | Test complex scenarios where goals have temporal constraints (e.g., "achieve G before time T"). | The system prioritizes tasks that make progress on the goal as the deadline T approaches. |
+
+---
+### Detailed Test Scenarios
+
+This section provides detailed, Gherkin-style scenarios for some of the proposed tests, serving as a concrete blueprint for their implementation.
+
+  Scenario: Hypergraph Stress Test for Performance and Stability (HG-01)
+    Given the system is configured with a `MAX_CONCEPTS` limit of 2,000,000
+    And the system is populated with 1,000,000 random but structurally valid beliefs, creating a large, interconnected hypergraph
+      # This setup involves creating beliefs like "<concept_A --> concept_B>"
+      # and compositional beliefs like "<(&&, concept_C, concept_D) --> concept_E>"
+      # to ensure a high degree of interconnection.
+    When the system runs for 10,000 reasoning steps, forcing memory management and activation spreading at scale
+    Then the system should not crash and should remain responsive to API calls
+    And when a question `nalq("<concept_X --> ?what>.")` is asked about a highly connected concept
+    Then the system should return an answer within 1 second
+    And the system's memory usage should not exceed the configured limits by a significant margin.
 
 > Total Tests: 69 individual test scenarios covering all core NARS functionality  
 > Generated: 2025-08-19

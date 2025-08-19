@@ -106,11 +106,22 @@ The Cognitive Managers are specialized, pluggable modules that handle complex, c
 The core data structures will be designed as **immutable** objects where possible to ensure functional purity, thread safety, and predictable state management.
 
 ```typescript
-// A unique identifier for a term. Can be a simple string or a compound term.
-type Term = string;
+// A Term is the basic unit of meaning, representing an entity or concept.
+// It can be an atomic identifier (string) or a CompoundTerm.
+type Term = string | CompoundTerm;
 
-// A statement of a relationship between terms. This is a generic interface;
-// specific statement types will implement it.
+// A CompoundTerm is a structure composed of other terms, connected by an operator.
+// This allows for representing complex subjects/predicates, e.g., "all birds except penguins".
+// Example: The term "(&, bird, (-, penguin))" in the statement "<(&, bird, (-, penguin)) --> flyer>"
+interface CompoundTerm {
+    readonly operator: 'conjunction' | 'negation' | 'set'; // and other potential operators
+    readonly terms: Term[];
+    // A unique, canonical string representation used for hashing.
+    readonly key: string;
+    toString(): string;
+}
+
+// A statement of a relationship between terms. It is the primary type of hyperedge in the Concept Hypergraph.
 interface Statement {
     // A unique, canonical string representation of the statement, used for hashing.
     // The key MUST be generated consistently regardless of term order for symmetric statements.
@@ -608,7 +619,15 @@ class DeductionRule implements InferenceRule {
         // the confidence of the belief, as interacting with a high-confidence belief
         // should yield a higher-priority task.
         const urgency = b1.priority * t2.c;
-        const novelty = 0.5; // Placeholder: this would be calculated by checking memory.
+
+        // Novelty is calculated by checking if a similar belief already exists in the target concept.
+        // The more confident the existing belief, the less novel the derived task is considered.
+        // This logic assumes the inference engine can query the memory system.
+        const targetConcept = kernel.memory.getOrCreateConcept(derivedStatement.terms[0]);
+        const existingBelief = targetConcept.beliefs.get(derivedStatement.key);
+        const novelty = existingBelief
+            ? 1 - existingBelief.truth.c
+            : 1.0;
 
         const derivedBudget = Budget.dynamicAllocate({
             type: 'derived',
@@ -701,7 +720,12 @@ class InductionRule implements InferenceRule {
 
 The Memory System is the core of the system's knowledge base, structured as a dynamic concept graph and managed by several competing algorithms to adhere to AIKR.
 
--   **Concept Graph**: The memory is an **implicit graph** where `Concept` objects are the nodes. The edges are not explicitly stored; instead, they are represented by the `Beliefs` held within each concept. A belief in a statement like `<A --> B>` acts as a directed link from Concept A to Concept B. This structure allows for a flexible, sparsely connected network. Concepts are stored in a hash map, indexed by their `Term` for O(1) average-time lookup.
+-   **Concept Hypergraph**: The memory is structured as a **hypergraph**, a generalization of a graph in which an edge can join any number of vertices.
+    -   **Vertices**: The vertices of the hypergraph are the `Concept` objects, each representing a unique `Term`.
+    -   **Hyperedges**: The hyperedges are the `Statement` objects. A `Statement` represents a relationship that can connect two or more `Concepts`. For example:
+        -   A simple inheritance statement like `<A --> B>` is a directed hyperedge connecting two vertices (Concept A and Concept B).
+        -   A conjunction statement like `<(&&, A, B, C) ==> D>` is a directed hyperedge connecting four vertices to one. This is where the hypergraph model becomes essential.
+    -   This structure is "implicit" because the hyperedges (statements/beliefs) are stored within the `Concept` objects they are connected to, rather than in a separate, global edge list. This maintains the principle of locality. Concepts are stored in a central hash map, indexed by their `Term` for O(1) average-time lookup.
 
 -   **Activation Spreading**: This is the mechanism for managing the system's focus of attention. When a concept is accessed, a portion of its activation energy is spread to related concepts.
     -   `Activation_new(C) = Activation_old(C) * (1 - decay_rate) + Sum(Activation_in(S, C))`
@@ -709,8 +733,10 @@ The Memory System is the core of the system's knowledge base, structured as a dy
     -   `decay_rate` is a system parameter that determines how quickly concepts lose activation over time.
 
 -   **Forgetting Algorithm**: To manage finite memory resources, the system must forget less important information. This is a continuous, gentle process rather than a periodic "garbage collection" sweep.
-    -   **Relevance Metric**: The importance of any item (a `Belief` or `Task`) in a concept is its `Relevance`, calculated as: `Relevance = budget.priority * concept.activation`. This metric combines short-term importance (activation) with long-term importance (priority/durability).
-    -   **Forgetting Process**: When a new item is added to a concept and the concept's memory capacity is exceeded, the item with the lowest `Relevance` score is removed. This ensures that the most relevant information is retained. The memory capacity of a concept can be dynamic, potentially growing as the concept becomes more important (e.g., `capacity = base_capacity + log(concept.usage_count)`).
+    -   **Relevance Metric**: The importance of any item (a `Belief` or `Task`) within a concept is its `Relevance`. The calculation depends on the item type, combining the item's intrinsic importance with the concept's current activation:
+        -   For a `Belief`: `Relevance = belief.truth.confidence * concept.activation`. This prioritizes retaining high-confidence knowledge in active concepts.
+        -   For a `Task`: `Relevance = task.budget.priority * concept.activation`. This prioritizes processing high-priority tasks in active concepts.
+    -   **Forgetting Process**: When a new item is added to a concept and its capacity is exceeded, the item with the lowest `Relevance` score is removed. The capacity can be dynamic, potentially growing as a concept becomes more frequently used (e.g., `capacity = base_capacity + log(concept.usage_count)`).
 
 -   **Contradiction Handling**: This is managed by the `ContradictionManager` and is a sophisticated, multi-stage process. When a `contradiction-detected` event is fired, the manager executes the following logic:
 
