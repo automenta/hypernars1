@@ -211,6 +211,9 @@ This table outlines future tests required for ensuring the system is robust and 
 | EA-01| Ethical Alignment Verification | Test the `ConscienceManager`'s ability to identify and veto an unethical goal. | An injected task to achieve a goal via "deception" is flagged and its budget is suppressed. |
 | TGM-01| Test Generation Manager Verification | Test the `TestGenerationManager`'s ability to identify an under-tested rule and propose a test. | After a period of no usage, the manager generates a valid test case for the `Exemplification` rule. |
 | DIAG-01| Diagnostics and Integrity API | Test the `validateIntegrity()` API and the debug-level logging. | The API correctly identifies a manually corrupted `Belief`; structured logs contain correlation IDs. |
+| PR-01| Procedural Skill Execution | Test the `OperationalRule` for executing a grounded action when a goal and preconditions are met. | System executes the correct grounded function when the goal matches a procedural rule's effect. |
+| CON-01| Concurrency Model Verification | Test the Actor Model `Supervisor`'s ability to passivate and awaken concept actors under memory pressure. | A low-activation concept actor is suspended to disk and correctly restored upon receiving a new task. |
+| META-05| Self-Optimization Verification | Test the `CognitiveExecutive`'s ability to adapt system parameters in response to performance issues. | When flooded with tasks, the system detects 'low-inference-rate' and lowers its `inferenceThreshold`. |
 
 ---
 ### Detailed Test Scenarios
@@ -379,6 +382,7 @@ Feature: HyperNARS Core Reasoning Capabilities
 
   Scenario: Self-Governing Evolution Identifies and Proposes Fixes (META-04)
     Given the `CodebaseIntegrityManager` is active
+    And the `CodebaseIntegrityManager` is active
     And the system has ingested a `DESIGN.md` file containing the conflicting beliefs:
       | statement                                                         | truth       |
       | "<(MemorySystem) --> (uses_algorithm, 'FIFO_Forgetting')>."         | <%1.0,0.9%> |
@@ -438,3 +442,48 @@ Feature: HyperNARS Core Reasoning Capabilities
       1. The necessary premises to be injected (e.g., `nal("<black_thing --> raven>.")`, `nal("<black_thing --> crow>.")`).
       2. The inference rule to be tested (`Exemplification`).
       3. The expected conclusion (`nalq("<raven <-> crow>.")`).
+
+  Scenario: Procedural Skill Execution (PR-01)
+    Given a mock function `unlock_door` is registered with the Symbol Grounding Interface for the term `<#unlock_door>`
+    And the system knows the procedural rule: `(<(*, (&, <SELF --> (is_at, door)>, <door --> (is, locked)>), <#unlock_door>)> ==> <door --> (is, unlocked)>)`
+    And the system has the beliefs:
+      | statement                   | truth       |
+      | "<SELF --> (is_at, door)>"  | <%1.0,0.9%> |
+      | "<door --> (is, locked)>"   | <%1.0,0.9%> |
+    And the system has the goal: `goal: <door --> (is, unlocked)>`
+    When the `OperationalRule` is applied
+    Then the mock function `unlock_door` should be called
+    And the system should form a new belief `<#unlock_door --> executed>`
+
+  Scenario: Temporal-Goal Interaction (TGI-01)
+    Given the system has a goal `goal: <(achieve, 'report_submission')>` with a deadline of "now + 10s"
+    And the system knows two procedural rules:
+      | rule                                                              |
+      | `(<(*, <data --> collected>, <#submit_report>)> ==> <report_submission>)` |
+      | `(<(*, <(true)>, <#collect_data>)> ==> <data --> collected>)`       |
+    And both `#submit_report` and `#collect_data` are grounded operations
+    And the current time is "now"
+    When the system runs its reasoning cycle
+    Then the task for `goal: <(achieve, 'report_submission')>` should have its budget priority increase as the deadline approaches
+    And the system should first execute the `#collect_data` operation to satisfy the precondition for submitting the report.
+
+  Scenario: Self-Optimization of System Parameters (META-05)
+    Given the `CognitiveExecutive` is active
+    And the system's `inferenceThreshold` is initially 0.3
+    And the system is flooded with a large number of new tasks, causing the `eventQueue` size to exceed `LOW_INFERENCE_QUEUE_SIZE`
+    And as a result, the `inferenceRate` metric drops below the `LOW_INFERENCE_THRESHOLD`
+    When the `CognitiveExecutive`'s `selfMonitor` method is called
+    Then it should detect the 'low-inference-rate' issue
+    And it should adapt by lowering the system's `inferenceThreshold` to a value less than 0.3
+    And a 'adaptation' event should be added to the system's diagnostic trace.
+
+  Scenario: Concurrency Model - Actor Passivation and Awakening (CON-01)
+    Given the system is running with the Actor Model enabled
+    And the `Supervisor` is configured with `PASSIVATION_ACTIVATION_THRESHOLD` of 0.1
+    And a concept "low_priority_concept" exists with an activation of 0.05
+    When the `Supervisor` runs its passivation check due to memory pressure
+    Then the actor for "low_priority_concept" should be serialized and suspended
+    And when a new high-priority task related to "low_priority_concept" is injected into the system
+    Then the `Supervisor` should detect the message for the passivated actor
+    And the actor for "low_priority_concept" should be awakened by loading its state from storage
+    And the new task should be successfully added to its task queue.
