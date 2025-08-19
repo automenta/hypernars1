@@ -650,6 +650,72 @@ class DeductionRule implements InferenceRule {
 }
 ```
 
+#### Example: The Abduction Rule
+
+Abduction, or "inference to the best explanation," is a powerful rule for generating hypotheses.
+
+-   **Logical Form**: `(P --> M), (S --> M) |- (S --> P)` (Note the shared predicate `M`)
+-   **Premises**:
+    1.  A task `T1` with statement `(P --> M)` (e.g., "ravens are black").
+    2.  A belief `B1` with statement `(S --> M)` (e.g., "my pet is black").
+-   **Conclusion**: A new task `T2` with statement `(S --> P)` (e.g., hypothesizing "my pet is a raven").
+
+-   **Truth-Value Function**: Abduction produces a weaker conclusion than deduction.
+    -   `f_conclusion = f_premise1`
+    -   `c_conclusion = c_premise1 * c_premise2 * f_premise2` (Simplified formula)
+-   **Budget Function**: The budget for an abductive task should reflect its hypothetical nature, meaning its quality is highly dependent on the confidence of the premises.
+
+```typescript
+class AbductionRule implements InferenceRule {
+    readonly name = "NAL_ABDUCTION";
+    utility = 1.0;
+
+    canApply(task: Task, belief: Belief): boolean {
+        const s1 = task.statement;
+        const s2 = belief.statement;
+        // Check if both are inheritance statements and the predicates match: P->M, S->M
+        return s1.copula === 'inheritance' &&
+               s2.copula === 'inheritance' &&
+               s1.terms[1] === s2.terms[1]; // M matches
+    }
+
+    apply(task: Task, belief: Belief): Task | null {
+        if (!this.canApply(task, belief)) return null;
+
+        const s1 = task.statement; // <P --> M>
+        const s2 = belief.statement; // <S --> M>
+
+        // 1. Create the new statement: <S --> P>
+        const derivedStatement = new InheritanceStatement(s2.terms[0], s1.terms[0]);
+
+        // 2. Calculate the new truth value (simplified abduction)
+        const t1 = task.parentBeliefs[0].truth;
+        const t2 = belief.truth;
+        const f_new = t1.f;
+        const c_new = t1.c * t2.c * t2.f; // Simplified abduction confidence
+        const derivedTruth = new TruthValue(f_new, c_new);
+
+        // 3. Calculate the new budget
+        const quality_new = task.budget.quality * belief.truth.c * t1.c;
+        const derivedBudget = Budget.dynamicAllocate({
+            type: 'derived',
+            novelty: 0.9, // Abduction often creates highly novel hypotheses
+            urgency: (task.budget.priority) / 3, // Lower urgency due to hypothetical nature
+            parentQuality: quality_new,
+            ruleUtility: this.utility
+        });
+
+        // 4. Create and return the new task
+        const derivedTask: Task = {
+            statement: derivedStatement,
+            budget: derivedBudget,
+            parentBeliefs: [task.parentBeliefs[0], belief]
+        };
+        return derivedTask;
+    }
+}
+```
+
 #### Example: The Induction Rule
 
 Induction generalizes from specific evidence.
@@ -706,12 +772,12 @@ class InductionRule implements InferenceRule {
         });
 
         // 4. Create and return the new task
-        return {
+        const derivedTask: Task = {
             statement: derivedStatement,
-            truth: derivedTruth,
             budget: derivedBudget,
             parentBeliefs: [task.parentBeliefs[0], belief]
         };
+        return derivedTask;
     }
 }
 ```
@@ -747,7 +813,13 @@ The Memory System is the core of the system's knowledge base, structured as a dy
     -   **3. Strategy Selection & Resolution**: Based on the analysis, a strategy is chosen. This is a rule-based decision process:
         -   **IF** `strength(B1) >> strength(B2)` **THEN** apply **DominantEvidence**: The weaker belief `B2` is removed. The budget of `B1` is boosted.
         -   **IF** `strength(B1) ~= strength(B2)` **THEN** apply **Merge**: The truth values of `B1` and `B2` are revised together using `TruthValue.revise()`. The resulting belief replaces the old one. The doubt (`d`) component of the new truth value will naturally increase, indicating uncertainty.
-        -   **IF** `B1` is a general statement (e.g., `<bird --> flyer>`) and `B2` is a more specific, conflicting statement (e.g., `<penguin --> flyer>`), **THEN** apply **Specialize**: The system does not simply discard the general rule. Instead, it reduces the confidence of `<bird --> flyer>`. It then constructs a new, more specific term representing the exception, such as `(&, bird, (-, penguin))`, where `(-, penguin)` is a term representing "not penguin". It may then inject a new task to derive `(<(&, bird, (-, penguin)) --> flyer>)`, effectively learning the exception. This requires the system to support compound terms and term negation.
+        -   **IF** `B1` is a general statement (e.g., `<bird --> flyer>`) and `B2` represents a conflicting special case (e.g., a high-confidence belief `<penguin --> not_a_flyer>` derived from input, where the system also knows `<penguin --> bird>`), **THEN** apply **Specialize**. This is a multi-step process for learning exceptions:
+            1.  **Reduce Confidence of General Rule**: The system first reduces the confidence of the general belief `<bird --> flyer>`. It is not wrong, just incomplete. This is done by revising it with the conflicting evidence, which will naturally lower its confidence and increase its doubt.
+            2.  **Identify the Exception**: The system identifies `penguin` as the term representing the exception.
+            3.  **Construct Compound Term**: A new, more specific subject term is constructed to explicitly exclude the exception. This term is `(&, bird, (-, penguin))`, which represents "a bird that is not a penguin". This requires the system's `Term` logic to support conjunction (`&`) and negation (`-`).
+            4.  **Inject New Learning Task**: The system injects a new, high-priority task into the reasoning cycle. The goal of this task is to form the new, more accurate belief: `(<(&, bird, (-, penguin)) --> flyer>)`. This task is derived from the original `<bird --> flyer>` belief but is now conditioned on the more specific, non-exceptional term.
+            5.  **Preserve Specific Knowledge**: The specific, high-confidence belief `<penguin --> not_a_flyer>` is preserved as it is considered more specific and therefore more likely to be correct in its narrow context.
+            This strategy allows the system to gracefully handle exceptions without discarding useful general knowledge, leading to a more nuanced and accurate belief system.
         -   **IF** `source(B1)` is more reliable than `source(B2)` **THEN** apply **SourceReliability**: Give precedence to `B1`, but do not necessarily discard `B2`. Instead, significantly lower the budget of `B2`.
         -   **IF** strategies above are inconclusive, **THEN** apply **RecencyBiased**: Give a slight budget advantage to the more recent belief.
 
@@ -758,7 +830,7 @@ The Memory System is the core of the system's knowledge base, structured as a dy
 The public API will be designed to be clean, language-agnostic, and powerful. It will be event-driven and asynchronous.
 
 -   **Input/Output API**:
-    -   `nal(statement: string, options?: object): Promise<InputResult>`: Asynchronously inputs a NAL statement.
+    -   `nal(statement: string, options?: object): Promise<InputResult>`: Asynchronously inputs a NAL statement. When `nal()` is called, the system performs a critical two-step process to ensure proper provenance for new information. First, it creates a `Belief` from the input `statement`, assigning it a high-confidence `TruthValue` and a `Budget` based on the system's `DEFAULT_INPUT_BUDGET` settings. Second, it creates the main `Task` to be processed. The `parentBeliefs` array of this new task is initialized with the belief created in the first step. This mechanism ensures that all tasks, whether derived internally or received from an external source, have a clear evidence trail, which is essential for the inference and revision processes.
     -   `nalq(question: string, options?: object): Promise<Answer>`: Asks a NAL question.
     -   `on(event: 'answer' | 'contradiction' | 'goal-achieved', callback: (data: object) => void): void`: Subscribes to system events.
 -   **Control & Configuration API**:

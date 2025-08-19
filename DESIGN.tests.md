@@ -179,6 +179,7 @@ This table outlines future tests required for ensuring the system is robust and 
 | ML-01| Meta-Learning Verification | Test the `LearningEngine`'s ability to create new, effective inference rules based on observed patterns. | A new rule is created and its utility increases as it successfully contributes to derivations. |
 | HG-02| Schema Evolution Handling | Test the system's ability to handle changes in statement structure or semantics over time, managed by serialization. | The system can load a state dump from a previous version and either migrate or correctly handle the old data structures. |
 | TGI-01| Temporal-Goal Interaction | Test complex scenarios where goals have temporal constraints (e.g., "achieve G before time T"). | The system prioritizes tasks that make progress on the goal as the deadline T approaches. |
+| RA-02| Resilience to Grounding Failure | Test the system's stability and response when a grounded symbol handler fails. | The system does not crash, logs the error, and can form a belief about the operational failure. |
 
 ---
 ### Detailed Test Scenarios
@@ -208,27 +209,26 @@ Feature: HyperNARS Core Reasoning Capabilities
   for the new implementation.
 
   **Note on Test DSL:** The following scenarios use a shorthand DSL for clarity:
-  - `truth: "%f;c%"` maps to `new TruthValue(f, c)`. For example, `"%0.9;0.8%"` is `new TruthValue(0.9, 0.8)`.
-  - `priority: "#p#"` maps to the priority component of a `Budget`. For example, `"#0.95#"` implies a high-priority budget.
-  - `truth: "<%f,c%>"` is an alternative syntax for `new TruthValue(f, c)`.
+  - `truth: "<%f,c%>"` maps to `new TruthValue(f, c)`. For example, `truth: "<%0.9,0.8%>"` creates `new TruthValue(0.9, 0.8)`.
+  - `priority: "#p#"` maps to the priority component of a `Budget`. For example, `priority: "#0.95#"` implies a high-priority budget.
 
   Scenario: Basic Inference about Flyers
     Given the system knows the following:
       | statement                                 | truth          | priority |
-      | "((bird && animal) --> flyer)"            | "%0.9;0.8%"    |          |
+      | "((bird && animal) --> flyer)"            | "<%0.9,0.8%>"  |          |
       | "(penguin --> (bird && !flyer))"          |                | "#0.95#" |
       | "(tweety --> bird)"                       |                |          |
     When the system runs for 50 steps
     Then the system should believe that "<tweety --> flyer>" with an expectation greater than 0.4
 
   Scenario: Belief Revision after Contradiction
-    Given the system believes that "<tweety --> flyer>" with truth "%0.8;0.7%"
+    Given the system believes that "<tweety --> flyer>" with truth "<%0.8,0.7%>"
     When the system runs for 10 steps
     Then the belief "<tweety --> flyer>" should have an expectation greater than 0.5
     And when the system is told:
       | statement             | truth          | priority |
       | "(penguin --> !flyer)"  |                | "#0.95#" |
-      | "(tweety --> penguin)"  | "%0.99;0.99%"  |          |
+      | "(tweety --> penguin)"  | "<%0.99,0.99%>" |          |
     And contradictions are resolved
     And the system runs for 100 steps
     Then the expectation of the belief "<tweety --> flyer>" should decrease
@@ -266,3 +266,30 @@ Feature: HyperNARS Core Reasoning Capabilities
     When the `MetaReasoner`'s `analyzeSystemHealth` function is triggered
     Then the system's "doubt" parameter should be increased to a value greater than 0.1
     And a new goal should be injected to investigate the cause of the high contradiction rate
+
+  Scenario: System Resilience to Symbol Grounding Failure (RA-02)
+    Given the system has a symbol "external.sensor.A" grounded to an external API endpoint
+    And the handler for "external.sensor.A" is designed to fetch data over the network
+    When the handler for "external.sensor.A" is invoked
+    And the external API endpoint returns a 503 Service Unavailable error, causing the handler to throw an exception
+    Then the system's main reasoning loop should not crash
+    And the system should log the grounding failure for diagnostics
+    And the system should create a new, high-confidence belief like "<(grounding_failed, {external.sensor.A}) --> true>"
+
+  Scenario: Meta-Learning Verification of a New Inference Rule (ML-01)
+    Given the system's LearningEngine is active and monitoring derivation patterns
+    And the system repeatedly observes the following pattern:
+      | premise1                                    | premise2                                    | conclusion                                  |
+      | "<{X} --> (location, west_of, {Y})>"        | "<{Y} --> (location, west_of, {Z})>"        | "<{X} --> (location, west_of, {Z})>"        |
+      | "<{A} --> (location, west_of, {B})>"        | "<{B} --> (location, west_of, {C})>"        | "<{A} --> (location, west_of, {C})>"        |
+      | "<{E} --> (location, west_of, {F})>"        | "<{F} --> (location, west_of, {G})>"        | "<{E} --> (location, west_of, {G})>"        |
+    When the LearningEngine's pattern detection threshold is met
+    Then the system should create and register a new InferenceRule named "CUSTOM_TRANSITIVE_LOCATION_WEST_OF"
+    And the initial utility of this new rule should be set to a baseline value (e.g., 0.5)
+    And when the system is later given the premises:
+      | statement                                   | truth       |
+      | "<(new_york) --> (location, west_of, (london))>" | <%1.0,0.9%> |
+      | "<(london) --> (location, west_of, (beijing))>" | <%1.0,0.9%> |
+    And the new rule "CUSTOM_TRANSITIVE_LOCATION_WEST_OF" is applied
+    Then a new task for "<(new_york) --> (location, west_of, (beijing))>" should be derived
+    And after the resulting belief is positively reinforced, the utility of the "CUSTOM_TRANSITIVE_LOCATION_WEST_OF" rule should increase
