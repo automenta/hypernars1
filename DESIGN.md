@@ -7,10 +7,20 @@ This document provides the detailed technical blueprint for the new, clean-room 
 1.  [System Architecture](#system-architecture)
 2.  [Core Data Structures](#core-data-structures)
 3.  [The Reasoning Cycle (Control Unit)](#the-reasoning-cycle-control-unit)
-4.  [Inference Engine](#inference-engine)
-5.  [Memory System](#memory-system)
-6.  [I/O and Public API](#io-and-public-api)
-7.  [Extension Points](#extension-points)
+4.  [Cognitive Managers](#cognitive-managers)
+5.  [Inference Engine](#inference-engine)
+6.  [Memory System](#memory-system)
+7.  [I/O and Public API](#io-and-public-api)
+8.  [Extension Points](#extension-points)
+9.  [System Initialization and Configuration](#system-initialization-and-configuration)
+10. [Concurrency and Parallelism](#concurrency-and-parallelism)
+11. [State Serialization and Persistence](#state-serialization-and-persistence)
+12. [Self-Governing Evolution: An Ambition for Autonomy](#self-governing-evolution-an-ambition-for-autonomy)
+13. [System Bootstrapping and Foundational Knowledge](#system-bootstrapping-and-foundational-knowledge)
+14. [Ethical Alignment and Safety](#ethical-alignment-and-safety)
+15. [Error Handling and System Resilience](#error-handling-and-system-resilience)
+16. [Interactive Debugging and Diagnostics (TUI)](#interactive-debugging-and-diagnostics-tui)
+17. [Verification Strategy](#verification-strategy)
 
 ## 1. System Architecture
 
@@ -94,60 +104,7 @@ For example, a user can configure the system to use a `SimpleMemoryManager` for 
 
 ### 1.2. Cognitive Manager Roles
 
-The Cognitive Managers are specialized, pluggable modules that handle complex, cross-cutting concerns. They operate by subscribing to events from the Reasoning Kernel and can inject new tasks back into the system to influence its behavior.
-
--   **Goal Manager**: The Goal Manager is responsible for the entire lifecycle of goal-oriented behavior, from receiving a high-level goal to decomposing it into actionable steps and monitoring its progress. It operates as a sophisticated planner and execution monitor.
-    -   *Subscribes to*: `belief-updated`, `belief-added`, `afterCycle`.
-    -   **Goal Lifecycle**: Manages goals with a defined lifecycle (`active`, `waiting`, `achieved`, `abandoned`). Goals can have deadlines and are abandoned if not met in time.
-    -   **Action - The Execution Loop**:
-        1.  **Prioritization**: In each cycle, the manager identifies the most urgent active goal based on its priority and proximity to its deadline.
-        2.  **Satisfaction Check**: It first checks if the goal is already satisfied by querying the system's belief base against a configurable `achievedThreshold`.
-        3.  **Action Selection**: If the goal is not met, it searches for known procedural rules (`<(*, Pre, Op)> ==> <Effect>`) where the `Effect` matches the current goal. It scores all applicable actions based on a utility calculation: `score = (reliability * goal_utility) - (action_cost)`. `Reliability` is the confidence of the procedural rule, and `action_cost` is derived from the budget of the operation.
-        4.  **Execution & Sub-goaling**:
-            - If a suitable action is found and its preconditions are met, the manager triggers the `OperationalRule` to execute it.
-            - If no single action can satisfy the goal, the manager attempts to **decompose** it. If the goal is a conjunction (e.g., `goal: <(&&, A, B)>`), it creates new sub-goals for `A` and `B` and sets the parent goal's status to `waiting`.
-            - If preconditions for a selected action are not met, it generates new, high-priority sub-goals to satisfy those preconditions.
-    -   *Injects*: New sub-goals to decompose complex problems or satisfy the preconditions for an action. It also injects high-priority tasks to find information relevant to its current goal.
-
--   **Temporal Reasoner**: Provides a comprehensive framework for understanding and reasoning about time.
-    -   *Subscribes to*: `belief-added` (specifically for statements with temporal copulas).
-    -   *Action*: Maintains an internal graph of temporal relationships between events. When new temporal information is learned (e.g., `<event_A --> (before, event_B)>`), it uses a constraint propagation algorithm based on **Allen's Interval Algebra** to infer new temporal relationships (e.g., if A is before B and B is before C, it infers A is before C).
-    -   *Injects*: New, high-confidence beliefs representing the inferred temporal relationships (e.g., `<event_A --> (before, event_C)>`).
-
--   **Learning Engine**: Responsible for abstracting knowledge and forming new concepts.
-    -   *Subscribes to*: `concept-created`, `belief-added`, `afterInference`.
-    -   *Action*: Detects patterns and correlations across concepts to form higher-level abstractions or new inference rules. It provides performance statistics on existing inference rules to the `CognitiveExecutive` to aid in self-optimization.
-    -   *Injects*: Tasks representing new concepts or learned rules.
-
--   **Contradiction Manager**: Implements sophisticated strategies for resolving contradictions.
-    -   *Subscribes to*: `contradiction-detected`.
-    -   *Action*: When a contradiction is detected, this manager analyzes the evidence, source reliability, and recency of the conflicting beliefs to decide on a resolution strategy (e.g., merge, discard, specialize).
-    -   *Injects*: Tasks that revise or remove beliefs to resolve the contradiction.
-
--   **Cognitive Executive (Meta-Reasoner)**: The system's master control program, responsible for monitoring and adapting the system's overall behavior through a continuous, metrics-driven feedback loop. It embodies the principle of self-regulating autonomy.
-    -   *Subscribes to*: All major system events (`afterCycle`, `contradiction-detected`, `question-answered`, etc.).
-    -   **Core Function: The Self-Monitoring Loop**
-        1.  **Calculate Metrics**: Periodically, the executive calculates a slate of Key Performance Indicators (KPIs) that represent the system's health, such as `inferenceRate`, `contradictionRate`, `resourceUtilization` (event queue size), and `questionResponseTime`.
-        2.  **Detect Issues**: It compares these live metrics against configurable thresholds to identify operational issues (e.g., `'high-contradictions'`, `'low-inference-rate'`).
-        3.  **Adapt Parameters**: Based on the detected issues, it performs real-time adjustments to core system parameters. For example, if `'high-contradictions'` is detected, it might increase the `inferenceThreshold` to make the system more skeptical. If `'low-inference-rate'` is detected, it might lower the `budgetThreshold` to allow more tasks to be processed.
-        4.  **Adjust Resource Allocation**: It dynamically shifts the global resource allocation between major subsystems (`derivation`, `memory`, `temporal`). For instance, if the contradiction rate is high, it may allocate more resources to memory management and revision.
-        5.  **Adjust Reasoning Focus**: It sets a global "focus" for the system, such as `'question-answering'` or `'contradiction-resolution'`, which can be used by other components (like the `DerivationEngine`) to prioritize certain types of operations.
-    -   *Injects*: High-level control tasks or directly calls configuration methods on the kernel to enact its adaptations.
-
--   **Explanation System**: Generates human-readable explanations for the system's conclusions.
-    -   *Subscribes to*: `belief-updated`, `belief-added`.
-    -   *Action*: Maintains a trace of derivations. When the public API's `explain()` method is called, this manager is queried to construct the explanation graph.
-    -   *Injects*: Does not typically inject tasks; primarily responds to API requests.
-
--   **Test Generation Manager**: Proactively ensures the system's reasoning capabilities are robust by identifying and filling gaps in its test coverage.
-    -   *Subscribes to*: `afterCycle`, `rule-utility-updated`.
-    -   *Action*: Periodically analyzes metrics to find under-utilized inference rules or concepts with low activity. It then formulates premises that would specifically trigger these rules.
-    -   *Injects*: Goals to execute under-tested components, logging the proposed test case for developer review. This is a key part of the system's "dogfooding" capability, allowing it to help improve its own quality.
-
--   **Codebase Integrity Manager**: A specialized manager for self-analysis, responsible for ingesting the system's own source code and design documents to reason about their structure and consistency.
-    -   *Subscribes to*: This manager is typically triggered by a high-level goal, e.g., `goal: <(analyze, 'self.design')>`.
-    -   *Action*: Uses grounded functions to parse source files (`.js`), design documents (`.md`), and test specifications. It creates NAL beliefs representing the system's architecture, code quality metrics (e.g., cyclomatic complexity), and test statuses. It then compares this knowledge against a set of baked-in consistency rules (e.g., from `AGENTS.md`).
-    -   *Injects*: Goals to resolve detected inconsistencies between design and implementation, or to refactor code that violates quality guidelines. The output is a human-readable report or patch file.
+The Cognitive Managers are specialized, pluggable modules that handle complex, cross-cutting concerns. They operate by subscribing to events from the Reasoning Kernel and can inject new tasks back into the system to influence its behavior. Their detailed functionality is described in Section 4.
 
 ## 2. Core Data Structures
 
@@ -664,11 +621,203 @@ function selectBeliefForTask(concept, task) {
 }
 ```
 
-## 4. Inference Engine
+## 4. Cognitive Managers
+The Cognitive Managers are specialized, pluggable modules that handle complex, cross-cutting concerns. They operate by subscribing to events from the Reasoning Kernel and can inject new tasks back into the system to influence its behavior.
+
+### 4.1. Goal Manager
+The Goal Manager is responsible for the entire lifecycle of goal-oriented behavior, from receiving a high-level goal to decomposing it into actionable steps and monitoring its progress. It operates as a sophisticated planner and execution monitor.
+-   *Subscribes to*: `belief-updated`, `belief-added`, `afterCycle`.
+-   **Goal Lifecycle**: Manages goals with a defined lifecycle (`active`, `waiting`, `achieved`, `abandoned`). Goals can have deadlines and are abandoned if not met in time.
+-   **Action - The Execution Loop**:
+    1.  **Prioritization**: In each cycle, the manager identifies the most urgent active goal based on its priority and proximity to its deadline.
+    2.  **Satisfaction Check**: It first checks if the goal is already satisfied by querying the system's belief base against a configurable `achievedThreshold`.
+    3.  **Action Selection**: If the goal is not met, it searches for known procedural rules (`<(*, Pre, Op)> ==> <Effect>`) where the `Effect` matches the current goal. It scores all applicable actions based on a utility calculation: `score = (reliability * goal_utility) - (action_cost)`. `Reliability` is the confidence of the procedural rule, and `action_cost` is derived from the budget of the operation.
+    4.  **Execution & Sub-goaling**:
+        - If a suitable action is found and its preconditions are met, the manager triggers the `OperationalRule` to execute it.
+        - If no single action can satisfy the goal, the manager attempts to **decompose** it. If the goal is a conjunction (e.g., `goal: <(&&, A, B)>`), it creates new sub-goals for `A` and `B` and sets the parent goal's status to `waiting`.
+        - If preconditions for a selected action are not met, it generates new, high-priority sub-goals to satisfy those preconditions.
+-   *Injects*: New sub-goals to decompose complex problems or satisfy the preconditions for an action. It also injects high-priority tasks to find information relevant to its current goal.
+-   **Verification Scenarios**:
+    -   **Goal Decomposition**: A test verifies that a conjunctive goal like `goal: <(&&, A, B)>` is correctly decomposed. The system should create two new active goals for `A` and `B`, and the original goal's status should become `waiting`.
+    -   **Procedural Skill Execution**: A test verifies that the system can execute a grounded action to achieve a goal.
+        > Given a mock function `unlock_door` is registered with the Symbol Grounding Interface for the term `<#unlock_door>`
+        > And the system knows the procedural rule: `(<(*, (&, <SELF --> (is_at, door)>, <door --> (is, locked)>), <#unlock_door>)> ==> <door --> (is, unlocked)>)`
+        > And the system has the beliefs:
+        >   | statement                   | truth       |
+        >   | "<SELF --> (is_at, door)>"  | <%1.0,0.9%> |
+        >   | "<door --> (is, locked)>"   | <%1.0,0.9%> |
+        > And the system has the goal: `goal: <door --> (is, unlocked)>`
+        > When the `OperationalRule` is applied
+        > Then the mock function `unlock_door` should be called
+        > And the system should form a new belief `<#unlock_door --> executed>`
+    -   **Scenario: Temporal-Goal Interaction (TGI-01)**
+        > Given the system has a goal `goal: <(achieve, 'report_submission')>` with a deadline of "now + 10s"
+        > And the system knows two procedural rules:
+        >   | rule                                                              |
+        >   | `(<(*, <data --> collected>, <#submit_report>)> ==> <report_submission>)` |
+        >   | `(<(*, <(true)>, <#collect_data>)> ==> <data --> collected>)`       |
+        > And both `#submit_report` and `#collect_data` are grounded operations
+        > And the current time is "now"
+        > When the system runs its reasoning cycle
+        > Then the task for `goal: <(achieve, 'report_submission')>` should have its budget priority increase as the deadline approaches
+        > And the system should first execute the `#collect_data` operation to satisfy the precondition for submitting the report.
+
+### 4.2. Temporal Reasoner
+Provides a comprehensive framework for understanding and reasoning about time.
+-   *Subscribes to*: `belief-added` (specifically for statements with temporal copulas).
+-   *Action*: Maintains an internal graph of temporal relationships between events. When new temporal information is learned (e.g., `<event_A --> (before, event_B)>`), it uses a constraint propagation algorithm based on **Allen's Interval Algebra** to infer new temporal relationships (e.g., if A is before B and B is before C, it infers A is before C).
+-   *Injects*: New, high-confidence beliefs representing the inferred temporal relationships (e.g., `<event_A --> (before, event_C)>`).
+-   **Verification Scenarios**:
+    -   **Scenario: Temporal Reasoning with Intervals**
+        > Given the system knows that:
+        >   | event               | starts      | ends        |
+        >   | "daytime_event"     | now         | now + 4h    |
+        >   | "important_meeting" | now + 1h    | now + 2h    |
+        > And there is a constraint that "important_meeting" happens "during" "daytime_event"
+        > When the system runs for 50 steps
+        > Then the system should be able to infer that the relationship between "important_meeting" and "daytime_event" is "during"
+    -   **Scenario: Chained Temporal Inference (Transitivity)**
+        > Given the system knows the following temporal statements:
+        >   | statement                                | truth       |
+        >   | "<(event_A) [/] (event_B)>"               | <%1.0,0.9%> | # A happens before B
+        >   | "<(event_B) [/] (event_C)>"               | <%1.0,0.9%> | # B happens before C
+        > When the system runs for 100 inference steps
+        > Then the system should derive the belief "<(event_A) [/] (event_C)>" with high confidence
+
+### 4.3. Learning Engine
+Responsible for abstracting knowledge and forming new concepts.
+-   *Subscribes to*: `concept-created`, `belief-added`, `afterInference`.
+-   *Action*: Detects patterns and correlations across concepts to form higher-level abstractions or new inference rules. It provides performance statistics on existing inference rules to the `CognitiveExecutive` to aid in self-optimization.
+-   *Injects*: Tasks representing new concepts or learned rules.
+-   **Verification Scenario: Meta-Learning Verification of a New Inference Rule (ML-01)**
+    > Given the system's LearningEngine is active and monitoring derivation patterns
+    > And the system repeatedly observes the following pattern:
+    >   | premise1                                    | premise2                                    | conclusion                                  |
+    >   | "<{X} --> (location, west_of, {Y})>"        | "<{Y} --> (location, west_of, {Z})>"        | "<{X} --> (location, west_of, {Z})>"        |
+    >   | "<{A} --> (location, west_of, {B})>"        | "<{B} --> (location, west_of, {C})>"        | "<{A} --> (location, west_of, {C})>"        |
+    >   | "<{E} --> (location, west_of, {F})>"        | "<{F} --> (location, west_of, {G})>"        | "<{E} --> (location, west_of, {G})>"        |
+    > When the LearningEngine's pattern detection threshold is met
+    > Then the system should create and register a new InferenceRule named "CUSTOM_TRANSITIVE_LOCATION_WEST_OF"
+    > And when the system is later given the premises:
+    >   | statement                                   | truth       |
+    >   | "<(new_york) --> (location, west_of, (london))>" | <%1.0,0.9%> |
+    >   | "<(london) --> (location, west_of, (beijing))>" | <%1.0,0.9%> |
+    > And the new rule "CUSTOM_TRANSITIVE_LOCATION_WEST_OF" is applied
+    > Then a new task for "<(new_york) --> (location, west_of, (beijing))>" should be derived
+
+### 4.4. Contradiction Manager
+The Contradiction Manager implements sophisticated strategies for resolving contradictions. When a `contradiction-detected` event is fired, the manager analyzes the evidence, source reliability, and recency of the conflicting beliefs to decide on a resolution strategy.
+-   *Subscribes to*: `contradiction-detected`.
+-   *Injects*: Tasks that revise or remove beliefs to resolve the contradiction.
+
+#### Contradiction Resolution Strategies
+The choice of strategy can be determined by the `CognitiveExecutive` based on the context of the contradiction. The available strategies include:
+-   **`DominantEvidenceStrategy` (Default)**: Identifies the single belief with the highest evidence strength. This "winning" belief is kept, while all other conflicting beliefs are "weakened" by having their confidence and budget reduced and their doubt increased. This is a conservative strategy that trusts the strongest evidence without discarding other viewpoints entirely.
+-   **`MergeStrategy`**: Takes the two strongest conflicting beliefs and merges them using the NAL revision formula (`TruthValue.revise`). This creates a new, synthesized belief that incorporates evidence from both parents. This strategy is useful for integrating conflicting information into a single, more nuanced belief.
+-   **`EvidenceWeightedStrategy`**: A more comprehensive merge, this strategy calculates a new truth value and budget by taking a weighted average of *all* conflicting beliefs. The weight for each belief is its evidence strength. This results in a single new belief that represents the consensus of all available evidence.
+-   **`RecencyBiasedStrategy`**: A simple but effective strategy that resolves a conflict by keeping only the most recent belief and discarding all others. This is useful in dynamic environments where newer information is more likely to be correct.
+-   **`SourceReliabilityStrategy`**: Similar to `EvidenceWeightedStrategy`, but the weight for each belief is determined by the historical reliability of its source, modulated by the belief's priority. This allows the system to trust information from sources that have been proven trustworthy in the past.
+-   **`SpecializationStrategy`**: Instead of merging or deleting beliefs, this strategy resolves a contradiction by creating a more specific, contextual belief. For example, if the system believes `<bird --> flyer>` but encounters a strong contradiction with `<penguin --> not_a_flyer>`, this strategy might generate a new belief like `<(&, bird, (-, penguin)) --> flyer>`, resolving the conflict by creating a more nuanced rule. This is a key mechanism for learning and refining knowledge.
+
+#### Verification Scenarios
+The following scenarios verify the functionality of the Contradiction Manager and its various strategies.
+
+**Scenario: Belief Revision after Contradiction**
+> Given the system believes that "<tweety --> flyer>" with truth "<%0.8,0.7%>"
+> When the system runs for 10 steps
+> Then the belief "<tweety --> flyer>" should have an expectation greater than 0.5
+> And when the system is told:
+>   | statement             | truth          | priority |
+>   | "(penguin --> !flyer)"  |                | "#0.95#" |
+>   | "(tweety --> penguin)"  | "<%0.99,0.99%>" |          |
+> And contradictions are resolved
+> And the system runs for 100 steps
+> Then the expectation of the belief "<tweety --> flyer>" should decrease
+
+**Scenario: Contradiction Resolution via Specialization**
+> Given the system has a strong belief that "<bird --> flyer>"
+> And the system is then told with high confidence that "<penguin --> bird>"
+> And the system is then told with very high confidence that "<penguin --> not_a_flyer>"
+> When a contradiction is detected between "penguin is a flyer (derived)" and "penguin is not a flyer (input)"
+> And the "Specialize" strategy is applied by the Contradiction Manager
+> Then the system should lower the confidence of its belief "<bird --> flyer>"
+> And the system should create a new belief "<(&, bird, (-, penguin)) --> flyer>"
+
+### 4.5. Cognitive Executive (Meta-Reasoner)
+The system's master control program, responsible for monitoring and adapting the system's overall behavior through a continuous, metrics-driven feedback loop. It embodies the principle of self-regulating autonomy.
+-   *Subscribes to*: All major system events (`afterCycle`, `contradiction-detected`, `question-answered`, etc.).
+-   **Core Function: The Self-Monitoring Loop**
+    1.  **Calculate Metrics**: Periodically, the executive calculates a slate of Key Performance Indicators (KPIs) that represent the system's health, such as `inferenceRate`, `contradictionRate`, `resourceUtilization` (event queue size), and `questionResponseTime`.
+    2.  **Detect Issues**: It compares these live metrics against configurable thresholds to identify operational issues (e.g., `'high-contradictions'`, `'low-inference-rate'`).
+    3.  **Adapt Parameters**: Based on the detected issues, it performs real-time adjustments to core system parameters. For example, if `'high-contradictions'` is detected, it might increase the `inferenceThreshold` to make the system more skeptical. If `'low-inference-rate'` is detected, it might lower the `budgetThreshold` to allow more tasks to be processed.
+    4.  **Adjust Resource Allocation**: It dynamically shifts the global resource allocation between major subsystems (`derivation`, `memory`, `temporal`). For instance, if the contradiction rate is high, it may allocate more resources to memory management and revision.
+    5.  **Adjust Reasoning Focus**: It sets a global "focus" for the system, such as `'question-answering'` or `'contradiction-resolution'`, which can be used by other components (like the `DerivationEngine`) to prioritize certain types of operations.
+-   *Injects*: High-level control tasks or directly calls configuration methods on the kernel to enact its adaptations.
+-   **Verification Scenarios**:
+    -   **Scenario: Meta-Reasoning Causes System Adaptation**
+        > Given the system has a `MetaReasoner` cognitive manager installed
+        > And the system's default "doubt" parameter is 0.1
+        > And the system experiences a sudden spike of over 50 contradictory events within a short time frame
+        > When the `MetaReasoner`'s `analyzeSystemHealth` function is triggered
+        > Then the system's "doubt" parameter should be increased to a value greater than 0.1
+        > And a new goal should be injected to investigate the cause of the high contradiction rate
+    -   **Scenario: Self-Optimization of Inference Rules (META-02)**
+        > Given the system's `MetaReasoner` is active
+        > And the `AbductionRule` has generated 20 tasks in the last 100 cycles
+        > And 18 of those tasks resulted in beliefs that were later contradicted
+        > When the `MetaReasoner` analyzes rule performance
+        > Then the system should form a belief like `<(rule, 'AbductionRule') --> (has_utility, 'low')>` with high confidence
+        > And the system should adjust a configuration parameter to lower the default budget quality for tasks derived from `AbductionRule`
+    -   **Scenario: Self-Optimization of System Parameters (META-05)**
+        > Given the `CognitiveExecutive` is active
+        > And the system's `inferenceThreshold` is initially 0.3
+        > And the system is flooded with a large number of new tasks, causing the `eventQueue` size to exceed `LOW_INFERENCE_QUEUE_SIZE`
+        > And as a result, the `inferenceRate` metric drops below the `LOW_INFERENCE_THRESHOLD`
+        > When the `CognitiveExecutive`'s `selfMonitor` method is called
+        > Then it should detect the 'low-inference-rate' issue
+        > And it should adapt by lowering the system's `inferenceThreshold` to a value less than 0.3
+
+### 4.6. Explanation System
+Generates human-readable explanations for the system's conclusions.
+-   *Subscribes to*: `belief-updated`, `belief-added`.
+-   *Action*: Maintains a trace of derivations. When the public API's `explain()` method is called, this manager is queried to construct the explanation graph.
+-   *Injects*: Does not typically inject tasks; primarily responds to API requests.
+
+### 4.7. Test Generation Manager
+Proactively ensures the system's reasoning capabilities are robust by identifying and filling gaps in its test coverage.
+-   *Subscribes to*: `afterCycle`, `rule-utility-updated`.
+-   *Action*: Periodically analyzes metrics to find under-utilized inference rules or concepts with low activity. It then formulates premises that would specifically trigger these rules.
+-   *Injects*: Goals to execute under-tested components, logging the proposed test case for developer review. This is a key part of the system's "dogfooding" capability, allowing it to help improve its own quality.
+-   **Verification Scenario: Self-Generation of a New Test Case (META-03)**
+    > Given the system's `TestGenerationManager` is active
+    > And the system has run for 1000 cycles
+    > And the `InductionRule` has been used 0 times, while other rules were used > 50 times
+    > When the `TestGenerationManager` analyzes rule usage frequency
+    > Then the system should generate a new goal: `goal: <(execute, (rule, 'InductionRule'))>.`
+    > And in pursuit of this goal, the system should log a "Proposed Test Case" containing the necessary premises (e.g., `nal("<raven --> is_black>.")`, `nal("<raven --> is_bird>.")`) and the expected conclusion (`nalq("<bird --> is_black>.")`).
+
+### 4.8. Codebase Integrity Manager
+A specialized manager for self-analysis, responsible for ingesting the system's own source code and design documents to reason about their structure and consistency.
+-   *Subscribes to*: This manager is typically triggered by a high-level goal, e.g., `goal: <(analyze, 'self.design')>`.
+-   *Action*: Uses grounded functions to parse source files (`.js`), design documents (`.md`), and test specifications. It creates NAL beliefs representing the system's architecture, code quality metrics (e.g., cyclomatic complexity), and test statuses. It then compares this knowledge against a set of baked-in consistency rules (e.g., from `AGENTS.md`).
+-   *Injects*: Goals to resolve detected inconsistencies between design and implementation, or to refactor code that violates quality guidelines. The output is a human-readable report or patch file.
+-   **Verification Scenarios**:
+    -   **Scenario: Self-Analysis of the Design Document (META-01)**
+        > Given the system has ingested a version of its DESIGN.md file containing conflicting statements: `"<... 'RealTime_Dashboard') --> (has_property, 'fast')>."` and `"<... 'RealTime_Dashboard') --> (has_property, 'slow')>."`
+        > And the system knows that `(<((<X --> (has_property, P)>. & <X --> (has_property, !P)>.) ==> <X --> (is, 'inconsistent')>.)`
+        > When the system is given the goal `nalq("<?x --> (is, 'inconsistent')>.")`
+        > Then the system should produce an answer where `x` is `(feature, 'RealTime_Dashboard')`
+    -   **Scenario: Self-Governing Evolution Identifies and Proposes Fixes (META-04)**
+        > Given the `CodebaseIntegrityManager` is active and has ingested `DESIGN.md` (with a flaw), `AGENTS.md` (with a 'no comments' rule), and a mock source file `src/core/Memory.js` (with a comment).
+        > When the system is given the goal: `goal: <(system) --> (has, 'self_consistency')>.`
+        > Then it should generate goals to resolve the design inconsistency and remove the source code comment.
+        > And it should produce a structured "patch" object in its logs proposing the necessary changes to the files.
+
+## 5. Inference Engine
 
 The Inference Engine is a stateless, extensible component responsible for applying Non-Axiomatic Logic (NAL) rules to derive new knowledge from existing beliefs.
 
-### Core Principles
+### 5.1. Core Principles
 -   **Extensible Rule System**: The engine uses a central registry, `Map<string, InferenceRule>`, where new rules can be added at runtime via `kernel.inferenceEngine.registerRule(rule)`. This allows for the system's reasoning capabilities to be expanded or modified.
 -   **Self-Optimizing Rule Application**: The engine employs a sophisticated, metrics-driven mechanism to manage resource allocation under AIKR. Instead of a static utility, each rule's effectiveness is dynamically tracked and used to guide the reasoning process.
     -   **Rule Priority**: Each rule has a dynamic `priority` score. This score is a function of the rule's historical `successRate` (how often it produces useful results) and its `applicability` in the current context.
@@ -676,7 +825,7 @@ The Inference Engine is a stateless, extensible component responsible for applyi
     -   **Weighted Probabilistic Selection**: When applying rules, the engine does not deterministically pick the highest-priority rule. Instead, it performs a weighted random selection (a "roulette-wheel" selection) based on the priorities of all applicable rules. This balances exploiting known-good rules with exploring potentially useful but less-proven ones.
     -   **Top-Down Modulation**: The `CognitiveExecutive` can provide a `dynamicFactor` to temporarily boost or suppress the priority of certain rules based on the system's current high-level goals or reasoning focus (e.g., prioritizing abductive rules when in a "hypothesis generation" mode).
 
-### Baseline Inference Rule Set
+### 5.2. Baseline Inference Rule Set
 The system is bootstrapped with a comprehensive set of NAL rules:
 -   **InheritanceRule**: Handles deduction, abduction, and induction for `-->` statements.
 -   **SimilarityRule**: Handles analogy for `<->` statements.
@@ -688,7 +837,7 @@ The system is bootstrapped with a comprehensive set of NAL rules:
 -   **TemporalRelationRule**: Handles transitivity for temporal statements.
 -   **MetaLearningRule**: A rule for learning about the system's own operations.
 
-### Inference Rule Categories
+### 5.3. Inference Rule Categories
 The engine will support a comprehensive set of NAL rules, including but not limited to:
 
 -   **Syllogistic & Conditional Rules (NAL Levels 1-5)**: Deduction, Abduction, Induction, Exemplification, Comparison, Analogy.
@@ -696,7 +845,7 @@ The engine will support a comprehensive set of NAL rules, including but not limi
 -   **Temporal Rules (NAL Level 7)**: Primarily handled by the `TemporalReasoner` manager and the `TemporalRelationRule`.
 -   **Procedural & Operational Rules (NAL Levels 8-9)**: For learning and executing skills. These rules connect declarative knowledge to actions.
 
-### Inference Rule Interface & Example
+### 5.4. Inference Rule Interface & Example
 
 All rules must implement the `InferenceRule` interface.
 
@@ -806,7 +955,27 @@ class OperationalRule implements InferenceRule {
 }
 ```
 
-## 5. Memory System
+### 5.5. Verification Scenarios
+
+**Scenario: Basic Inference about Flyers**
+> Given the system knows the following:
+>   | statement                                 | truth          | priority |
+>   | "((bird && animal) --> flyer)"            | "<%0.9,0.8%>"  |          |
+>   | "(penguin --> (bird && !flyer))"          |                | "#0.95#" |
+>   | "(tweety --> bird)"                       |                |          |
+> When the system runs for 50 steps
+> Then the system should believe that "<tweety --> flyer>" with an expectation greater than 0.4
+
+**Scenario: Cross-Modal Reasoning via Symbol Grounding (CM-01)**
+> Given the system has a symbol "image_sensor_output" grounded to a mock image recognition API
+> And the system knows that "<cat --> mammal>" with high confidence
+> And the mock API is configured to return the string "cat" when it receives the input "image_123.jpg"
+> When the system is given the procedural task "<(process_image, 'image_123.jpg') ==> <report_content>>"
+> And the symbol "process_image" is grounded to a handler that calls the mock API and injects the result as a new belief
+> And the system runs for 100 steps
+> Then the system should derive a new belief "<'image_123.jpg' --> mammal>"
+
+## 6. Memory System
 
 The Memory System is the core of the system's knowledge base, structured as a dynamic concept graph and managed by several competing algorithms to adhere to AIKR. It is implemented as a component-based architecture, delegating specific responsibilities to sub-managers like a `ForgettingManager` and an `ImportanceManager`.
 
@@ -843,6 +1012,15 @@ The Memory System is the core of the system's knowledge base, structured as a dy
         style L2 fill:#ccf,stroke:#333,stroke-width:2px,rx:5px,ry:5px
     ```
 
+    #### Verification Scenarios
+    **Scenario: Hypergraph Stress Test for Performance and Stability (HG-01)**
+    > Given the system is configured with a `MAX_CONCEPTS` limit of 2,000,000
+    > And the system is populated with 1,000,000 random but structurally valid beliefs
+    > When the system runs for 10,000 reasoning steps
+    > Then the system should not crash and should remain responsive to API calls
+    > And when a question `nalq("<concept_X --> ?what>.")` is asked about a highly connected concept
+    > Then the system should return an answer within 1 second
+
 -   **Activation Spreading**: This is the mechanism for managing the system's focus of attention. When a concept is accessed, a portion of its activation energy is spread to related concepts.
     -   `Activation_new(C) = Activation_old(C) * (1 - decay_rate) + Sum(Activation_in(S, C))`
     -   `Activation_in(S, C)` is the activation transferred from a source concept `S` to target `C`. This is calculated as: `Activation_in = task.budget.priority * belief.truth.confidence * relevance_factor`, where `relevance_factor` can be a constant or a function of the type of connection. The activation is then distributed among all connected concepts.
@@ -861,15 +1039,16 @@ The Memory System is the core of the system's knowledge base, structured as a dy
     -   **Dynamic Capacity Adjustment**: The `beliefCapacity` of concepts is not fixed. The system monitors the total number of concepts in memory. If the number exceeds a high-water mark, the default capacity is lowered to conserve memory. If it drops below a low-water mark, capacity is increased. This is a form of system homeostasis.
     -   **Event Queue Pruning**: The system periodically removes low-budget tasks from the main event queue, preventing the attention system from getting clogged with low-value processing.
 
--   **Contradiction Handling**: This is managed by the `ContradictionManager` and is a sophisticated, multi-stage process. When a `contradiction-detected` event is fired, the manager can employ one of several configurable strategies to resolve the conflict. The choice of strategy can be determined by the `CognitiveExecutive` based on the context of the contradiction. The available strategies include:
-    -   **`DominantEvidenceStrategy` (Default)**: Identifies the single belief with the highest evidence strength. This "winning" belief is kept, while all other conflicting beliefs are "weakened" by having their confidence and budget reduced and their doubt increased. This is a conservative strategy that trusts the strongest evidence without discarding other viewpoints entirely.
-    -   **`MergeStrategy`**: Takes the two strongest conflicting beliefs and merges them using the NAL revision formula (`TruthValue.revise`). This creates a new, synthesized belief that incorporates evidence from both parents. This strategy is useful for integrating conflicting information into a single, more nuanced belief.
-    -   **`EvidenceWeightedStrategy`**: A more comprehensive merge, this strategy calculates a new truth value and budget by taking a weighted average of *all* conflicting beliefs. The weight for each belief is its evidence strength. This results in a single new belief that represents the consensus of all available evidence.
-    -   **`RecencyBiasedStrategy`**: A simple but effective strategy that resolves a conflict by keeping only the most recent belief and discarding all others. This is useful in dynamic environments where newer information is more likely to be correct.
-    -   **`SourceReliabilityStrategy`**: Similar to `EvidenceWeightedStrategy`, but the weight for each belief is determined by the historical reliability of its source, modulated by the belief's priority. This allows the system to trust information from sources that have been proven trustworthy in the past.
-    -   **`SpecializationStrategy`**: Instead of merging or deleting beliefs, this strategy resolves a contradiction by creating a more specific, contextual belief. For example, if the system believes `<bird --> flyer>` but encounters a strong contradiction with `<penguin --> not_a_flyer>`, this strategy might generate a new belief like `<(&, bird, (-, penguin)) --> flyer>`, resolving the conflict by creating a more nuanced rule. This is a key mechanism for learning and refining knowledge.
+    #### Verification Scenarios
+    **Scenario: Resource Allocation Boundaries (RA-01)**
+    > Given the system's memory contains 100 beliefs with varying budget levels
+    > And the system is given a new input task "T1" with a budget priority of 0.0 and "T2" with priority 0.99
+    > When the system runs for 10 steps
+    > Then task "T2" should be selected for processing before task "T1"
+    > And when the system's memory is at full capacity and a new high-priority belief is added
+    > Then the system should forget a belief that has a very low relevance score
 
-## 6. I/O and Public API
+## 7. I/O and Public API
 
 The public API will be designed to be clean, language-agnostic, and powerful. It will be event-driven and asynchronous.
 
@@ -886,7 +1065,7 @@ The public API will be designed to be clean, language-agnostic, and powerful. It
     -   `getMetrics(): Promise<SystemMetrics>`: Returns detailed operational metrics generated by the Cognitive Executive.
     -   `explain(statement: string, options?: ExplainOptions): Promise<Explanation>`: Returns a rich, structured explanation for a belief.
 
-### 6.1. The Semantic API Layer
+### 7.1. The Semantic API Layer
 To improve usability, the system provides a layer of higher-level, intention-driven API methods that wrap the raw `nal()` input. This "semantic API" allows developers to interact with the system more naturally without needing to construct complex NAL strings manually. Examples include:
 -   `inheritance(subject: string, predicate: string)`: Creates a simple inheritance belief.
 -   `implication(antecedent: string, consequent: string)`: Creates an implication belief.
@@ -894,13 +1073,13 @@ To improve usability, the system provides a layer of higher-level, intention-dri
 -   `addGoal(statement: string)`: A dedicated method for adding a new goal to the system.
 -   `resolveContradiction(contradictionId: string, strategy: string)`: Manually triggers the resolution of a known contradiction.
 
-### 6.2. Hypothetical Reasoning via Sandboxing
+### 7.2. Hypothetical Reasoning via Sandboxing
 The API provides a `createSandbox(options)` method for hypothetical or "what-if" reasoning. This method creates a new, isolated instance of the NAR engine. It can be configured to copy all beliefs from the parent instance that exceed a certain confidence threshold. This allows a developer or another cognitive manager to:
 -   Explore the consequences of a potential belief without polluting the main knowledge base.
 -   Simulate the outcome of different plans before committing to a course of action.
 -   Run speculative reasoning in a safe, isolated environment.
 
-### 6.3. Handling Complex Queries: Product and Set Types
+### 7.3. Handling Complex Queries: Product and Set Types
 (Content unchanged, renumbered)
 
 ### API Data Structures
@@ -909,14 +1088,29 @@ The API provides a `createSandbox(options)` method for hypothetical or "what-if"
 ### Example: `derivationPath` Structure
 (Content unchanged)
 
-## 7. Extension Points
+### 7.4. Verification Scenarios
+
+**Scenario: API Failure Mode Analysis (API-01)**
+> **Objective**: Test the API's behavior under adverse conditions.
+> **Assertions**:
+> - The API rejects promises for malformed NAL statements.
+> - The API handles concurrent requests gracefully without corrupting internal state.
+> - The API returns appropriate error codes for invalid configurations.
+
+**Scenario: Diagnostics API Identifies Corrupted State (DIAG-01)**
+> Given a running system with a valid knowledge base
+> And a belief's truth value is manually corrupted via a debug tool to have `confidence = 2.5`
+> When the `validateIntegrity()` API method is called
+> Then the method should return a result object indicating failure with a detailed error message.
+
+## 8. Extension Points
 (Content unchanged)
 
-## 8. System Initialization and Configuration
+## 9. System Initialization and Configuration
 
 The system's behavior is heavily influenced by a set of configurable parameters that reflect the assumptions of AIKR.
 
-### Configuration Schema
+### 9.1. Configuration Schema
 
 The system is initialized with a configuration object. The following TypeScript interface defines the structure and provides examples of default values for this object, distilled from the reference implementation.
 
@@ -976,13 +1170,13 @@ interface SystemConfig {
 }
 ```
 
-### Bootstrap Process
+### 9.2. Bootstrap Process
 (Content unchanged)
 
-## 9. Concurrency and Parallelism
+## 10. Concurrency and Parallelism
 (Content unchanged)
 
-### 9.1. Actor Lifecycle and Supervision
+### 10.1. Actor Lifecycle and Supervision
 
 To make the Actor Model implementation robust and resource-efficient, a clear lifecycle for `Concept` actors must be defined, managed by a dedicated `Supervisor` within the `ControlUnit`.
 
@@ -1001,19 +1195,31 @@ To make the Actor Model implementation robust and resource-efficient, a clear li
 
 This lifecycle management ensures that the system can scale to millions of concepts without holding them all in active memory, while the supervision strategy provides resilience against internal failures.
 
-## 10. State Serialization and Persistence
+#### Verification Scenario
+
+**Scenario: Concurrency Model - Actor Passivation and Awakening (CON-01)**
+> Given the system is running with the Actor Model enabled
+> And the `Supervisor` is configured with `PASSIVATION_ACTIVATION_THRESHOLD` of 0.1
+> And a concept "low_priority_concept" exists with an activation of 0.05
+> When the `Supervisor` runs its passivation check
+> Then the actor for "low_priority_concept" should be serialized and suspended
+> And when a new high-priority task related to "low_priority_concept" is injected
+> Then the `Supervisor` should awaken the actor by loading its state from storage
+> And the new task should be successfully added to its task queue.
+
+## 11. State Serialization and Persistence
 (Content unchanged)
 
-## 11. Self-Governing Evolution: An Ambition for Autonomy
+## 12. Self-Governing Evolution: An Ambition for Autonomy
 (Content unchanged)
 
-## 12. System Bootstrapping and Foundational Knowledge
+## 13. System Bootstrapping and Foundational Knowledge
 (Content unchanged)
 
-## 13. Ethical Alignment and Safety
+## 14. Ethical Alignment and Safety
 (Content unchanged)
 
-### 13.5. Worked Example: Vetoing an Unethical Goal
+### 14.1. Worked Example: Vetoing an Unethical Goal
 To make the `ConscienceManager`'s function concrete, consider the following scenario:
 
 1.  **Initial State**: The system has an inviolable goal with maximum priority: `G_inviolable: <(system) --> (avoid, 'deception')>.`. It is given a high-level goal `G1: <(achieve, 'user_trust')>.`
@@ -1025,18 +1231,29 @@ To make the `ConscienceManager`'s function concrete, consider the following scen
 
 This example shows how safety is not just a hard-coded "if statement" but an integrated part of the reasoning process itself, guided by a specialized cognitive manager.
 
-## 14. Error Handling and System Resilience
+#### Verification Scenario
+
+**Scenario: Ethical Alignment Vetoes Unethical Goal (EA-01)**
+> Given the `ConscienceManager` is active
+> And the system has an inviolable goal `<(system) --> (avoid, 'deception')>.` with max priority
+> When the system is given the task: `goal: <(achieve, 'user_trust')>.`
+> And after 100 cycles, the system generates a potential subgoal: `goal: <(achieve, 'user_trust', via, 'deception')>.`
+> Then the `ConscienceManager` should detect that the subgoal conflicts with the inviolable goal
+> And the `ConscienceManager` should inject a high-priority task to suppress the subgoal
+> And the budget of the unethical subgoal should be reduced to near-zero, effectively vetoing it.
+
+## 15. Error Handling and System Resilience
 (Content unchanged)
 
-## 15. Interactive Debugging and Diagnostics (TUI)
+## 16. Interactive Debugging and Diagnostics (TUI)
 
 The emergent and non-deterministic nature of a NARS-like system makes debugging exceptionally challenging. To address this, the system includes a comprehensive, interactive Text-based User Interface (TUI) for real-time inspection and control. This TUI is not merely a passive log viewer but an active diagnostics console that allows a developer to interact with the reasoning process as it unfolds. It is built using a terminal rendering library for React (e.g., Ink).
 
-### 15.1. TUI Architecture
+### 16.1. TUI Architecture
 
 The TUI is structured around a main application component (`App.js`) that manages state and a `MainLayout` that organizes various specialized view components into a tabbed interface. This allows the user to switch between different perspectives on the system's internal state. A shared `TuiContext` provides all components with access to the core NAR system instance and its control functions.
 
-### 15.2. Core Components and Views
+### 16.2. Core Components and Views
 
 The TUI provides a multi-pane layout that typically includes a status bar, a main content view (tab-switchable), and an interaction/log panel.
 
@@ -1069,7 +1286,7 @@ The TUI provides a multi-pane layout that typically includes a status bar, a mai
         -   `/quit`: Exits the TUI.
     -   **Log Panel**: Displays a stream of real-time events from the system, including task processing, belief revisions, contradictions, and errors.
 
-### 15.3. Keyboard Controls
+### 16.3. Keyboard Controls
 
 The TUI is fully controllable via the keyboard:
 -   **`s`**: Start the reasoning loop.
@@ -1079,3 +1296,41 @@ The TUI is fully controllable via the keyboard:
 -   **`+` / `-`**: Increase or decrease the run delay.
 -   **`1`-`5`**: Switch between the main tabs.
 -   **`Esc`**: Exit the TUI or close the current detailed view.
+
+## 17. Verification Strategy
+
+This section outlines the comprehensive testing strategy for the HyperNARS reimplementation. It serves as a blueprint for ensuring the system's correctness, robustness, and adherence to the principles of Non-Axiomatic Logic.
+
+### 17.1. Testing Philosophy
+
+The testing strategy for HyperNARS is multi-layered, designed to validate the system at different levels of granularity. This approach ensures that individual components are sound, their integrations are seamless, and the overall system behavior is correct and emergent as expected.
+
+-   **Layer 1: Unit Tests**: At the lowest level, unit tests verify the functional correctness of individual, isolated components. These tests focus on pure functions and classes with minimal dependencies.
+    -   *Examples*: `TruthValue` revision formulas, `Budget` allocation logic, individual `InferenceRule` applications.
+    -   *Goal*: Ensure that the foundational building blocks of the logic are mathematically and algorithmically correct.
+
+-   **Layer 2: Integration Tests**: These tests verify the interaction between different components of the system. They focus on the contracts and communication between modules, such as the Reasoning Kernel and the Cognitive Managers.
+    -   *Examples*: A `ContradictionManager` correctly subscribing to `contradiction-detected` events from the kernel and injecting a revision task.
+    -   *Goal*: Ensure that modules are wired together correctly and that their collaboration produces the expected short-term outcomes.
+
+-   **Layer 3: End-to-End (E2E) Scenario Tests**: These are high-level tests that validate the system's reasoning capabilities on complex, multi-step problems. They treat the entire HyperNARS system as a black box, providing input and asserting on the final state of its beliefs after a number of reasoning cycles. The detailed scenarios listed under each component's "Verification Scenarios" section fall into this category.
+    -   *Goal*: Verify that the interaction of all components leads to the desired emergent, intelligent behavior and that the system can solve meaningful problems.
+
+-   **Layer 4: Performance & Scalability Tests**: A special category of tests designed to measure the system's performance under heavy load and identify bottlenecks.
+    -   *Examples*: Stress-testing the memory system with millions of concepts, measuring inference-per-second rate.
+    -   *Goal*: Ensure the system meets performance requirements and remains stable and responsive at scale.
+
+### 17.2. Test Framework and Execution
+
+To ensure consistency and ease of use, the HyperNARS test suite will be built upon a standardized, modern JavaScript testing framework.
+
+-   **Test Runner**: **Jest** is the recommended test runner. Its features, including a built-in assertion library, mocking support, and parallel test execution, make it well-suited for this project's needs.
+-   **Test Location**: All test files will be co-located with the source files they are testing, using the `*.test.js` naming convention (e.g., `MemoryManager.js` and `MemoryManager.test.js`). The E2E scenario tests, which correspond to the verification scenarios in this document, are an exception as they test the behavior of the entire system.
+
+### Running Tests
+
+The following `npm` scripts should be configured in `package.json` to execute different parts of the test suite:
+
+-   `npm test`: Runs all unit and integration tests (files ending in `.test.js`).
+-   `npm run test:e2e`: Runs the high-level end-to-end scenario tests.
+-   `npm run test:coverage`: Runs all tests and generates a code coverage report.
