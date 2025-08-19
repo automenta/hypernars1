@@ -112,7 +112,10 @@ Tests system interfaces
 | 53 | `meta_reasoning.test.js` | Strategy configuration | System adaptation | Active strategies match context |
 | 55 | `advanced_explanation.test.js` | Multi-format explanations | User communication | Generates concise/detailed/technical explanations |
 | 56 | `self_optimizing_derivation.test.js` | Rule optimization | Adaptive learning | Custom rule priority increases with success |
-| API | `APIEnhancements.test.js` | API functionality | System interfaces | Handles queries, contradictions, explanations, and concept formation |
+| API-01 | `api_validation.test.js` | Malformed NAL input handling | API Validation | Rejects promise for statements with invalid syntax |
+| API-02 | `api_query.test.js` | Question answering via `nalq` | API Query | Returns correct 'direct' and 'derived' answers |
+| API-03 | `api_events.test.js` | Event subscription mechanism | Event Bus | Fires 'answer' and 'contradiction' events correctly |
+| API-04 | `api_explain.test.js` | Explanation generation via `explain` | Explainability | Returns valid, structured derivation paths |
 
 ### 9. Hypergraph & Structural Integrity
 Tests hypergraph consistency and operations
@@ -142,13 +145,18 @@ Tests hypergraph consistency and operations
 - **Test 52**: Enhanced contradiction (multiple cases)
 
 ### Proposed Tests
-- **CM-01**: Cross-modal reasoning integration
-- **HG-01**: Hypergraph stress testing
-- **API-01**: API failure mode analysis
-- **RA-01**: Resource allocation boundary cases
-- **ML-01**: Meta-learning verification
-- **HG-02**: Schema evolution handling
-- **TGI-01**: Temporal-goal interaction edge cases
+
+This table outlines future tests required for ensuring the system is robust and fully featured.
+
+| ID | Title | Objective | Key Assertions |
+|------|------------------------------------|------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|
+| CM-01| Cross-Modal Reasoning | Test integration of a symbol grounding interface that connects to a non-textual source (e.g., image recognition API). | The system can form beliefs based on "visual" input (e.g., `(<image_id> --> <cat>)`) and reason with them. |
+| HG-01| Hypergraph Stress Test | Generate a massive, highly interconnected hypergraph (e.g., 1M+ beliefs) and run queries to test performance bottlenecks. | System remains responsive; queries on indexed terms complete within an acceptable time frame (<1s). |
+| API-01| API Failure Mode Analysis | Test the API's behavior under adverse conditions, such as concurrent requests, invalid configurations, and large data payloads. | The API handles load gracefully, returns appropriate HTTP error codes, and does not corrupt internal state. |
+| RA-01| Resource Allocation Boundaries | Test the budget system at its limits, such as when all tasks have zero priority or when a single task has an overwhelmingly high budget. | The system remains stable; no division-by-zero errors; attention is allocated as expected by the formulas. |
+| ML-01| Meta-Learning Verification | Test the `LearningEngine`'s ability to create new, effective inference rules based on observed patterns. | A new rule is created and its utility increases as it successfully contributes to derivations. |
+| HG-02| Schema Evolution Handling | Test the system's ability to handle changes in statement structure or semantics over time, managed by serialization. | The system can load a state dump from a previous version and either migrate or correctly handle the old data structures. |
+| TGI-01| Temporal-Goal Interaction | Test complex scenarios where goals have temporal constraints (e.g., "achieve G before time T"). | The system prioritizes tasks that make progress on the goal as the deadline T approaches. |
 
 > Total Tests: 69 individual test scenarios covering all core NARS functionality  
 > Generated: 2025-08-19
@@ -159,6 +167,11 @@ Feature: HyperNARS Core Reasoning Capabilities
   for core reasoning tasks, including basic inference, contradiction handling,
   and temporal reasoning. These scenarios serve as an acceptance test suite
   for the new implementation.
+
+  **Note on Test DSL:** The following scenarios use a shorthand DSL for clarity:
+  - `truth: "%f;c%"` maps to `new TruthValue(f, c)`. For example, `"%0.9;0.8%"` is `new TruthValue(0.9, 0.8)`.
+  - `priority: "#p#"` maps to the priority component of a `Budget`. For example, `"#0.95#"` implies a high-priority budget.
+  - `truth: "<%f,c%>"` is an alternative syntax for `new TruthValue(f, c)`.
 
   Scenario: Basic Inference about Flyers
     Given the system knows the following:

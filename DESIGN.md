@@ -286,23 +286,39 @@ class Concept {
     // Max number of beliefs/tasks to store. Can be dynamic.
     capacity: number;
 
+    /**
+     * A helper function to determine if two truth values are contradictory.
+     * This is based on a configurable threshold.
+     * @param t1 The first truth value.
+     * @param t2 The second truth value.
+     * @param threshold The minimum confidence for both beliefs to be considered for contradiction.
+     * @returns True if they are contradictory, false otherwise.
+     */
+    isContradictory(t1: TruthValue, t2: TruthValue, threshold: number = 0.51): boolean {
+        // Contradictory if they are on opposite sides of the 0.5 frequency mark
+        // and both have a confidence greater than the threshold.
+        const oppositeFrequency = (t1.f > 0.5 && t2.f < 0.5) || (t1.f < 0.5 && t2.f > 0.5);
+        const sufficientConfidence = t1.c > threshold && t2.c > threshold;
+        return oppositeFrequency && sufficientConfidence;
+    }
+
     // Adds a new belief, revising if a related one exists.
     addBelief(belief: Belief): void {
         const key = belief.statement.key;
         if (this.beliefs.has(key)) {
-            const existingBelief = this.beliefs.get(key);
-            // Check for contradiction
-            if (isContradictory(belief.truth, existingBelief.truth)) {
+            const existingBelief = this.beliefs.get(key)!;
+            // Check for contradiction before revising
+            if (this.isContradictory(belief.truth, existingBelief.truth)) {
                 kernel.events.emit('contradiction-detected', {
                     statement: belief.statement,
                     belief1: existingBelief,
                     belief2: belief
                 });
-                return; // Contradiction manager will handle it.
+                return; // The Contradiction Manager will handle resolution.
             }
             // Revise with existing belief
             const newTruth = TruthValue.revise(existingBelief.truth, belief.truth);
-            const newBelief = { ...existingBelief, truth: newTruth };
+            const newBelief = { ...existingBelief, truth: newTruth, timestamp: Date.now() };
             this.beliefs.set(key, newBelief);
             kernel.events.emit('belief-updated', { belief: newBelief, oldTruth: existingBelief.truth });
         } else {
@@ -328,14 +344,48 @@ class Concept {
         return this.taskQueue.dequeue();
     }
 
-    // Internal forgetting mechanism for a given collection (beliefs or tasks)
-    private forget(collection: Map | PriorityQueue): void {
-        // Find item with the lowest relevance and remove it.
-        // Relevance = budget.priority * concept.activation for tasks
-        // Relevance = truth.confidence * concept.activation for beliefs
+    // Internal forgetting mechanism for a given collection (beliefs or tasks).
+    private forget(collection: Map<string, Belief> | PriorityQueue<Task>): void {
         let lowestRelevance = Infinity;
-        let itemToForget = null;
-        // ... logic to find and remove the least relevant item ...
+        let keyToForget: string | null = null;
+
+        if (collection instanceof Map) { // Forgetting a belief from the beliefs Map
+            for (const [key, belief] of collection.entries()) {
+                // Relevance for beliefs = confidence * activation
+                const relevance = belief.truth.c * this.activation;
+                if (relevance < lowestRelevance) {
+                    lowestRelevance = relevance;
+                    keyToForget = key;
+                }
+            }
+            if (keyToForget) {
+                collection.delete(keyToForget);
+            }
+        } else { // Forgetting a task from the taskQueue (PriorityQueue)
+            // This is conceptually simple but can be inefficient. A practical implementation
+            // might use a data structure that allows for efficient removal of low-priority items.
+            // For this blueprint, we describe the logic.
+            const tempArray = collection.toArray(); // Assume PriorityQueue can be exported to an array
+            if (tempArray.length === 0) return;
+
+            let itemToForget: Task | null = null;
+            tempArray.forEach(task => {
+                // Relevance for tasks = priority * activation
+                const relevance = task.budget.priority * this.activation;
+                if (relevance < lowestRelevance) {
+                    lowestRelevance = relevance;
+                    itemToForget = task;
+                }
+            });
+
+            // Reconstruct the queue without the forgotten item
+            collection.clear(); // Assume clear() method
+            tempArray.forEach(task => {
+                if (task !== itemToForget) {
+                    collection.enqueue(task, task.budget.priority);
+                }
+            });
+        }
     }
 }
 ```
@@ -542,7 +592,7 @@ class DeductionRule implements InferenceRule {
         const derivedStatement = new InheritanceStatement(s2.terms[0], s1.terms[1]);
 
         // 2. Calculate the new truth value
-        const t1 = task.parentBeliefs[0].truth; // Assuming task has truth
+        const t1 = task.parentBeliefs[0].truth; // Assuming task has truth from a parent
         const t2 = belief.truth;
         const f_new = t1.f * t2.f;
         const c_new = t1.c * t2.c * t1.f; // Asymmetric confidence calculation
@@ -550,13 +600,20 @@ class DeductionRule implements InferenceRule {
 
         // 3. Calculate the new budget
         const b1 = task.budget;
-        const b2 = belief.budget; // Note: Beliefs don't have budgets, this is a simplification.
-                                  // In reality, we'd use the concept's budget or a default.
-        const quality_new = b1.quality * b2.quality;
+        // The quality of the new task is based on the quality of the parent task
+        // and the confidence of the parent belief.
+        const quality_new = b1.quality * t2.c;
+
+        // The priority and durability are derived from the parent task, modulated by
+        // the confidence of the belief, as interacting with a high-confidence belief
+        // should yield a higher-priority task.
+        const urgency = b1.priority * t2.c;
+        const novelty = 0.5; // Placeholder: this would be calculated by checking memory.
+
         const derivedBudget = Budget.dynamicAllocate({
             type: 'derived',
-            novelty: 0.5, // This should be calculated based on memory
-            urgency: (b1.priority + b2.priority) / 2,
+            novelty: novelty,
+            urgency: urgency,
             parentQuality: quality_new,
             ruleUtility: this.utility
         });
@@ -906,20 +963,49 @@ nar.symbolGrounding.register('self.temperature', () => {
 
 The system's behavior is heavily influenced by a set of configurable parameters that reflect the assumptions of AIKR.
 
-### Configuration Parameters
-The system will be initialized with a default configuration object. Key parameters include:
+### Configuration Schema
 
--   `system.max_memory_concepts`: The maximum number of concepts allowed in memory.
--   `system.default.doubt`: The default initial doubt for input beliefs.
--   `parameters.decay_rate`: The rate at which activation decays per cycle.
--   `parameters.budget.default_priority`: Default priority for new tasks.
--   `parameters.budget.default_durability`: Default durability for new tasks.
--   `hooks.*`: Placeholders for attaching hook functions.
--   `formulas.*`: Overridable NAL formulas.
+The system is initialized with a configuration object. The following TypeScript interface defines the structure and provides examples of default values for this object.
+
+```typescript
+interface SystemConfig {
+    // Maximum number of concepts allowed in memory.
+    // Once reached, the forgetting mechanism becomes more active.
+    MAX_CONCEPTS: number; // default: 10000
+
+    // The rate at which concept activation decays each cycle.
+    ACTIVATION_DECAY_RATE: number; // default: 0.99
+
+    // The confidence threshold for two beliefs to be considered contradictory.
+    CONTRADICTION_CONFIDENCE_THRESHOLD: number; // default: 0.51
+
+    // Default values for new tasks injected via the API.
+    DEFAULT_INPUT_BUDGET: {
+        priority: number;   // default: 0.9
+        durability: number; // default: 0.5
+        quality: number;    // default: 0.9
+    };
+
+    // Formulas for truth-value and budget calculations.
+    // These can be overridden for experimentation.
+    FORMULAS: {
+        BUDGET_MERGE: (b1: Budget, b2: Budget) => Budget;
+        TRUTH_REVISE: (t1: TruthValue, t2: TruthValue) => TruthValue;
+        // ... other overridable formulas
+    };
+
+    // Hooks for extending the reasoning cycle.
+    HOOKS: {
+        beforeCycle?: (context: object) => void;
+        afterTaskSelection?: (context: object) => void;
+        // ... other hooks
+    };
+}
+```
 
 ### Bootstrap Process
-1.  **Instantiation**: The `HyperNARS` kernel is created with an optional configuration object that overrides the defaults.
-2.  **Module Loading**: The kernel instantiates its core components (Memory, InferenceEngine).
+1.  **Instantiation**: The `HyperNARS` kernel is created with an optional partial configuration object that overrides the defaults. A deep merge is performed between the user-provided config and the default config.
+2.  **Module Loading**: The kernel instantiates its core components (Memory, InferenceEngine) using the final configuration.
 3.  **Rule Registration**: The InferenceEngine is populated with the standard set of NAL inference rules.
 4.  **Manager Initialization**: Default Cognitive Managers (like `ContradictionManager`) are instantiated and subscribed to kernel events.
 5.  **Ready State**: The system is now ready to accept input via the public API. The reasoning cycle does not start automatically. It is initiated by an explicit call to `run()`.
@@ -934,3 +1020,108 @@ While the core reasoning cycle is conceptually serial, the proposed architecture
 -   **I/O and Grounding**: All I/O operations, especially symbol grounding that may involve network requests or slow device access, must be fully asynchronous to prevent blocking the reasoning loop.
 
 The design prioritizes logical correctness first, but these opportunities for performance enhancement are a key consideration for the implementation phase.
+
+## 10. State Serialization and Persistence
+
+To ensure that the system's learned knowledge and state can be preserved across sessions, a robust serialization mechanism is required. The entire state of the `Reasoning Kernel`—including the full `Concept` graph, all `Beliefs`, and pending `Tasks`—must be serializable to a persistent format.
+
+### Serialization Format
+
+The recommended format is **JSON**. It is human-readable, widely supported, and flexible enough to represent the system's complex data structures.
+
+### State Structure
+
+The serialized state will be a single JSON object with the following top-level keys:
+
+-   `timestamp`: An ISO 8601 string indicating when the state was saved.
+-   `config`: The full system configuration object used by the running instance. This ensures that the system is restored with the same parameters.
+-   `memory`: An object representing the state of the Memory System.
+
+### Memory Serialization
+
+The `memory` object will contain a list of all concepts. Since the concept graph is implicit, we only need to serialize the concepts themselves.
+
+```json
+{
+  "memory": {
+    "concepts": [
+      {
+        "term": "bird",
+        "activation": 0.85,
+        "capacity": 100,
+        "beliefs": [
+          {
+            "statement": "(bird --> animal)",
+            "statement_type": "Inheritance",
+            "terms": ["bird", "animal"],
+            "truth": { "f": 1.0, "c": 0.9, "d": 0.0 },
+            "timestamp": 1678886400000
+          }
+        ],
+        "taskQueue": [
+          {
+            "statement": "(bird --> flyer)",
+            "statement_type": "Inheritance",
+            "terms": ["bird", "flyer"],
+            "budget": { "priority": 0.7, "durability": 0.5, "quality": 0.9 },
+            "parentBeliefs": [
+              // References to parent beliefs are stored by statement key
+              // to be reconstructed during deserialization.
+              "(sparrow --> bird)",
+              "(sparrow --> flyer)"
+            ]
+          }
+        ]
+      },
+      {
+        "term": "animal",
+        "activation": 0.7,
+        "capacity": 100,
+        "beliefs": [],
+        "taskQueue": []
+      }
+    ]
+  }
+}
+```
+
+### Deserialization Process
+
+1.  **Load and Validate:** The JSON file is read and parsed. The structure is validated against the expected schema.
+2.  **Instantiate Kernel:** A new `HyperNARS` kernel is instantiated using the `config` object from the saved state.
+3.  **Reconstruct Concepts:** The system iterates through the `concepts` array. For each entry, it creates a new `Concept` instance.
+4.  **Reconstruct Beliefs and Tasks:** For each concept, the system iterates through its `beliefs` and `taskQueue` arrays, reconstructing each `Belief` and `Task` object from the serialized data.
+5.  **Re-link Provenance:** The `parentBeliefs` for tasks, which were stored as statement keys, are resolved to references to the newly reconstructed `Belief` objects. This re-establishes the derivation history.
+6.  **Ready State:** Once all concepts and their contents are loaded, the system is in the same state as when it was saved and is ready to resume operation.
+
+## 11. Error Handling and System Resilience
+
+A production-grade reasoning system must be resilient to errors, whether from invalid user input, environmental failures, or internal inconsistencies. The system's design incorporates error handling at the API boundary and for internal operations.
+
+### API Error Handling
+
+The public API is the primary entry point for external interaction and must perform rigorous validation.
+
+-   **Input Validation:** The `nal()` and `nalq()` methods must parse the input statements *before* creating a task and adding it to the system. If parsing fails due to incorrect syntax:
+    -   The `Promise` returned by the method will be **rejected** with a descriptive `Error` object.
+    -   The error object will contain a `code` (e.g., `'NAL_PARSE_ERROR'`) and a human-readable `message`.
+    -   No partial task will be created or enter the reasoning cycle.
+
+-   **Configuration Errors:** The `setConfig()` method will validate keys and values. Attempting to set an unknown parameter or a value of the wrong type will throw a synchronous `TypeError`.
+
+### Symbol Grounding Failures
+
+Symbol grounding connects the system to the outside world, which can be unreliable (e.g., network errors, sensor failures).
+
+-   A `handler` function registered with `symbolGrounding.register()` must be wrapped in a `try...catch` block by the grounding system.
+-   If the handler throws an exception, the system will:
+    1.  Catch the exception to prevent it from crashing the main reasoning loop.
+    2.  Log the error internally for diagnostics.
+    3.  Optionally, inject a new task into the system to represent the failure, e.g., `<(grounding_failed, {self.temperature}) --> true>.`. This allows the system to reason about its own operational failures.
+
+### Internal Robustness
+
+While the core logic is designed to be consistent, the system should be defensive against unexpected states.
+
+-   **Assertion-Based Programming:** Critical functions will use assertions to validate their invariants. For example, the inference engine will assert that a rule only produces a task if its `canApply` method returned true.
+-   **Graceful Degradation:** In the event of a non-fatal internal error, the system will log the error and attempt to continue the reasoning cycle, skipping the failed operation. This is preferable to a full crash, in line with the principle of operating under insufficient resources (which includes imperfect code).
