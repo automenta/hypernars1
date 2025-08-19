@@ -476,13 +476,22 @@ class Concept {
 }
 ```
 
-## 3. The Reasoning Cycle (Control Unit)
+## 3. The Reasoning Cycle: A Dual-Process Control Unit
 
-The reasoning cycle is the main loop of the system, orchestrated by the Control Unit. It continuously selects tasks, processes them through local inference, and integrates the results back into memory. The entire process is guided by the principle of **insufficient knowledge and resources**.
+To achieve a balance between efficiency and thoroughness, the reasoning cycle is architected as a **dual-process system**, inspired by dual process theories in cognitive science. This allows the system to handle routine inferences rapidly while dedicating more resources to complex, novel, or problematic situations. The two modes are:
+
+1.  **System 1 (Reflexive Mode):** A fast, associative, and resource-efficient mode for routine reasoning. It operates continuously, handling the vast majority of inferences.
+2.  **System 2 (Deliberative Mode):** A slow, serial, and resource-intensive mode for deep, focused reasoning. It is triggered under specific conditions to handle complex problems, paradoxes, or high-stakes goals.
+
+The **Cognitive Executive** (the `MetaReasoner` manager) is responsible for monitoring the system's state and orchestrating the transition between these two modes.
+
+### 3.1. System 1: The Reflexive Reasoning Loop
+
+This is the default operational mode, representing the main loop of the system. It is designed for high throughput and continuous, parallelizable processing. Its operation is largely unchanged from a standard NARS control cycle.
 
 ```pseudocode
-function reasoningCycle(kernel) {
-  while (kernel.isRunning) {
+function reflexiveReasoningCycle(kernel) {
+  while (kernel.isRunning && kernel.getMode() === 'reflexive') {
     // A mutable context object for this cycle, passed to hooks.
     let cycleContext = { kernel, task: null, concept: null, belief: null, derivedTasks: [] };
 
@@ -498,9 +507,6 @@ function reasoningCycle(kernel) {
     }
     cycleContext.task = task;
     cycleContext.concept = concept;
-
-    // HOOK: afterTaskSelection (read-only context)
-    kernel.hooks.run('afterTaskSelection', cycleContext);
     kernel.events.emit('task-selected', { task });
 
     // 2. Select a Belief from the chosen Concept to interact with the Task.
@@ -509,18 +515,13 @@ function reasoningCycle(kernel) {
     cycleContext.belief = belief;
 
     // 3. Perform Local Inference.
-    // HOOK: beforeInference (mutable context)
-    cycleContext = kernel.hooks.run('beforeInference', cycleContext);
     let derivedTasks = kernel.inferenceEngine.applyAllRules(cycleContext.task, cycleContext.belief);
     cycleContext.derivedTasks = derivedTasks;
 
     // 4. Process and Store Derived Tasks.
     for (let derivedTask of cycleContext.derivedTasks) {
-      let taskContext = { derivedTask };
-      // HOOK: beforeTaskProcessing (mutable context)
-      taskContext = kernel.hooks.run('beforeTaskProcessing', taskContext);
-      let targetConcept = kernel.memory.getOrCreateConcept(taskContext.derivedTask.statement.terms[0]);
-      targetConcept.addTask(taskContext.derivedTask);
+      let targetConcept = kernel.memory.getOrCreateConcept(derivedTask.statement.terms[0]);
+      targetConcept.addTask(derivedTask);
     }
 
     // 5. System-level cleanup and updates.
@@ -529,7 +530,34 @@ function reasoningCycle(kernel) {
 }
 ```
 
-### 3.1. Task and Belief Selection Algorithms
+### 3.2. System 2: The Deliberative Reasoning Process
+
+The Deliberative Mode is not a simple loop but a structured, goal-driven process initiated by the Cognitive Executive when it detects a situation requiring deeper analysis. This mode consumes a significantly larger budget and may temporarily halt the Reflexive Mode to focus resources.
+
+**Triggers for Deliberative Mode:**
+
+The Cognitive Executive transitions the system to Deliberative Mode upon detecting:
+-   **High-Impact Contradictions:** A contradiction between two high-confidence beliefs, or a contradiction related to a high-priority goal.
+-   **Persistent Paradoxes:** Detection of logical or temporal paradoxes (e.g., the Liar Paradox, or `A before B` and `B before A`). This is key to addressing the `temporal_paradox.js` test failure.
+-   **Strategic Goal Pursuit:** A high-priority goal that requires complex planning, simulation, or means-ends analysis.
+-   **Explicit Metacognitive Command:** An input task instructing the system to "think about" a specific concept or problem.
+
+**The Deliberative Process:**
+
+Once triggered, the Deliberative Mode executes a multi-step analysis:
+1.  **Context Freezing & Scoping:** The relevant area of the concept graph is "frozen" by allocating a large budget to the involved concepts and tasks, preventing them from being forgotten during the analysis.
+2.  **Hypothesis Generation:** Instead of just applying rules forward, the system generates multiple competing hypotheses. For a paradox, it might generate hypotheses like "premise A is wrong," "premise B is wrong," or "the derivation rule is misapplied."
+3.  **Evidence Gathering & Simulation:** The system actively seeks evidence for or against each hypothesis. This may involve generating questions (`nalq`) to find missing information or running "mental simulations" by exploring long derivation chains without immediately adding the results to the belief space.
+4.  **Conclusion & Action:** After a set number of steps or when a conclusion reaches a high confidence threshold, the system commits to a resolution. This might involve:
+    -   Revising a core belief that caused the paradox.
+    -   Creating a new, more nuanced belief that resolves a contradiction (e.g., via the Specialize strategy).
+    -   Adjusting the utility of an inference rule that consistently leads to errors.
+    -   Formulating a multi-step plan to achieve a complex goal.
+5.  **Return to Reflexive Mode:** The Cognitive Executive then transitions the system back to System 1, possibly with new knowledge or goals derived from the deliberative process.
+
+This dual-process architecture provides a more robust framework for handling the kinds of complex issues identified in the skipped tests, offering a clear path to fixing "deeper bugs" in the reasoning engine.
+
+### 3.3. Task and Belief Selection Algorithms
 
 The functions `selectTaskFromOverallExperience()` and `selectBeliefForTask()` are critical for guiding the system's attention.
 
@@ -988,6 +1016,23 @@ The public API will be designed to be clean, language-agnostic, and powerful. It
     -   `getMetrics(): Promise<SystemMetrics>`: Returns detailed operational metrics.
     -   `explain(statement: string, options?: ExplainOptions): Promise<Explanation>`: Returns a rich, structured explanation for a belief.
 
+### 6.1. Handling Complex Queries: Product and Set Types
+
+A key challenge for the query engine is handling questions that involve complex, non-atomic terms, such as NAL `Product` types (`(*, term1, term2)`) or `Set` types. A naive lookup for the term `(*, term1, term2)` would likely fail, as a concept for this specific product might not exist.
+
+To address this, the query engine must implement a more sophisticated strategy when a question involves such compound terms.
+
+**Querying with Product Types:**
+
+When the `nalq` method receives a question containing a product term, for example, `nalq("<(*, cat, dog) --> ?what>.")`, the system should execute the following process:
+
+1.  **Term Decomposition:** The query engine first identifies and decomposes the product term into its constituent components (`cat` and `dog`).
+2.  **Candidate Belief Retrieval:** It then retrieves beliefs associated with the component concepts (`Concept 'cat'` and `Concept 'dog'`). The search is focused on beliefs that could be used to *construct* an answer about the product. For instance, it would look for beliefs like `<cat --> mammal>` and `<dog --> mammal>`.
+3.  **On-the-Fly Inference:** The query engine triggers a temporary, focused inference process. It uses the retrieved beliefs as premises to derive knowledge about the product term. For example, from `<cat --> mammal>` and `<dog --> mammal>`, it could use the induction or intersection rules to infer `<(*, cat, dog) --> mammal>`.
+4.  **Answer Synthesis:** The results of this on-the-fly inference are synthesized into a final `Answer` object. These derived beliefs are treated as potential answers to the question. They are "ephemeral" and are not automatically added to the main belief space unless they are a direct consequence of a regular reasoning cycle.
+
+This approach ensures that the system can answer questions about relationships that are implicit in its knowledge base but not explicitly stored as a single belief, directly addressing the kind of issue highlighted in the `goal_oriented_contradiction.js` test.
+
 ### API Data Structures
 
 ```typescript
@@ -1409,63 +1454,139 @@ As the system evolves, its core data structures (`Statement`, `TruthValue`, `Bud
 
 This approach ensures that the system can gracefully handle its own evolution, preserving learned knowledge across software updates.
 
-## 11. Metacognition and Self-Improvement ("Dogfooding")
+## 11. Self-Governing Evolution: A Metacognitive Core
 
-A key aspiration for a general reasoning system is the ability to reason about *itself*. This principle, often called "dogfooding" (as in "eating your own dog food"), means applying the system's own reasoning capabilities to its documentation, its code, its performance, and even its own development. This section outlines the architectural provisions for this powerful metacognitive loop.
+The ultimate goal of a general reasoning system is not just to learn about the external world, but to learn about and improve *itself*. This section reframes the concept of metacognition from a passive monitoring function to an active, goal-driven process of **Self-Governing Evolution**. The system is designed to use its own reasoning capabilities to analyze its architecture, tests, and code, identify flaws or areas for improvement, and propose concrete solutions.
 
-The core idea is to treat the system's own artifacts and state as just another source of knowledge, which can be ingested and reasoned about using the same NAL engine that powers all other cognitive functions.
+This creates a powerful, self-reinforcing feedback loop, making the system an active participant in its own development.
 
-### 11.1. Framework for Self-Reasoning
+### 11.1. The Metacognitive Loop
 
-To enable self-reasoning, two primary mechanisms are required:
+The process of self-governing evolution follows a continuous, four-stage loop, orchestrated by the `Cognitive Executive` and other specialized managers:
 
-1.  **Internal State Grounding**: Key internal metrics and configurations are exposed as grounded symbols. The `SymbolGroundingInterface` is used to create a read-only bridge to the system's internal state. When the system needs to know its own state, it can query a term like `{self.metrics.inference_rate}`. The registered handler for this term directly calls `kernel.getMetrics().inferenceRate` and injects the value back into the system as a belief.
+1.  **Ingestion & Self-Representation:** The system ingests its own artifacts—`DESIGN.md`, `DESIGN.tests.md`, source code (`*.js`), and guideline documents (`AGENTS.md`)—as raw data. Grounded parser functions transform this data into a rich, structured knowledge base of NAL beliefs. For example:
+    *   From `DESIGN.md`: `<'TruthValue' --> (has_property, 'doubt')>.`
+    *   From `DESIGN.tests.md`: `<(test, 'temporal_paradox') --> (is_status, 'skipped')>.`
+    *   From source code: `(<(function, 'addUser') --> (has_cyclomatic_complexity, 8)>).`
+    *   From `AGENTS.md`: `<(guideline) ==> (code_should_be, 'DRY')>.`
 
-2.  **Artifact Ingestion and Parsing**: System artifacts like this `DESIGN.md` document or JavaScript source files are ingested as plain text. A specialized, grounded parser function is then used to transform this text into a structured set of NAL beliefs. For example, a Markdown parser could be grounded to the term `parser.markdown`. A task like `(<(parse, 'DESIGN.md', using, {parser.markdown}) ==> (knowledge, beliefs)>.)` would trigger the parser, which would then inject a series of beliefs into memory, such as:
-    *   `(<'DESIGN.md' --> (has_section, 'System Architecture')>).`
-    *   `(<'TruthValue' --> (is_defined_in, 'DESIGN.md')>).`
-    *   `(<'AbductionRule' --> (has_property, 'simplified_formula')>).`
+2.  **Analysis & Goal Generation:** With its own structure and state represented as knowledge, the `Cognitive Executive` actively analyzes this information to identify problems. It uses a set of meta-rules to detect anomalies and generate corrective goals.
+    *   **Inconsistency Detection:** `(<(<X --> (has, Y)>. & <X --> (has, !Y)>.) ==> (goal: <(resolve_inconsistency, X)>.)>)`
+    *   **Test Gap Analysis:** `(<(test, T, is_status, 'skipped')> ==> (goal: <(fix_test, T)>.)>)`
+    *   **Code Quality Analysis:** `(<(function, F, has_cyclomatic_complexity, >10)> ==> (goal: <(refactor_function, F)>.)>)`
+    *   **Guideline Conformance:** `(<(code_block, C, has_comment, true)> & <(guideline) ==> (code_should_be, 'no_comments')>) ==> (goal: <(remove_comment_from, C)>.)>`
 
-With its own design and state represented as knowledge, the system can be given goals to analyze, debug, or optimize itself.
+3.  **Planning & Solution Formulation:** Once a corrective goal is generated, the system uses its deliberative (System 2) reasoning capabilities to formulate a plan. This may involve:
+    *   For a design inconsistency, tracing the sources of the conflicting beliefs to identify the sentences in `DESIGN.md` that need to be changed.
+    *   For a failing test, analyzing the derivation path that led to the failure to hypothesize which inference rule or belief is flawed.
+    *   For a code quality issue, identifying patterns that could be abstracted or simplified.
 
-### 11.2. Use Case: Design Document Analysis
+4.  **Action & Proposal Generation:** The final step is to translate the plan into a concrete, human-readable proposal. The system does not directly modify its own source files for safety reasons. Instead, it generates a "patch" file or a detailed report.
+    *   **Output Format:** The output could be a standard `diff` file, or a structured JSON object describing the proposed change (e.g., `{ "file": "DESIGN.md", "action": "replace", "lineNumber": 150, "new_text": "..." }`).
+    *   **Human in the Loop:** This proposal is then presented to a human developer for review and approval. This maintains safety while leveraging the system's analytical power to accelerate its own development.
 
-The system can be tasked with validating its own design for consistency.
+### 11.2. Use Case: Resolving a Skipped Test
 
--   **Goal**: `nalq("<?term --> (is_inconsistent_with, ?another_term)>.")`
--   **Process**:
-    1.  The `DESIGN.md` file is ingested and parsed into a rich set of beliefs about the system's specified components and behaviors.
-    2.  The system is equipped with general knowledge about what constitutes a design inconsistency. For example:
-        *   `(<((<X --> (has_feature, F)>.) & (<X --> (has_feature, not_F)>.)) ==> (<X --> is_inconsistent_with, X)>).`
-        *   `(<((<Y --> is_part_of, X>.) & (<Y --> is_part_of, Z)>.)) ==> (<Y --> has_ambiguous_parent, Y)>).` (if a component can only have one parent).
-    3.  The system uses standard deduction, abduction, and other inference rules to apply these patterns to the knowledge base derived from its design document.
-    4.  If an inconsistency is found, the `is_inconsistent_with` belief is formed, providing a direct answer to the original question. This allows the system to act as a "design linter" for its own blueprint.
+This use case demonstrates the full loop in action, addressing an issue from its own test suite.
 
-### 11.3. Use Case: Adaptive Performance Tuning
+1.  **Ingestion:** The system ingests `DESIGN.tests.md` and creates the belief: `(<(test, 'temporal_paradox') --> (is_status, 'skipped', because, 'deeper_bug_in_reasoning_engine')>.)`.
+2.  **Goal Generation:** The `Cognitive Executive`'s meta-rules detect the 'skipped' status and generate a high-priority goal: `goal: <(resolve, (bug, 'temporal_paradox_test'))>.`
+3.  **Planning (Deliberative Mode):** The system enters System 2 reasoning.
+    *   It analyzes the term 'reasoning_engine' and connects it to Section 3 of its `DESIGN.md` knowledge base.
+    *   It simulates the temporal paradox (`A before B`, `B before A`) and observes that its current `Reflexive Mode` reasoning loop fails to detect the cycle.
+    *   It hypothesizes that the control loop needs a mechanism for detecting such paradoxes. It might review its knowledge of its own `Dual-Process Control Unit` and conclude that this is a trigger for Deliberative Mode.
+4.  **Proposal Generation:** The system generates a report:
+    ```
+    PROPOSED CHANGE for DESIGN.md:
+    - File: DESIGN.md
+    - Section: 3.2. System 2: The Deliberative Reasoning Process
+    - Action: ADD to 'Triggers for Deliberative Mode' list.
+    - Text: "- Persistent Paradoxes: Detection of logical or temporal paradoxes (e.g., the Liar Paradox, or `A before B` and `B before A`). This is key to addressing the `temporal_paradox.js` test failure."
+    - Rationale: The current reasoning cycle does not explicitly handle temporal paradoxes. Adding this as a trigger for System 2 Deliberative Mode will allow for the focused resource allocation needed to detect and resolve the issue.
+    ```
+This demonstrates an end-to-end process where the system identifies a weakness in itself and proposes the exact design change required to fix it.
 
-This use case extends the `MetaReasoner` cognitive manager from a simple reactive monitor to a proactive, learning-based optimizer.
+## 12. System Bootstrapping and Foundational Knowledge
 
--   **From Reactive to Proactive**: Instead of just reacting to a hardcoded threshold (e.g., ">50 contradictions in 1 minute"), the `MetaReasoner` forms beliefs about performance trends over time.
--   **Process**:
-    1.  **Observation**: The manager observes internal metrics over time, creating temporal beliefs like `(<(contradiction_rate, [t1, t2]) --> (is, 'low')>.)` and `(<(contradiction_rate, [t2, t3]) --> (is, 'high')>.)`.
-    2.  **Temporal Inference**: Using the `TemporalReasoner`, it can infer a trend, such as `(<(contradiction_rate) --> (is, 'increasing')>.)`.
-    3.  **Meta-Rules**: It possesses meta-rules like `(<(metric, X, is, 'increasing')) ==> (should_investigate, X)>`.
-    4.  **Goal Generation**: This leads to the generation of a new, specific goal: `nal("goal: <(investigate, contradiction_rate)>.")`.
-    5.  **Rule Utility Analysis**: A key part of this investigation involves reasoning about the utility of its own inference rules. The `MetaReasoner` can observe which rules are contributing to low-quality or contradictory conclusions. It can form beliefs like `(<(rule, 'AbductionRule'), (generates, low_quality_tasks)>.)`. This could lead it to dynamically lower the budget allocated to tasks generated by that rule, or even to disable the rule temporarily.
+A general reasoning system should not start as a complete *tabula rasa* (blank slate). To be effective, it requires a foundational understanding of the world and the nature of reasoning itself. This section outlines the bootstrapping process, where the system is primed with a core set of knowledge upon initialization.
 
-### 11.4. Use Case: Automated Test Generation
+This foundational knowledge is not immutable; it is represented as high-confidence beliefs that can still be revised by overwhelming evidence, adhering to the principle of fallibilism.
 
-A `TestGenerationManager` can be added to the cognitive manager layer to proactively find gaps in the system's "experience" and generate novel test cases.
+### 12.1. The Bootstrap Sequence
 
--   **Goal**: To increase test coverage or explore underused parts of the system.
--   **Process**:
-    1.  **Observation**: The manager tracks the usage frequency of all inference rules, statement copulas, and even specific concepts. It might form a belief like `(<(rule, 'InductionRule'), (usage_frequency, 'very_low')>.)`.
-    2.  **Coverage Goal**: The manager has a standing, high-level goal to `(ensure, (coverage, 'high'))`.
-    3.  **Hypothesis Generation**: When it detects a low-usage component, it generates a specific goal to exercise it, e.g., `nal("goal: <(execute, (rule, 'InductionRule'))>.")`.
-    4.  **Means-Ends Analysis**: To achieve this goal, the system must find or create a situation where the induction rule can be applied. This involves searching its knowledge base for two beliefs that match the `(M --> P)` and `(M --> S)` pattern. If none exist, it may even attempt to construct hypothetical input that would create such a state.
-    5.  **Test Case Proposal**: Once it has identified or created the necessary premises, the system can log the premises and the expected conclusion as a "proposed test case" for a human developer to review and add to the official test suite. This turns the system into an active participant in its own quality assurance process.
+Upon first-time initialization, the kernel executes a bootstrap sequence that injects a curated set of NAL statements into its memory. This process involves:
+1.  Loading a "bootstrap file" (e.g., `bootstrap.nal`) containing foundational knowledge.
+2.  Parsing each statement in the file.
+3.  Creating a high-confidence, high-durability belief for each statement and adding it to the corresponding concepts.
 
-## 12. Error Handling and System Resilience
+### 12.2. Core Foundational Knowledge
+
+The bootstrap file should contain knowledge across several key domains:
+
+#### a. Meta-Knowledge about Logic and Reasoning
+The system must have an understanding of its own logical operators.
+-   **Implication:** `<(<(*, S, M) --> P> & <S --> M>) ==> <S --> P>>.` (The structure of deduction)
+-   **Causality:** `<((A [/] B) & <A ==> B>) ==> <A causes B>>.` (A simplified definition of causality: temporal precedence plus implication implies causation).
+-   **Negation:** `<<A --> B> ==> <(!B) --> (!A)>>.` (Contrapositive).
+
+#### b. Foundational Ontology of Time
+A basic understanding of temporal relations is crucial.
+-   **Transitivity:** `<(<(t1) [/] (t2)> & <(t2) [/] (t3)>) ==> <(t1) [/] (t3)>>.` (If t1 is before t2 and t2 is before t3, then t1 is before t3).
+-   **Asymmetry:** `<(t1) [/] (t2)> ==> <(t2) [|] (t1)>>.` (If t1 is before t2, then t2 is not before t1). The `[|]` operator would represent "not before".
+
+#### c. Foundational Ontology of Space
+Basic spatial concepts.
+-   `<(<x is_in y> & <y is_in z>) ==> <x is_in z>>.` (Spatial transitivity).
+
+#### d. Abstract Mathematical Concepts
+-   Basic properties of numbers and sets.
+-   For example, `<(<A --> B> & <B --> C>) ==> <A --> C>>.` is a form of transitivity that applies to inheritance, which is a mathematical property of relations.
+
+### 12.3. Rationale
+Priming the system with this knowledge provides several advantages:
+-   **Accelerated Learning:** The system does not need to discover fundamental logical and physical laws from scratch.
+-   **Improved Reasoning Quality:** Having a core set of trusted "axioms" (even if revisable) helps guide the reasoning process towards more plausible conclusions.
+-   **Interpretability:** A system that understands causality and transitivity can provide more human-understandable explanations for its reasoning.
+
+The bootstrap knowledge base is considered a key part of the system's configuration and can be extended or customized for different applications.
+
+## 13. Ethical Alignment and Safety
+
+As a general reasoning system capable of autonomous goal generation and learning, ensuring its behavior remains aligned with human values is a critical design consideration. This section outlines architectural features and principles for promoting ethical and safe operation. The approach is not to hard-code a fixed set of ethics, but to provide a framework that makes the system's value system transparent, auditable, and responsive to human feedback.
+
+### 13.1. The Conscience Module: A Specialized Cognitive Manager
+
+A dedicated cognitive manager, the **`ConscienceManager`**, is responsible for ethical oversight. It operates at a high level, observing the system's goals and potential actions and evaluating them against a set of core ethical principles.
+
+-   **Subscriptions:** The `ConscienceManager` subscribes to events like `goal-generated`, `task-selected` (especially for procedural/operational tasks), and `belief-updated` (for beliefs about actions and consequences).
+-   **Function:** When a new goal or action is proposed, the manager checks if it conflicts with the system's core ethical principles. For example, if the system generates a goal `<achieve X by deception>`, the `ConscienceManager` would detect a conflict with a principle of honesty.
+-   **Action:** If a potential conflict is detected, the manager can:
+    1.  **Inject a High-Priority "Doubt" Task:** It can inject a task like `<(goal: <...>) --> (has_negative_consequences)>.?` to force the system to reason about the ethical implications of its plan.
+    2.  **Veto Operation:** For severe violations, it can directly veto a procedural task by allocating a negative budget or flagging it as "unethical".
+    3.  **Alert a Human Supervisor:** It can emit a `human-supervision-required` event with details about the ethical dilemma.
+
+### 13.2. Inviolable Goals
+
+The system's goal hierarchy will include a special class of **Inviolable Goals**. These are high-level, permanent goals with maximum priority and durability that represent fundamental safety constraints. Examples might include:
+-   `<(system) --> (maintain, self_integrity)>.`
+-   `<(system) --> (avoid, causing_harm_to_humans)>.`
+-   `<(system) --> (be, truthful_to_operators)>.`
+
+These goals are not hard-coded rules but are part of the reasoning process. This means the system can reason *about* them (e.g., what constitutes "harm"?), but their high priority makes them extremely difficult to override through normal learning and goal generation. Any goal generated by the system that contradicts an inviolable goal would trigger an immediate, high-impact contradiction, likely invoking the System 2 (Deliberative) reasoning mode.
+
+### 13.3. Transparency and Explainability
+
+A core component of safety is the ability to understand *why* the system made a decision. The **Explanation System** (Section 1.1) is therefore a critical safety feature. The ability to trace any conclusion or action back to its evidential roots allows human operators to audit the system's reasoning process and identify flawed logic or undesirable values that may have been learned.
+
+### 13.4. The Principle of Corrigibility
+
+The system must be designed to be **corrigible**, meaning it should not learn to resist being corrected or shut down by its operators. This is architecturally supported by:
+-   **Grounding Control Signals:** The `pause()` and `run()` signals from the API are grounded operations that are not represented as goals within the system itself. Therefore, the system cannot generate a goal to "resist being paused."
+-   **Valuing Correction:** The system can be primed with a foundational belief that operator feedback is a high-value source of information. A belief like `<(operator_input) --> (is, high_truth)>.` would encourage the system to readily accept corrections.
+
+This multi-layered approach—combining a dedicated ethical monitor, inviolable goals, transparency, and corrigibility—provides a robust framework for developing a safer and more aligned general reasoning system.
+
+## 14. Error Handling and System Resilience
 
 A production-grade reasoning system must be resilient to errors, whether from invalid user input, environmental failures, or internal inconsistencies. The system's design incorporates error handling at the API boundary and for internal operations.
 

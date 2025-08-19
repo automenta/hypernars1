@@ -147,6 +147,7 @@ Tests the system's ability to reason about and optimize itself.
 | META-01 | `self_analysis_design.test.js` | Ingests its own `DESIGN.md` file and identifies a planted, known inconsistency between two statements in the document. | Artifact Ingestion, Self-Reasoning | Detects that feature X is described as both 'fast' and 'slow' in different sections. |
 | META-02 | `self_optimizing_rules.test.js` | The `MetaReasoner` observes that a specific rule (`AbductionRule`) is producing many low-quality tasks and dynamically lowers its budget priority. | Adaptive Performance Tuning | Budget for abduction-derived tasks is reduced; a belief about the rule's low utility is formed. |
 | META-03 | `self_generating_tests.test.js` | The `TestGenerationManager` identifies that the `InductionRule` is under-utilized and generates a set of premises to trigger it. | Automated Test Generation | A new goal to `(execute, InductionRule)` is created; a valid test case is proposed in logs. |
+| META-04 | `self_governing_evolution.test.js` | Ingests a `DESIGN.md` with a known flaw and a `AGENTS.md` with a "no comments" rule. The system should identify the flaw, find a commented code block in its (mocked) source, and generate proposals to fix both. | Self-Governing Evolution Loop | A goal to `resolve_flaw` is created. A goal to `remove_comment` is created. A patch file is generated with correct change proposals. |
 
 ### 10. Hypergraph & Structural Integrity
 Tests hypergraph consistency and operations
@@ -381,3 +382,21 @@ Feature: HyperNARS Core Reasoning Capabilities
       | premise1            | premise2            |
       | "<raven --> is_black>." | "<raven --> is_bird>." |
     And the system should log a "Proposed Test Case" containing these premises and the expected conclusion `<bird --> is_black>.`
+
+  Scenario: Self-Governing Evolution Identifies and Proposes Fixes (META-04)
+    Given the system has ingested a `DESIGN.md` file containing the belief:
+      | statement                                                  |
+      | "<(MemorySystem) --> (uses_algorithm, 'FIFO_Forgetting')>." |
+    And the same `DESIGN.md` also contains the conflicting belief:
+      | statement                                                         |
+      | "<(MemorySystem) --> (uses_algorithm, 'Relevance-Based_Forgetting')>." |
+    And the system has ingested an `AGENTS.md` file containing the rule:
+      | statement                               |
+      | "<(guideline) ==> (code_should_be, 'no_comments')>." |
+    And the system has ingested a (mocked) source file `src/core/Memory.js` containing a code block with a comment
+    When the system runs its `Self-Governing Evolution` loop for 500 cycles
+    Then the system should generate a goal like `goal: <(resolve_inconsistency, 'MemorySystem')>.`
+    And the system should generate a goal like `goal: <(remove_comment_from, 'src/core/Memory.js')>.`
+    And the system should produce a structured report containing two proposed changes:
+      1. A proposal to remove one of the conflicting statements from `DESIGN.md`.
+      2. A proposal to remove the comment from the code block in `src/core/Memory.js`.
