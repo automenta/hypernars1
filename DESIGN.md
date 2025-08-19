@@ -113,14 +113,51 @@ type Term = string;
 // specific statement types will implement it.
 interface Statement {
     // A unique, canonical string representation of the statement, used for hashing.
+    // The key MUST be generated consistently regardless of term order for symmetric statements.
     readonly key: string;
-    // An array of terms involved in the statement.
+    // An array of terms involved in the statement, in a defined order.
     readonly terms: Term[];
     // The type of copula connecting the terms.
-    readonly copula: 'inheritance' | 'similarity' | 'implication' | 'equivalence';
+    readonly copula: 'inheritance' | 'similarity' | 'implication' | 'equivalence' | 'conjunction';
     // Returns a human-readable string, e.g., "<bird --> animal>".
     toString(): string;
 }
+
+// Example Implementation of Statement subtypes for clarity.
+class InheritanceStatement implements Statement {
+    readonly key: string;
+    readonly terms: Term[];
+    readonly copula = 'inheritance';
+    constructor(subject: Term, predicate: Term) {
+        this.terms = [subject, predicate];
+        this.key = `<${subject} --> ${predicate}>`;
+    }
+    toString = () => this.key;
+}
+class SimilarityStatement implements Statement {
+    readonly key: string;
+    readonly terms: Term[];
+    readonly copula = 'similarity';
+    constructor(term1: Term, term2: Term) {
+        // Sort terms to ensure canonical key for symmetric relation
+        const sortedTerms = [term1, term2].sort();
+        this.terms = sortedTerms;
+        this.key = `<${sortedTerms[0]} <-> ${sortedTerms[1]}>`;
+    }
+    toString = () => this.key;
+}
+class ConjunctionStatement implements Statement {
+    readonly key: string;
+    readonly terms: Term[];
+    readonly copula = 'conjunction';
+    // Terms are sorted to ensure canonical representation, e.g., (&&, A, B) is same as (&&, B, A)
+    constructor(terms: Term[]) {
+        this.terms = terms.sort();
+        this.key = `(&&, ${this.terms.join(', ')})`;
+    }
+    toString = () => this.key;
+}
+
 
 // Represents the epistemic value of a statement, grounded in evidence.
 class TruthValue {
@@ -141,8 +178,12 @@ class TruthValue {
     static revise(t1: TruthValue, t2: TruthValue): TruthValue {
         const f1 = t1.f, c1 = t1.c, d1 = t1.d;
         const f2 = t2.f, c2 = t2.c, d2 = t2.d;
-        const c_rev = c1 * (1 - c2) + c2 * (1 - c1);
-        const f_rev = (f1 * c1 * (1 - c2) + f2 * c2 * (1 - c1)) / c_rev;
+        const w1 = c1 * (1-c2);
+        const w2 = c2 * (1-c1);
+        const w = w1 + w2;
+        if (w === 0) return new TruthValue(0, 0, 1); // Total contradiction
+        const f_rev = (f1 * w1 + f2 * w2) / w;
+        const c_rev = w / (w + (1-c1)*(1-c2));
         // Doubt is increased by conflicting evidence and merged from parents.
         const d_conflict = Math.abs(f1 - f2) / 2;
         const d_rev = 1 - (1 - d1) * (1 - d2) * (1 - d_conflict);
@@ -151,14 +192,25 @@ class TruthValue {
 
     // NAL Projection: Calculates truth for a component of a compound term.
     static project(t: TruthValue, numComponents: number): TruthValue {
-        // A simplified projection; actual formula may be more complex.
-        const c_proj = t.c / Math.sqrt(numComponents);
+        // According to NARS literature, projection primarily affects confidence.
+        // The confidence of a projected belief is a function of the original confidence
+        // and the size of the set from which it is projected.
+        // c_proj = c / (1 + log2(k)) where k is numComponents.
+        // This is a more theoretically grounded formula.
+        const c_proj = t.c / (1 + Math.log2(numComponents));
         return new TruthValue(t.f, c_proj, t.d);
     }
 
     // NAL Conjunction (Intersection): Combines two statements conjunctively.
     static and(t1: TruthValue, t2: TruthValue): TruthValue {
         const f = t1.f * t2.f;
+        const c = t1.c * t2.c;
+        return new TruthValue(f, c);
+    }
+
+    // NAL Union: Combines two statements disjunctively.
+    static or(t1: TruthValue, t2: TruthValue): TruthValue {
+        const f = 1 - (1 - t1.f) * (1 - t2.f);
         const c = t1.c * t2.c;
         return new TruthValue(f, c);
     }
@@ -179,9 +231,11 @@ class Budget {
      *        - `novelty`: How new is the information? [0, 1]
      *        - `urgency`: How time-sensitive is it? [0, 1]
      *        - `parentQuality`: Quality of the parent belief/task.
+     *        - `ruleUtility`: The historical success rate of the deriving rule.
      */
-    static dynamicAllocate(context: { type: string, novelty: number, urgency: number, parentQuality: number }): Budget {
+    static dynamicAllocate(context: { type: string, novelty: number, urgency: number, parentQuality: number, ruleUtility?: number }): Budget {
         let priority = 0.5, durability = 0.5, quality = context.parentQuality;
+        const utility = context.ruleUtility ?? 1.0;
         if (context.type === 'input') {
             priority = 0.7 * context.urgency + 0.3 * context.novelty;
             durability = 0.5;
@@ -189,8 +243,8 @@ class Budget {
             priority = 0.9 * context.urgency;
             durability = 0.9;
         } else { // 'derived'
-            priority = 0.5 * context.parentQuality + 0.2 * context.novelty;
-            durability = 0.3 * context.parentQuality;
+            priority = (0.5 * context.parentQuality + 0.2 * context.novelty) * utility;
+            durability = (0.3 * context.parentQuality) * utility;
         }
         return new Budget(priority, durability, quality);
     }
@@ -221,21 +275,68 @@ interface Task {
 }
 
 // A node in the memory graph, representing a single Term.
-interface Concept {
+class Concept {
     readonly term: Term;
     // All beliefs directly related to this concept, indexed by statement key.
     readonly beliefs: Map<string, Belief>;
     // A queue of tasks to be processed, prioritized by budget.
     readonly taskQueue: PriorityQueue<Task>;
     // The current activation level of the concept.
-    readonly activation: number;
+    activation: number;
+    // Max number of beliefs/tasks to store. Can be dynamic.
+    capacity: number;
 
     // Adds a new belief, revising if a related one exists.
-    addBelief(belief: Belief): void;
+    addBelief(belief: Belief): void {
+        const key = belief.statement.key;
+        if (this.beliefs.has(key)) {
+            const existingBelief = this.beliefs.get(key);
+            // Check for contradiction
+            if (isContradictory(belief.truth, existingBelief.truth)) {
+                kernel.events.emit('contradiction-detected', {
+                    statement: belief.statement,
+                    belief1: existingBelief,
+                    belief2: belief
+                });
+                return; // Contradiction manager will handle it.
+            }
+            // Revise with existing belief
+            const newTruth = TruthValue.revise(existingBelief.truth, belief.truth);
+            const newBelief = { ...existingBelief, truth: newTruth };
+            this.beliefs.set(key, newBelief);
+            kernel.events.emit('belief-updated', { belief: newBelief, oldTruth: existingBelief.truth });
+        } else {
+            // Add new belief, forgetting if at capacity
+            if (this.beliefs.size >= this.capacity) {
+                this.forget(this.beliefs);
+            }
+            this.beliefs.set(key, belief);
+            kernel.events.emit('belief-added', { belief });
+        }
+    }
+
     // Adds a task to the priority queue.
-    addTask(task: Task): void;
+    addTask(task: Task): void {
+        if (this.taskQueue.length >= this.capacity) {
+            this.forget(this.taskQueue);
+        }
+        this.taskQueue.enqueue(task, task.budget.priority);
+    }
+
     // Selects the highest-priority task from the queue.
-    selectTask(): Task | null;
+    selectTask(): Task | null {
+        return this.taskQueue.dequeue();
+    }
+
+    // Internal forgetting mechanism for a given collection (beliefs or tasks)
+    private forget(collection: Map | PriorityQueue): void {
+        // Find item with the lowest relevance and remove it.
+        // Relevance = budget.priority * concept.activation for tasks
+        // Relevance = truth.confidence * concept.activation for beliefs
+        let lowestRelevance = Infinity;
+        let itemToForget = null;
+        // ... logic to find and remove the least relevant item ...
+    }
 }
 ```
 
@@ -250,12 +351,9 @@ function reasoningCycle(kernel) {
     let cycleContext = { kernel, task: null, concept: null, belief: null, derivedTasks: [] };
 
     // HOOK: beforeCycle (read-only context)
-    // Use case: Logging, system state snapshot.
     kernel.hooks.run('beforeCycle', cycleContext);
 
     // 1. Select a Concept and a Task from memory.
-    // This is a two-step process to balance between overall priority and
-    // local context. First, a concept is chosen, then a task from it.
     let { concept, task } = kernel.memory.selectTaskFromOverallExperience();
     if (!task || !concept) {
         kernel.events.emit('system-idle', { idleDuration: 100 });
@@ -266,45 +364,93 @@ function reasoningCycle(kernel) {
     cycleContext.concept = concept;
 
     // HOOK: afterTaskSelection (read-only context)
-    // Use case: Meta-reasoning about task selection patterns.
     kernel.hooks.run('afterTaskSelection', cycleContext);
     kernel.events.emit('task-selected', { task });
 
     // 2. Select a Belief from the chosen Concept to interact with the Task.
-    // The belief should be relevant to the task. A common heuristic is to
-    // select a belief that shares a term with the task's statement and has
-    // high confidence.
     let belief = concept.selectBeliefForTask(task);
     if (!belief) continue; // No relevant belief found.
     cycleContext.belief = belief;
 
     // 3. Perform Local Inference.
-    // The Inference Engine applies all matching rules to the task and belief.
-    // The context is mutable here, allowing hooks to modify the premises.
     // HOOK: beforeInference (mutable context)
-    // Use case: A Cognitive Manager could adjust the task's budget here.
     cycleContext = kernel.hooks.run('beforeInference', cycleContext);
     let derivedTasks = kernel.inferenceEngine.applyAllRules(cycleContext.task, cycleContext.belief);
     cycleContext.derivedTasks = derivedTasks;
 
     // 4. Process and Store Derived Tasks.
     for (let derivedTask of cycleContext.derivedTasks) {
-      // The context passed to the hook is mutable.
       let taskContext = { derivedTask };
       // HOOK: beforeTaskProcessing (mutable context)
-      // Use case: A learning manager could flag the task for generating a new concept.
       taskContext = kernel.hooks.run('beforeTaskProcessing', taskContext);
-
-      // Add the (potentially modified) task to the appropriate concept.
       let targetConcept = kernel.memory.getOrCreateConcept(taskContext.derivedTask.statement.terms[0]);
       targetConcept.addTask(taskContext.derivedTask);
     }
 
     // 5. System-level cleanup and updates.
-    // HOOK: afterCycle (read-only context)
-    // Use case: Update system metrics, check for goal satisfaction.
     kernel.hooks.run('afterCycle', cycleContext);
   }
+}
+```
+
+### 3.1. Task and Belief Selection Algorithms
+
+The functions `selectTaskFromOverallExperience()` and `selectBeliefForTask()` are critical for guiding the system's attention.
+
+**`selectTaskFromOverallExperience()`**
+
+This function implements a two-level selection process to balance global priorities with local context.
+
+1.  **Concept Selection**: First, a concept is chosen from the entire memory. This is not a uniform random selection. Instead, it's a weighted "roulette-wheel" selection where each concept's chance of being chosen is proportional to its activation level. This ensures that more active, currently relevant concepts are processed more frequently.
+2.  **Task Selection**: Once a concept is selected, the highest-priority task is dequeued from its `taskQueue`.
+
+```pseudocode
+function selectTaskFromOverallExperience(memory) {
+    // 1. Select a concept using a roulette-wheel method based on activation.
+    let totalActivation = memory.concepts.sum(c => c.activation);
+    let randomPoint = Math.random() * totalActivation;
+    let currentSum = 0;
+    let selectedConcept = null;
+    for (let concept of memory.concepts) {
+        currentSum += concept.activation;
+        if (currentSum >= randomPoint) {
+            selectedConcept = concept;
+            break;
+        }
+    }
+
+    if (!selectedConcept) return { concept: null, task: null };
+
+    // 2. Select the best task from that concept's queue.
+    let task = selectedConcept.selectTask();
+    return { concept: selectedConcept, task: task };
+}
+```
+
+**`selectBeliefForTask(task)`**
+
+Given a task, the concept must select a relevant belief to interact with. Relevance is key to fostering meaningful inferences.
+
+1.  **Candidate Selection**: Identify all beliefs in the concept that are "structurally relevant" to the task. This means they share at least one common term.
+2.  **Relevance Scoring**: Score each candidate belief. A simple relevance score can be `belief.truth.confidence * structural_similarity_score`. A more advanced score could consider recency or other factors.
+3.  **Best Belief Selection**: Select the belief with the highest relevance score.
+
+```pseudocode
+function selectBeliefForTask(concept, task) {
+    let bestBelief = null;
+    let maxRelevance = -1;
+
+    for (let belief of concept.beliefs.values()) {
+        if (hasCommonTerms(task.statement, belief.statement)) {
+            // Calculate relevance (simple version: use confidence)
+            let relevance = belief.truth.confidence;
+            if (relevance > maxRelevance) {
+                maxRelevance = relevance;
+                bestBelief = belief;
+            }
+        }
+    }
+    return bestBelief;
 }
 ```
 
@@ -314,7 +460,9 @@ The Inference Engine is a stateless, extensible component responsible for applyi
 
 ### Core Principles
 -   **Extensible Rule System**: The engine will use a central registry, `Map<string, InferenceRule>`, where new rules can be added at runtime via `kernel.inferenceEngine.registerRule(rule)`. This allows for the system's reasoning capabilities to be expanded or modified.
--   **Self-Optimizing Rule Application**: To manage resource allocation under AIKR, the engine will feature a self-optimizing mechanism. It will track the historical success rate (i.e., utility) of each inference rule. The budget allocated to tasks derived by a rule will be weighted by its success rate, prioritizing rules that have proven more effective in the current context.
+-   **Self-Optimizing Rule Application**: To manage resource allocation under AIKR, a rule's utility is a value `U in [0, 1]` that is updated over time. When a rule derives a new task, the task's budget is modulated by the rule's utility.
+    -   **Utility Update**: A rule's utility `U` can be updated based on the feedback from the tasks it generates. For example, if a derived belief is later revised and its confidence increases significantly, the utility of the rule that created it could be reinforced. `U_new = U_old * (1 - alpha) + feedback * alpha`, where `alpha` is a learning rate and `feedback` is a measure of the derived task's success (e.g., the quality of the resulting belief).
+    -   **Budget Modulation**: The budget for a derived task is calculated as `Budget_derived = f(Budget_parent1, Budget_parent2) * U_rule`. This prioritizes rules that have proven more effective in the current context.
 
 ### Inference Rule Categories
 The engine will support a comprehensive set of NAL rules, including but not limited to:
@@ -340,6 +488,8 @@ All rules must implement the `InferenceRule` interface.
 interface InferenceRule {
   // A unique name for the rule (e.g., "NAL_DEDUCTION_FORWARD")
   readonly name: string;
+  // The historical utility of the rule, used for budget allocation.
+  utility: number;
 
   // Checks if the rule can be applied to the given premises.
   // This involves checking statement structure and term matching.
@@ -371,6 +521,7 @@ The deduction rule is one of the most fundamental inference rules.
 ```typescript
 class DeductionRule implements InferenceRule {
     readonly name = "NAL_DEDUCTION_FORWARD";
+    utility = 1.0;
 
     canApply(task: Task, belief: Belief): boolean {
         const s1 = task.statement;
@@ -388,12 +539,7 @@ class DeductionRule implements InferenceRule {
         const s2 = belief.statement; // <S --> M>
 
         // 1. Create the new statement: <S --> P>
-        const derivedStatement: Statement = {
-            key: `<${s2.terms[0]} --> ${s1.terms[1]}>`,
-            terms: [s2.terms[0], s1.terms[1]],
-            copula: 'inheritance',
-            toString: () => `<${s2.terms[0]} --> ${s1.terms[1]}>`
-        };
+        const derivedStatement = new InheritanceStatement(s2.terms[0], s1.terms[1]);
 
         // 2. Calculate the new truth value
         const t1 = task.parentBeliefs[0].truth; // Assuming task has truth
@@ -411,7 +557,8 @@ class DeductionRule implements InferenceRule {
             type: 'derived',
             novelty: 0.5, // This should be calculated based on memory
             urgency: (b1.priority + b2.priority) / 2,
-            parentQuality: quality_new
+            parentQuality: quality_new,
+            ruleUtility: this.utility
         });
 
         // 4. Create and return the new task
@@ -427,6 +574,72 @@ class DeductionRule implements InferenceRule {
 }
 ```
 
+#### Example: The Induction Rule
+
+Induction generalizes from specific evidence.
+
+-   **Logical Form**: `(M --> P), (M --> S) |- (S --> P)`
+-   **Premises**:
+    1.  A task `T1` with statement `<M --> P>`.
+    2.  A belief `B1` with statement `<M --> S>`.
+-   **Conclusion**: A new task `T2` with statement `<S --> P>`.
+
+-   **Truth-Value Function**:
+    -   `f_conclusion = f_premise2` (The evidence for the predicate)
+    -   `c_conclusion = c_premise1 * c_premise2 * (f_premise1 / (f_premise1 * c_premise1 + (1-f_premise1)*c_premise1))`
+    -   This is a simplified version of the full induction formula, which is more complex. The confidence depends on the amount of evidence supporting the premise.
+
+```typescript
+class InductionRule implements InferenceRule {
+    readonly name = "NAL_INDUCTION";
+    utility = 1.0;
+
+    canApply(task: Task, belief: Belief): boolean {
+        const s1 = task.statement;
+        const s2 = belief.statement;
+        // Check if both are inheritance statements and the subjects match: M->P, M->S
+        return s1.copula === 'inheritance' &&
+               s2.copula === 'inheritance' &&
+               s1.terms[0] === s2.terms[0]; // M matches
+    }
+
+    apply(task: Task, belief: Belief): Task | null {
+        if (!this.canApply(task, belief)) return null;
+
+        const s1 = task.statement; // <M --> P>
+        const s2 = belief.statement; // <M --> S>
+
+        // 1. Create the new statement: <S --> P>
+        const derivedStatement = new InheritanceStatement(s2.terms[1], s1.terms[1]);
+
+        // 2. Calculate the new truth value (simplified induction)
+        const t1 = task.parentBeliefs[0].truth;
+        const t2 = belief.truth;
+        const f_new = t2.f;
+        const c_new = t1.c * t2.c * t1.f; // Simplified, actual formula is complex
+        const derivedTruth = new TruthValue(f_new, c_new);
+
+        // 3. Calculate the new budget
+        const quality_new = task.budget.quality * belief.truth.c;
+        const derivedBudget = Budget.dynamicAllocate({
+            type: 'derived',
+            novelty: 0.8, // Induction often creates novel hypotheses
+            urgency: (task.budget.priority) / 2,
+            parentQuality: quality_new,
+            ruleUtility: this.utility
+        });
+
+        // 4. Create and return the new task
+        return {
+            statement: derivedStatement,
+            truth: derivedTruth,
+            budget: derivedBudget,
+            parentBeliefs: [task.parentBeliefs[0], belief]
+        };
+    }
+}
+```
+
 ## 5. Memory System
 
 The Memory System is the core of the system's knowledge base, structured as a dynamic concept graph and managed by several competing algorithms to adhere to AIKR.
@@ -435,12 +648,12 @@ The Memory System is the core of the system's knowledge base, structured as a dy
 
 -   **Activation Spreading**: This is the mechanism for managing the system's focus of attention. When a concept is accessed, a portion of its activation energy is spread to related concepts.
     -   `Activation_new(C) = Activation_old(C) * (1 - decay_rate) + Sum(Activation_in(S, C))`
-    -   `Activation_in(S, C)` is the activation transferred from a source concept `S` to target `C`. It is proportional to the budget of the task that triggered the spread and the relevance of the belief linking `S` and `C`.
+    -   `Activation_in(S, C)` is the activation transferred from a source concept `S` to target `C`. This is calculated as: `Activation_in = task.budget.priority * belief.truth.confidence * relevance_factor`, where `relevance_factor` can be a constant or a function of the type of connection. The activation is then distributed among all connected concepts.
     -   `decay_rate` is a system parameter that determines how quickly concepts lose activation over time.
 
 -   **Forgetting Algorithm**: To manage finite memory resources, the system must forget less important information. This is a continuous, gentle process rather than a periodic "garbage collection" sweep.
     -   **Relevance Metric**: The importance of any item (a `Belief` or `Task`) in a concept is its `Relevance`, calculated as: `Relevance = budget.priority * concept.activation`. This metric combines short-term importance (activation) with long-term importance (priority/durability).
-    -   **Forgetting Process**: When a new item is added to a concept and the concept's memory capacity is exceeded, the item with the lowest `Relevance` score is removed. This ensures that the most relevant information is retained. The memory capacity of a concept can be dynamic, potentially growing as the concept becomes more important.
+    -   **Forgetting Process**: When a new item is added to a concept and the concept's memory capacity is exceeded, the item with the lowest `Relevance` score is removed. This ensures that the most relevant information is retained. The memory capacity of a concept can be dynamic, potentially growing as the concept becomes more important (e.g., `capacity = base_capacity + log(concept.usage_count)`).
 
 -   **Contradiction Handling**: This is managed by the `ContradictionManager` and is a sophisticated, multi-stage process. When a `contradiction-detected` event is fired, the manager executes the following logic:
 
@@ -451,7 +664,7 @@ The Memory System is the core of the system's knowledge base, structured as a dy
     -   **3. Strategy Selection & Resolution**: Based on the analysis, a strategy is chosen. This is a rule-based decision process:
         -   **IF** `strength(B1) >> strength(B2)` **THEN** apply **DominantEvidence**: The weaker belief `B2` is removed. The budget of `B1` is boosted.
         -   **IF** `strength(B1) ~= strength(B2)` **THEN** apply **Merge**: The truth values of `B1` and `B2` are revised together using `TruthValue.revise()`. The resulting belief replaces the old one. The doubt (`d`) component of the new truth value will naturally increase, indicating uncertainty.
-        -   **IF** `B1` is a general statement (e.g., `<bird --> flyer>`) and `B2` is a more specific, conflicting statement (e.g., `<penguin --> flyer>`), **THEN** apply **Specialize**: The system does not simply discard the general rule. Instead, it reduces the confidence of `<bird --> flyer>` and may generate a new task to investigate this exception, potentially leading to new knowledge like `<(bird, not penguin) --> flyer>`.
+        -   **IF** `B1` is a general statement (e.g., `<bird --> flyer>`) and `B2` is a more specific, conflicting statement (e.g., `<penguin --> flyer>`), **THEN** apply **Specialize**: The system does not simply discard the general rule. Instead, it reduces the confidence of `<bird --> flyer>`. It then constructs a new, more specific term representing the exception, such as `(&, bird, (-, penguin))`, where `(-, penguin)` is a term representing "not penguin". It may then inject a new task to derive `(<(&, bird, (-, penguin)) --> flyer>)`, effectively learning the exception. This requires the system to support compound terms and term negation.
         -   **IF** `source(B1)` is more reliable than `source(B2)` **THEN** apply **SourceReliability**: Give precedence to `B1`, but do not necessarily discard `B2`. Instead, significantly lower the budget of `B2`.
         -   **IF** strategies above are inconclusive, **THEN** apply **RecencyBiased**: Give a slight budget advantage to the more recent belief.
 
@@ -566,7 +779,58 @@ A key feature for explainability is the `derivationPath`. Here is an example of 
 The system will be designed for deep extensibility through a multi-layered plugin architecture. This allows developers to modify or enhance system behavior at various levels of granularity, from adding a single inference rule to defining entirely new cognitive functions.
 
 ### 1. Cognitive Managers (Coarse-Grained)
-This is the primary extension point for adding high-level functionality. As shown in the "System Architecture" section, managers are classes that subscribe to kernel events and inject tasks to influence reasoning. The `MetaReasoner` example below shows how a manager can implement a self-monitoring and adaptation loop.
+This is the primary extension point for adding high-level functionality. Managers subscribe to kernel events and inject tasks to influence reasoning.
+
+**Example: The Meta-Reasoner Manager**
+The `MetaReasoner` monitors the system's health and adapts its behavior.
+
+```typescript
+class MetaReasoner {
+    private kernel: Kernel;
+    private contradictionHistory: number[] = [];
+    private cycleCount = 0;
+
+    constructor(kernel: Kernel) {
+        this.kernel = kernel;
+        this.subscribeToEvents();
+    }
+
+    private subscribeToEvents(): void {
+        this.kernel.events.on('afterCycle', () => this.onAfterCycle());
+        this.kernel.events.on('contradiction-detected', () => this.onContradiction());
+    }
+
+    private onAfterCycle(): void {
+        this.cycleCount++;
+        // Every 1000 cycles, check for anomalies.
+        if (this.cycleCount % 1000 === 0) {
+            this.analyzeSystemHealth();
+        }
+    }
+
+    private onContradiction(): void {
+        this.contradictionHistory.push(Date.now());
+    }
+
+    private analyzeSystemHealth(): void {
+        // Prune old history
+        const oneMinuteAgo = Date.now() - 60000;
+        this.contradictionHistory = this.contradictionHistory.filter(t => t > oneMinuteAgo);
+
+        // Check for spike in contradictions
+        if (this.contradictionHistory.length > 50) { // Threshold
+            console.warn("MetaReasoner: High contradiction rate detected. Increasing doubt parameter.");
+            // Adapt system behavior: make the system more skeptical.
+            const currentDoubt = this.kernel.getConfig('system.default.doubt');
+            this.kernel.setConfig('system.default.doubt', Math.min(0.9, currentDoubt + 0.1));
+
+            // Inject a task to reason about this anomaly
+            const taskStatement = `<(high_contradiction_rate) ==> <increase_skepticism>>.`;
+            this.kernel.addTask(nal(taskStatement));
+        }
+    }
+}
+```
 
 ### 2. Custom Inference Rules (Fine-Grained)
 Developers can add new inference patterns to the system by implementing the `InferenceRule` interface and registering it with the engine.
@@ -580,33 +844,11 @@ class TransitiveSimilarityRule implements InferenceRule {
     readonly name = "CUSTOM_SIMILARITY_TRANSITIVE";
 
     canApply(task: Task, belief: Belief): boolean {
-        // Ensure both are similarity statements and terms align: A~B, B~C
-        return task.statement.copula === 'similarity' &&
-               belief.statement.copula === 'similarity' &&
-               task.statement.terms[1] === belief.statement.terms[0];
+        // ... (implementation)
     }
 
     apply(task: Task, belief: Belief): Task | null {
-        if (!this.canApply(task, belief)) return null;
-
-        const s1 = task.statement; // <A <-> B>
-        const s2 = belief.statement; // <B <-> C>
-
-        // Create conclusion: <A <-> C>
-        const conclusion = createStatement({ subject: s1.terms[0], predicate: s2.terms[1], copula: 'similarity' });
-
-        // Calculate truth: transitive similarity is weaker
-        const t1 = task.parentBeliefs[0].truth;
-        const t2 = belief.truth;
-        const f_new = (t1.f + t2.f) / 2; // Average frequency
-        const c_new = t1.c * t2.c * 0.5; // Confidence is significantly reduced
-        const truth = new TruthValue(f_new, c_new);
-
-        // Calculate budget
-        const budget = Budget.merge(task.budget, belief.budget);
-        budget.priority *= 0.5; // Lower priority than a standard deduction
-
-        return createTask({ statement: conclusion, truth, budget, parentBeliefs: [task.parentBeliefs[0], belief] });
+        // ... (implementation)
     }
 }
 
@@ -640,13 +882,55 @@ nar.setConfig('formulas.budget.merge', (b1, b2) => {
 ```
 
 ### 5. Symbol Grounding Interface
-This interface connects abstract terms to external data or functions. For example, the term `<(*, self, temperature) --> hot>` could be grounded to a sensor.
+This interface connects abstract terms to external data or functions, enabling the system to interact with the "real world." Grounding is a dynamic process.
+
+-   **Grounding Registration**: `kernel.symbolGrounding.register(term: Term, handler: Function)`
+    -   The `handler` is a function that, when called, interacts with the external world (e.g., calls a sensor API, queries a database) and returns data.
+-   **Grounding Trigger**: Grounding can be triggered in two ways:
+    1.  **On-demand**: When the system needs to evaluate a grounded term (e.g., in a procedural rule `(<(check_temp) ==> <report_status>>)`), it invokes the handler.
+    2.  **Proactive**: The external environment can proactively push information into the system. The handler can be designed to listen for external events and inject new tasks into NARS when those events occur.
+-   **Lifecycle**: The handler's returned data is converted into a NARS task with a high-confidence belief (e.g., `TruthValue(1.0, 0.99)` for direct sensor readings) and injected into the appropriate concept. This new information then enters the normal reasoning cycle.
 
 ```typescript
-nar.symbolGrounding.groundTerm('hot', (term) => {
+// Example: Grounding a term to a temperature sensor.
+nar.symbolGrounding.register('self.temperature', () => {
     const temp = readTemperatureSensor(); // External function call
-    // Return a truth value based on the sensor reading
-    if (temp > 40) return new TruthValue(1.0, 0.99);
-    return new TruthValue(0.0, 0.99);
+    // Create a NARS statement from the reading.
+    const statement = `<{self.temperature} --> [${temp}]>.`;
+    // Inject this as a new high-priority task.
+    nar.nal(statement, { urgency: 0.9 });
 });
 ```
+
+## 8. System Initialization and Configuration
+
+The system's behavior is heavily influenced by a set of configurable parameters that reflect the assumptions of AIKR.
+
+### Configuration Parameters
+The system will be initialized with a default configuration object. Key parameters include:
+
+-   `system.max_memory_concepts`: The maximum number of concepts allowed in memory.
+-   `system.default.doubt`: The default initial doubt for input beliefs.
+-   `parameters.decay_rate`: The rate at which activation decays per cycle.
+-   `parameters.budget.default_priority`: Default priority for new tasks.
+-   `parameters.budget.default_durability`: Default durability for new tasks.
+-   `hooks.*`: Placeholders for attaching hook functions.
+-   `formulas.*`: Overridable NAL formulas.
+
+### Bootstrap Process
+1.  **Instantiation**: The `HyperNARS` kernel is created with an optional configuration object that overrides the defaults.
+2.  **Module Loading**: The kernel instantiates its core components (Memory, InferenceEngine).
+3.  **Rule Registration**: The InferenceEngine is populated with the standard set of NAL inference rules.
+4.  **Manager Initialization**: Default Cognitive Managers (like `ContradictionManager`) are instantiated and subscribed to kernel events.
+5.  **Ready State**: The system is now ready to accept input via the public API. The reasoning cycle does not start automatically. It is initiated by an explicit call to `run()`.
+
+## 9. Concurrency and Parallelism
+
+While the core reasoning cycle is conceptually serial, the proposed architecture offers several opportunities for concurrent and parallel execution, which is crucial for scalability.
+
+-   **Concept-Level Parallelism**: The primary unit of concurrency is the `Concept`. Since a single inference step only involves a task and a belief within one concept, operations on two different concepts are independent and can be parallelized. A potential implementation could use an **Actor Model**, where each `Concept` is an actor processing tasks from its own mailbox.
+-   **Event-Driven Asynchrony**: The event bus allows for asynchronous processing. For example, a `contradiction-detected` event can be handled by the `ContradictionManager` in a separate thread without blocking the main reasoning cycle, which can continue to process other, unrelated tasks.
+-   **Parallel Rule Application**: Within a single inference step, the matching of all possible inference rules against the selected task and belief can be done in parallel. A `Promise.all()` or similar parallel mapping approach can be used to apply all candidate rules concurrently.
+-   **I/O and Grounding**: All I/O operations, especially symbol grounding that may involve network requests or slow device access, must be fully asynchronous to prevent blocking the reasoning loop.
+
+The design prioritizes logical correctness first, but these opportunities for performance enhancement are a key consideration for the implementation phase.
