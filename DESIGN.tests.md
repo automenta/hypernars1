@@ -1,3 +1,158 @@
+# Test Suite Documentation
+
+---
+
+## Test Categories
+
+### 1. Core Inference & Reasoning
+Tests fundamental NARS reasoning capabilities
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 01 | `basic_inference.js` | Basic NAL parsing and forward-chaining | Inheritance, truth expectation | Tweety inherits flyer property with expectation >0.4 |
+| 06 | `advanced_derivations.js` | Property and induction inheritance | Concept property inheritance | Dog inherits fur property; Cat-Dog similarity derived |
+| 11 | `comprehensive_reasoning.js` | Complex scenario combining analogy, belief revision, and QA | Cross-functional reasoning | Confidence decreases after contradiction; Correct negative answer to query |
+| 25 | `advanced_concept_formation.js` | Abstract concept formation | Pattern generalization | Creates general rules from specific instances |
+| 28 | `negation_reasoning.js` | Reasoning with negated statements | Contradiction detection | Detects contradiction when whale is both mammal and not fish |
+| 32 | `advanced_inference.test.js` | Abduction and induction | Hypothesis generation | Forms general rules from specific examples |
+| 39 | `causal_inference.js` | Causal relationships | Distinguishing causation from correlation | Identifies true causal factors in multi-variable scenarios |
+| 43 | `hypothesis_abduction.js` | Explanatory hypothesis generation | Candidate explanation formation | Generates flu/infection hypotheses for fever observation |
+| 46 | `concept_learning_by_example.js` | Generalization from examples | Pattern recognition | Forms "birds have wings" rule from examples |
+| 52 | `temporal_consequent_conjunction.js` | Temporal property propagation | Rule application | Temporal properties correctly propagated in derivations |
+| 61 | `new_hypergraph_integrity.test.js` | Hypergraph consistency under load | Structural integrity | Maintains consistency after 10k operations |
+
+### 2. Contradiction Handling
+Tests evidence-based contradiction resolution
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 02 | `contradiction.js` | Direct contradiction resolution | Belief revision | Expectation decreases after contradiction |
+| 07 | `contradiction_handling.js` | Various contradiction scenarios | Contradiction detection | Strong contradictions resolved, weak ignored |
+| 20 | `advanced_contradiction.js` | Evidence-based belief revision | Confidence adjustment | Confidence decreases with contradictory evidence |
+| 29 | `inter_edge_contradiction.test.js` | Inter-edge contradictions | Conflict resolution | Resolves contradictions between different edges |
+| 30 | `hyperedge_contradiction.js` | Hyperedge-level contradictions | Hypergraph management | Detects hyperedge contradictions |
+| 45 | `knowledge_unlearning.js` | Active belief revision | Confidence adjustment | Confidence drops with contradictory evidence |
+| 52 | `enhanced_contradiction.test.js` | Evidence-based resolution | Specialized belief creation | Creates context-specific beliefs for contradictions |
+
+### 3. Temporal Reasoning
+Tests time-based event handling
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 03 | `temporal_reasoning.js` | Basic interval management | Temporal constraints | Correct 'during' relationship inferred |
+| 09 | `temporal_reasoning_advanced.js` | Constraint propagation | Temporal chaining | Infers 'before' relation through event chain |
+| 18 | `temporal_paradox.js` | Temporal loop detection | Paradox identification | Detects contradictions in event sequences |
+| 27 | `temporal_paradoxes.js` | Advanced paradox handling | System stability | Prevents creation of contradictory constraints |
+| 51 | `advanced_temporal.test.js` | Time-based context | Context awareness | Correct context identified at specific times |
+| 57 | `goal_temporal_reasoning.test.js` | Time-constrained goals | Deadline-based prioritization | Deadline-near goals get higher budget |
+| 62 | `temporal_goal_integration.test.js` | Temporal goal decomposition | Means-ends analysis | Correctly decomposes time-dependent goals |
+
+### 4. Learning & Memory
+Tests knowledge acquisition and retention
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 10 | `memory_management.js` | Capacity-based pruning | Memory decay | Low-priority beliefs pruned when over capacity |
+| 17 | `learning_and_forgetting.js` | Long-term retention | Knowledge decay | Knowledge forgotten over time and re-learned |
+| 21.1 | `cross_functional.js` | Learning/forgetting interaction | Memory-engine integration | Belief budget decays and recovers appropriately |
+| 24 | `learning_with_contradictions.js` | Learning from failure | Belief revision | Rule confidence decreases after failed actions |
+| 35 | `concept_learning.test.js` | Concept formation | Pattern generalization | Forms "birds have wings" rule from examples |
+| 37 | `unlearning_and_forgetting.test.js` | Active forgetting | Memory management | Unimportant knowledge decays over time |
+| 58 | `concept_formation_uncertainty.test.js` | Concept formation under uncertainty | Pattern recognition | Forms new concepts from contradictory information |
+| 60 | `knowledge_unlearning.test.js` | Long-term knowledge management | Forgetting mechanisms | Budget decays for un-reinforced beliefs |
+
+### 5. Goal Systems
+Tests goal-oriented behavior
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 08 | `goal_oriented_reasoning.js` | Basic goal achievement | Sub-goaling | Generates sub-goals for state achievement |
+| 19 | `competing_goals.js` | Conflicting goal management | Utility-based prioritization | Higher-utility goals prioritized |
+| 21.2 | `cross_functional.js` | Goal pursuit with unstable beliefs | Risk assessment | Avoids high-priority subgoals for low-confidence rules |
+| 22 | `advanced_goal_management.js` | Complex goal handling | Means-ends analysis | Deduces need to "walk_to(table)" for goal |
+| 38 | `complex_goal_management.test.js` | Higher-order goals | Goal conflict resolution | Higher-order goals dominate sub-goals |
+| 42 | `goal_driven_learning.js` | Learning from goal failure | Strategy adaptation | Revises beliefs when actions lead to failure |
+| 44 | `competing_goals.js` | Resource-aware competition | Action selection | Selects actions under resource constraints |
+| 59 | `competing_goals_resource.test.js` | Resource-constrained goals | Dynamic prioritization | Allocates more resources to higher-priority goals |
+
+### 6. Advanced Capabilities
+Tests higher-order cognitive functions
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 05 | `explanation.js` | Explanation generation | Human-readable output | Produces non-empty explanation for belief |
+| 33 | `analogy_and_metaphor.test.js` | Cross-domain mapping | Property transfer | Infers nucleus as gravitational center via analogy |
+| 40 | `analogical_reasoning.js` | Knowledge transfer | Structural similarity | Transfers properties between similar domains |
+| 47 | `paradox_handling.js` | Logical paradox resolution | System stability | Maintains stability with liar paradox |
+| 48 | `theory_of_mind.js` | False belief modeling | Perspective-taking | Correctly models Sally's false belief |
+| 49 | `contextual_disambiguation.js` | Ambiguous term resolution | Context awareness | Correctly resolves "bank" in different contexts |
+| 50 | `narrative_comprehension.js` | Story understanding | State tracking | Tracks state changes through narrative events |
+
+### 7. System Performance
+Tests scalability and configuration
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 13 | `performance_scalability.js` | Heavy load handling | Performance under load | Processes 2000 beliefs in <5s |
+| 14 | `configuration_matrix.js` | Component configurations | System adaptability | Works with different memory managers |
+| 23 | `knowledge_base_stress_test.js` | Large knowledge bases | Memory management | Handles 2000+ concepts with query response |
+| 26 | `configuration_matrix.js` | Engine variants | Configuration testing | Compares simple vs advanced engines |
+| 34 | `uncertainty_and_belief.test.js` | Belief revision | Confidence adjustment | Adjusts confidence based on new evidence |
+| 36 | `skill_acquisition.test.js` | Procedural learning | Efficiency improvement | Learns more efficient rules over time |
+| 54 | `advanced_resource_management.test.js` | Dynamic budgeting | AIKR compliance | Allocates resources based on priority |
+
+### 8. API & Integration
+Tests system interfaces
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 04 | `meta_reasoning.js` | Self-adaptation | Parameter adjustment | Adjusts parameters based on performance metrics |
+| 31 | `knowledge_representation.test.js` | Knowledge representation | System modeling | Correctly represents various knowledge types |
+| 41 | `meta_cognitive_query.js` | Self-justification | Explanation generation | Provides confident justification for conclusions |
+| 53 | `meta_reasoning.test.js` | Strategy configuration | System adaptation | Active strategies match context |
+| 55 | `advanced_explanation.test.js` | Multi-format explanations | User communication | Generates concise/detailed/technical explanations |
+| 56 | `self_optimizing_derivation.test.js` | Rule optimization | Adaptive learning | Custom rule priority increases with success |
+| API | `APIEnhancements.test.js` | API functionality | System interfaces | Handles queries, contradictions, explanations, and concept formation |
+
+### 9. Hypergraph & Structural Integrity
+Tests hypergraph consistency and operations
+
+| Test | File | Description | Functionality Tested | Key Assertions |
+|------|------|-------------|----------------------|---------------|
+| 63 | `hypergraph_consistency.test.js` | Consistency under mutation | Structural integrity | Maintains consistency after 10k operations |
+| 64 | `serialization_integrity.test.js` | Serialization/deserialization | Data persistence | Round-trip serialization preserves structure |
+| 65 | `concurrent_operations.test.js` | Concurrent modifications | Thread safety | Handles concurrent operations without corruption |
+
+---
+
+## Special Notes
+
+### Skipped Tests
+| Test | File | Reason for Skipping |
+|------|------|---------------------|
+| 08 | `goal_oriented_reasoning.js` | Bug in derivation engine |
+| 15 | `goal_oriented_contradiction.js` | Bug in query engine's Product type handling |
+| 16 | `concept_formation_contradiction.js` | Deeper bug in reasoning engine |
+| 18 | `temporal_paradox.js` | Deeper bug in reasoning engine |
+| 37 | `unlearning_and_forgetting.test.js` | Highly dependent on specific memory config |
+
+### Composite Tests
+- **Test 12**: Cross-concern cases (6 sub-tests)
+- **Test 21**: Cross-functional tests (2 sub-tests)
+- **Test 52**: Enhanced contradiction (multiple cases)
+
+### Proposed Tests
+- **CM-01**: Cross-modal reasoning integration
+- **HG-01**: Hypergraph stress testing
+- **API-01**: API failure mode analysis
+- **RA-01**: Resource allocation boundary cases
+- **ML-01**: Meta-learning verification
+- **HG-02**: Schema evolution handling
+- **TGI-01**: Temporal-goal interaction edge cases
+
+> Total Tests: 69 individual test scenarios covering all core NARS functionality  
+> Generated: 2025-08-19
+
 Feature: HyperNARS Core Reasoning Capabilities
 
   This feature file defines the expected behavior of the HyperNARS system

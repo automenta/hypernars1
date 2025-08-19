@@ -119,7 +119,7 @@ interface Statement {
     readonly terms: Term[];
     // The type of copula connecting the terms.
     readonly copula: 'inheritance' | 'similarity' | 'implication' | 'equivalence' | 'conjunction';
-    // Returns a human-readable string, e.g., "<bird --> animal>".
+    // Returns a human-readable string, e.g., "(bird --> animal)".
     toString(): string;
 }
 
@@ -130,7 +130,7 @@ class InheritanceStatement implements Statement {
     readonly copula = 'inheritance';
     constructor(subject: Term, predicate: Term) {
         this.terms = [subject, predicate];
-        this.key = `<${subject} --> ${predicate}>`;
+        this.key = `(${subject} --> ${predicate})`;
     }
     toString = () => this.key;
 }
@@ -142,7 +142,7 @@ class SimilarityStatement implements Statement {
         // Sort terms to ensure canonical key for symmetric relation
         const sortedTerms = [term1, term2].sort();
         this.terms = sortedTerms;
-        this.key = `<${sortedTerms[0]} <-> ${sortedTerms[1]}>`;
+        this.key = `(${sortedTerms[0]} <-> ${sortedTerms[1]})`;
     }
     toString = () => this.key;
 }
@@ -506,9 +506,9 @@ The deduction rule is one of the most fundamental inference rules.
 
 -   **Logical Form**: `(M --> P), (S --> M) |- (S --> P)`
 -   **Premises**:
-    1.  A task `T1` with statement `<M --> P>`.
-    2.  A belief `B1` with statement `<S --> M>`.
--   **Conclusion**: A new task `T2` with statement `<S --> P>`.
+    1.  A task `T1` with statement `(M --> P)`.
+    2.  A belief `B1` with statement `(S --> M)`.
+-   **Conclusion**: A new task `T2` with statement `(S --> P)`.
 
 -   **Truth-Value Function**:
     -   `f_conclusion = f_premise1 * f_premise2`
@@ -535,10 +535,10 @@ class DeductionRule implements InferenceRule {
     apply(task: Task, belief: Belief): Task | null {
         if (!this.canApply(task, belief)) return null;
 
-        const s1 = task.statement; // <M --> P>
-        const s2 = belief.statement; // <S --> M>
+        const s1 = task.statement; // (M --> P)
+        const s2 = belief.statement; // (S --> M)
 
-        // 1. Create the new statement: <S --> P>
+        // 1. Create the new statement: (S --> P)
         const derivedStatement = new InheritanceStatement(s2.terms[0], s1.terms[1]);
 
         // 2. Calculate the new truth value
@@ -580,9 +580,9 @@ Induction generalizes from specific evidence.
 
 -   **Logical Form**: `(M --> P), (M --> S) |- (S --> P)`
 -   **Premises**:
-    1.  A task `T1` with statement `<M --> P>`.
-    2.  A belief `B1` with statement `<M --> S>`.
--   **Conclusion**: A new task `T2` with statement `<S --> P>`.
+    1.  A task `T1` with statement `(M --> P)`.
+    2.  A belief `B1` with statement `(M --> S)`.
+-   **Conclusion**: A new task `T2` with statement `(S --> P)`.
 
 -   **Truth-Value Function**:
     -   `f_conclusion = f_premise2` (The evidence for the predicate)
@@ -749,14 +749,14 @@ A key feature for explainability is the `derivationPath`. Here is an example of 
 ```json
 {
   "conclusion": {
-    "statement": "<penguin --> animal>",
+    "statement": "(penguin --> animal)",
     "truth": { "f": 0.9, "c": 0.81, "d": 0.0 }
   },
   "ruleName": "NAL_DEDUCTION_FORWARD",
   "premises": [
     {
       "conclusion": {
-        "statement": "<bird --> animal>",
+        "statement": "(bird --> animal)",
         "truth": { "f": 1.0, "c": 0.9, "d": 0.0 }
       },
       "ruleName": "INPUT",
@@ -764,7 +764,7 @@ A key feature for explainability is the `derivationPath`. Here is an example of 
     },
     {
       "conclusion": {
-        "statement": "<penguin --> bird>",
+        "statement": "(penguin --> bird)",
         "truth": { "f": 1.0, "c": 0.9, "d": 0.0 }
       },
       "ruleName": "INPUT",
