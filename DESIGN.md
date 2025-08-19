@@ -122,6 +122,16 @@ The Cognitive Managers are specialized, pluggable modules that handle complex, c
     -   *Action*: Maintains a trace of derivations. When the public API's `explain()` method is called, this manager is queried to construct the explanation graph.
     -   *Injects*: Does not typically inject tasks; primarily responds to API requests.
 
+-   **Test Generation Manager**: Proactively ensures the system's reasoning capabilities are robust by identifying and filling gaps in its test coverage.
+    -   *Subscribes to*: `afterCycle`, `rule-utility-updated`.
+    -   *Action*: Periodically analyzes metrics to find under-utilized inference rules or concepts with low activity. It then formulates premises that would specifically trigger these rules.
+    -   *Injects*: Goals to execute under-tested components, logging the proposed test case for developer review. This is a key part of the system's "dogfooding" capability, allowing it to help improve its own quality.
+
+-   **Codebase Integrity Manager**: A specialized manager for self-analysis, responsible for ingesting the system's own source code and design documents to reason about their structure and consistency.
+    -   *Subscribes to*: This manager is typically triggered by a high-level goal, e.g., `goal: <(analyze, 'self.design')>`.
+    -   *Action*: Uses grounded functions to parse source files (`.js`), design documents (`.md`), and test specifications. It creates NAL beliefs representing the system's architecture, code quality metrics (e.g., cyclomatic complexity), and test statuses. It then compares this knowledge against a set of baked-in consistency rules (e.g., from `AGENTS.md`).
+    -   *Injects*: Goals to resolve detected inconsistencies between design and implementation, or to refactor code that violates quality guidelines. The output is a human-readable report or patch file.
+
 ## 2. Core Data Structures
 
 The core data structures will be designed as **immutable** objects where possible to ensure functional purity, thread safety, and predictable state management.
@@ -245,6 +255,9 @@ class TruthValue {
         // c_proj = c / (1 + log2(k)) where k is numComponents.
         // This is a more theoretically grounded formula.
         const c_proj = t.c / (1 + Math.log2(numComponents));
+        // Doubt is inherited directly from the parent. Projection reduces confidence because
+        // it represents a loss of specificity, but it doesn't introduce new sources of
+        // contradiction or ambiguity, so the original doubt level is maintained.
         return new TruthValue(t.f, c_proj, t.d);
     }
 
@@ -276,26 +289,35 @@ class Budget {
     constructor(priority: number, durability: number, quality: number);
 
     /**
-     * Dynamically allocates a budget for a new task.
+     * Dynamically allocates a budget for a new task using a configurable strategy.
      * @param context An object with factors like:
      *        - `type`: 'input', 'derived', 'goal'
      *        - `novelty`: How new is the information? [0, 1]
      *        - `urgency`: How time-sensitive is it? [0, 1]
      *        - `parentQuality`: Quality of the parent belief/task.
      *        - `ruleUtility`: The historical success rate of the deriving rule.
+     * @param config The system's budget allocation configuration.
      */
-    static dynamicAllocate(context: { type: string, novelty: number, urgency: number, parentQuality: number, ruleUtility?: number }): Budget {
+    static dynamicAllocate(
+        context: { type: string, novelty: number, urgency: number, parentQuality: number, ruleUtility?: number },
+        config: BudgetAllocationConfig
+    ): Budget {
         let priority = 0.5, durability = 0.5, quality = context.parentQuality;
         const utility = context.ruleUtility ?? 1.0;
-        if (context.type === 'input') {
-            priority = 0.7 * context.urgency + 0.3 * context.novelty;
-            durability = 0.5;
-        } else if (context.type === 'goal') {
-            priority = 0.9 * context.urgency;
-            durability = 0.9;
-        } else { // 'derived'
-            priority = (0.5 * context.parentQuality + 0.2 * context.novelty) * utility;
-            durability = (0.3 * context.parentQuality) * utility;
+
+        switch (context.type) {
+            case 'input':
+                priority = config.input.urgencyWeight * context.urgency + config.input.noveltyWeight * context.novelty;
+                durability = config.input.durability;
+                break;
+            case 'goal':
+                priority = config.goal.urgencyWeight * context.urgency;
+                durability = config.goal.durability;
+                break;
+            case 'derived':
+                priority = (config.derived.parentQualityWeight * context.parentQuality + config.derived.noveltyWeight * context.novelty) * utility;
+                durability = (config.derived.parentQualityWeightForDurability * context.parentQuality) * utility;
+                break;
         }
         return new Budget(priority, durability, quality);
     }
@@ -660,7 +682,8 @@ interface InferenceRule {
   canApply(task: Task, belief: Belief): boolean;
 
   // Applies the rule and returns a new derived Task, or null if not applicable.
-  apply(task: Task, belief: Belief): Task | null;
+  // It requires access to the kernel to retrieve configuration.
+  apply(task: Task, belief: Belief, kernel: any /* Kernel */): Task | null;
 }
 ```
 
@@ -696,7 +719,7 @@ class DeductionRule implements InferenceRule {
                s1.terms[0] === s2.terms[1]; // M matches
     }
 
-    apply(task: Task, belief: Belief): Task | null {
+    apply(task: Task, belief: Belief, kernel: any /* Kernel */): Task | null {
         if (!this.canApply(task, belief)) return null;
 
         const s1 = task.statement; // (M --> P)
@@ -738,7 +761,7 @@ class DeductionRule implements InferenceRule {
             urgency: urgency,
             parentQuality: quality_new,
             ruleUtility: this.utility
-        });
+        }, kernel.config.BUDGET_ALLOCATION_CONFIG);
 
         // 4. Create and return the new task
         const derivedTask: Task = {
@@ -782,7 +805,7 @@ class AbductionRule implements InferenceRule {
                s1.terms[1] === s2.terms[1]; // M matches
     }
 
-    apply(task: Task, belief: Belief): Task | null {
+    apply(task: Task, belief: Belief, kernel: any /* Kernel */): Task | null {
         if (!this.canApply(task, belief)) return null;
 
         const s1 = task.statement; // <P --> M>
@@ -810,7 +833,7 @@ class AbductionRule implements InferenceRule {
             urgency: (task.budget.priority) / 3, // Lower urgency due to hypothetical nature
             parentQuality: quality_new,
             ruleUtility: this.utility
-        });
+        }, kernel.config.BUDGET_ALLOCATION_CONFIG);
 
         // 4. Create and return the new task
         const derivedTask: Task = {
@@ -852,7 +875,7 @@ class InductionRule implements InferenceRule {
                s1.terms[0] === s2.terms[0]; // M matches
     }
 
-    apply(task: Task, belief: Belief): Task | null {
+    apply(task: Task, belief: Belief, kernel: any /* Kernel */): Task | null {
         if (!this.canApply(task, belief)) return null;
 
         const s1 = task.statement; // <M --> P>
@@ -881,7 +904,7 @@ class InductionRule implements InferenceRule {
             urgency: (task.budget.priority) / 2,
             parentQuality: quality_new,
             ruleUtility: this.utility
-        });
+        }, kernel.config.BUDGET_ALLOCATION_CONFIG);
 
         // 4. Create and return the new task
         const derivedTask: Task = {
@@ -900,42 +923,35 @@ The Memory System is the core of the system's knowledge base, structured as a dy
 
 -   **Concept Hypergraph**: The memory is structured as a **hypergraph**, a generalization of a graph in which an edge can join any number of vertices.
     -   **Vertices**: The vertices of the hypergraph are the `Concept` objects, each representing a unique `Term`.
-    -   **Hyperedges**: The hyperedges are the `Statement` objects. A `Statement` represents a relationship that can connect two or more `Concepts`. For example:
-        -   A simple inheritance statement like `<A --> B>` is a directed hyperedge connecting two vertices (Concept A and Concept B).
-        -   A conjunction statement like `<(&&, A, B, C) ==> D>` is a directed hyperedge connecting four vertices to one. This is where the hypergraph model becomes essential.
+    -   **Hyperedges**: The hyperedges are the `Statement` objects. A `Statement` represents a relationship that can connect two or more `Concepts`. While a standard inheritance statement like `<bird --> animal>` can be seen as a simple edge, the hypergraph model becomes essential for representing more complex, compositional knowledge. For example, a statement like `<(&&, mammal, has_wings) --> bat>` is a single hyperedge that connects three distinct concepts (`mammal`, `has_wings`, `bat`).
     -   This structure is "implicit" because the hyperedges (statements/beliefs) are stored within the `Concept` objects they are connected to, rather than in a separate, global edge list. This maintains the principle of locality. Concepts are stored in a central hash map, indexed by their `Term` for O(1) average-time lookup.
 
     **Hypergraph Visualization:**
-    The following diagram illustrates this concept. The hyperedges are represented by the small, colored squares, connecting multiple concept nodes together.
+    The following diagram illustrates how a complex belief is represented as a single hyperedge connecting multiple concepts. The central diamond represents the hyperedge for the statement `(<(&&, mammal, has_wings) --> bat>)`.
 
     ```mermaid
     graph TD
         subgraph "Concept Hypergraph Example"
-            A("Concept: bird")
-            B("Concept: animal")
-            C("Concept: flyer")
-            D("Concept: penguin")
-            E("Concept: not_a_flyer")
+            A("Concept: mammal")
+            B("Concept: has_wings")
+            C("Concept: bat")
 
-            H1( )
-            H2( )
+            Hyperedge{ }
 
-            A -- "subject" --> H1 -- "predicate" --> B
-            A -- "term" --> H2
-            D -- "negated term" --> H2
-            H2 -- "predicate" --> C
+            A -- "antecedent" --> Hyperedge
+            B -- "antecedent" --> Hyperedge
+            Hyperedge -- "consequent" --> C
 
-            subgraph "Legend"
+            subgraph Legend
                 direction LR
                 L1("Concept")
-                L2( )
-                L1 --- L2("Hyperedge")
+                L2{ }
+                L1---L2("Hyperedge (Statement)")
             end
         end
 
-        style H1 fill:#f9f,stroke:#333,stroke-width:2px,rx:5px,ry:5px
-        style H2 fill:#ccf,stroke:#333,stroke-width:2px,rx:5px,ry:5px
-        style L2 fill:#f9f,stroke:#333,stroke-width:2px,rx:5px,ry:5px
+        style Hyperedge fill:#ccf,stroke:#333,stroke-width:2px,rx:5px,ry:5px
+        style L2 fill:#ccf,stroke:#333,stroke-width:2px,rx:5px,ry:5px
     ```
 
 -   **Activation Spreading**: This is the mechanism for managing the system's focus of attention. When a concept is accessed, a portion of its activation energy is spread to related concepts.
@@ -1031,7 +1047,9 @@ When the `nalq` method receives a question containing a product term, for exampl
 3.  **On-the-Fly Inference:** The query engine triggers a temporary, focused inference process. It uses the retrieved beliefs as premises to derive knowledge about the product term. For example, from `<cat --> mammal>` and `<dog --> mammal>`, it could use the induction or intersection rules to infer `<(*, cat, dog) --> mammal>`.
 4.  **Answer Synthesis:** The results of this on-the-fly inference are synthesized into a final `Answer` object. These derived beliefs are treated as potential answers to the question. They are "ephemeral" and are not automatically added to the main belief space unless they are a direct consequence of a regular reasoning cycle.
 
-This approach ensures that the system can answer questions about relationships that are implicit in its knowledge base but not explicitly stored as a single belief, directly addressing the kind of issue highlighted in the `goal_oriented_contradiction.js` test.
+This approach ensures that the system can answer questions about relationships that are implicit in its knowledge base but not explicitly stored as a single belief.
+
+*Note: This on-the-fly inference mechanism is the specific solution designed to address the bug identified in the skipped test `goal_oriented_contradiction.js`, which involves failing to answer a query that requires reasoning about a NAL Product type.*
 
 ### API Data Structures
 
@@ -1257,6 +1275,23 @@ The system's behavior is heavily influenced by a set of configurable parameters 
 The system is initialized with a configuration object. The following TypeScript interface defines the structure and provides examples of default values for this object.
 
 ```typescript
+interface BudgetAllocationConfig {
+    input: {
+        urgencyWeight: number;   // default: 0.7
+        noveltyWeight: number;   // default: 0.3
+        durability: number;      // default: 0.5
+    };
+    goal: {
+        urgencyWeight: number;   // default: 0.9
+        durability: number;      // default: 0.9
+    };
+    derived: {
+        parentQualityWeight: number; // default: 0.5
+        noveltyWeight: number;       // default: 0.2
+        parentQualityWeightForDurability: number; // default: 0.3
+    };
+}
+
 interface SystemConfig {
     // Maximum number of concepts allowed in memory.
     // Once reached, the forgetting mechanism becomes more active.
@@ -1274,6 +1309,9 @@ interface SystemConfig {
         durability: number; // default: 0.5
         quality: number;    // default: 0.9
     };
+
+    // Tunable parameters for the dynamic budget allocation formula.
+    BUDGET_ALLOCATION_CONFIG: BudgetAllocationConfig;
 
     // Formulas for truth-value and budget calculations.
     // These can be overridden for experimentation.
@@ -1617,3 +1655,36 @@ While the core logic is designed to be consistent, the system should be defensiv
 
 -   **Assertion-Based Programming:** Critical functions will use assertions to validate their invariants. For example, the inference engine will assert that a rule only produces a task if its `canApply` method returned true.
 -   **Graceful Degradation:** In the event of a non-fatal internal error, the system will log the error and attempt to continue the reasoning cycle, skipping the failed operation. This is preferable to a full crash, in line with the principle of operating under insufficient resources (which includes imperfect code).
+
+## 15. Debugging and Diagnostics
+
+The emergent and non-deterministic nature of a NARS-like system makes debugging exceptionally challenging. To address this, the system will be designed from the ground up with a rich suite of built-in debugging and diagnostic tools. These tools are not afterthoughts but are integral to the system's architecture, accessible via the public API.
+
+### 1. Interactive REPL (Read-Eval-Print Loop)
+
+The system will expose an interactive REPL that allows a developer to "step inside" the system's mind. The REPL will provide commands to:
+-   **Inspect State**: `inspect concept <term>` to dump the full state of a concept, including all beliefs and tasks.
+-   **Trace Execution**: `trace <term>` to subscribe to all events related to a specific term, printing them to the console in real-time.
+-   **Manipulate State**: `inject <nal_statement>` to directly inject a task or belief, bypassing the standard API's overhead. `revise <statement_key> <new_truth_value>` to manually override a belief's truth value for "what-if" scenarios.
+-   **Control the Cycle**: Manually step through the reasoning cycle one step at a time (`step`) or a specified number of steps (`step <n>`).
+
+### 2. Verbose, Structured Logging
+
+The system will use a structured logging library (e.g., Pino, Winston) to emit detailed logs with different verbosity levels (`debug`, `info`, `warn`, `error`).
+-   **Log Payloads**: Every log entry will be a JSON object containing a timestamp, log level, a message, and a structured payload. For example, a `task-selected` event at the `debug` level would log the entire task object.
+-   **Correlation IDs**: When a task is created, it is assigned a unique ID. This ID is propagated to all derived tasks and included in all log messages related to that line of reasoning. This allows a developer to easily `grep` the logs to trace a single derivation chain from start to finish.
+
+### 3. Derivation Path Visualization
+
+The `ExplanationSystem` is primarily for user-facing explanations, but it can be leveraged for debugging. The `explain()` API method will include a `format: 'debug'` option.
+-   **Debug Format**: This format will return a highly detailed JSON or Graphviz DOT file representation of the derivation tree.
+-   **Rich Metadata**: Unlike the user-facing explanation, the debug format will include the `Budget`, `activation` levels, and `timestamps` at each step of the derivation. This allows a developer to visualize not just the logical flow, but also the flow of attention and resources that led to a conclusion.
+
+### 4. Sanity Check and Integrity Validation API
+
+The kernel will expose a `validateIntegrity()` method. This method performs a series of checks on the system's internal state to detect potential corruption or anomalous conditions.
+-   **Checks**:
+    -   Verifies that all `Beliefs` and `Tasks` are stored in the correct `Concept` based on their terms.
+    -   Checks for "zombie" tasks in queues (tasks with no corresponding concept).
+    -   Validates that all truth values and budget values are within their expected ranges (e.g., `0 <= f <= 1`).
+-   **Usage**: This can be called periodically or after a stressful operation to ensure the system's state has not been corrupted.
