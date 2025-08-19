@@ -41,30 +41,51 @@ The Reasoning Kernel will emit events at key points in the reasoning cycle. Cogn
 Managers can inject new tasks into the system via a dedicated `Kernel.addTask(task: Task): void` method. This is the primary mechanism for managers to influence the reasoning process.
 
 ### Component Diagram
-```
-+-------------------------------------------------+
-|              Application Layer (UI, API)        |
-+-------------------------------------------------+
-|                 Cognitive Managers              |
-| +-----------------+ +-------------------------+ |
-| | Goal Manager    | | Temporal Reasoner       | |
-| +-----------------+ +-------------------------+ |
-| | Learning Engine | | Contradiction Manager   | |
-| +-----------------+ +-------------------------+ |
-| | Meta Reasoner   | | Explanation System      | |
-| +-----------------+ +-------------------------+ |
-+-------------------------------------------------+
-|                   Reasoning Kernel              |
-| +-----------------+ +-------------------------+ |
-| | Control Unit    | | Inference Engine        | |
-| | (Reasoning Cycle) | | (NAL Rules)           | |
-| +-----------------+ +-------------------------+ |
-| |                 Memory System               | |
-| |                 (Concept Graph)             | |
-| +---------------------------------------------+ |
-+-------------------------------------------------+
-|             Symbol Grounding Interface          |
-+-------------------------------------------------+
+
+```mermaid
+graph TD
+    subgraph AppLayer [Application Layer]
+        direction TB
+        UI_API(UI, API)
+    end
+
+    subgraph CogManagers [Cognitive Managers]
+        direction LR
+        GoalManager(Goal Manager)
+        TemporalReasoner(Temporal Reasoner)
+        LearningEngine(Learning Engine)
+        ContradictionManager(Contradiction Manager)
+        MetaReasoner(Cognitive Executive)
+        ExplanationSystem(Explanation System)
+    end
+
+    subgraph Kernel [Reasoning Kernel]
+        direction TB
+        subgraph ControlInference [ ]
+            direction LR
+            ControlUnit(Control Unit / Cycle)
+            InferenceEngine(Inference Engine / NAL)
+        end
+        MemorySystem(Memory System / Concept Graph)
+    end
+
+    subgraph Grounding [Symbol Grounding Interface]
+        direction TB
+        GroundingInterface(Interface)
+    end
+
+    UI_API -- "Input/Queries" --> CogManagers
+    CogManagers -- "Injects Tasks" --> Kernel
+    Kernel -- "Emits Events" --> CogManagers
+    Kernel -- "Accesses/Modifies" --> MemorySystem
+    InferenceEngine -- "Applies Rules" --> MemorySystem
+    ControlUnit -- "Orchestrates" --> InferenceEngine
+    Kernel -- "Grounding Requests" --> Grounding
+    Grounding -- "Grounded Knowledge" --> Kernel
+
+    classDef default fill:#fff,stroke:#333,stroke-width:1.5px;
+    classDef layer fill:#f8f8f8,stroke:#666,stroke-width:2px,stroke-dasharray: 3 3;
+    class AppLayer,CogManagers,Kernel,Grounding layer;
 ```
 
 ### Cognitive Manager Roles
@@ -260,6 +281,16 @@ class Budget {
         return new Budget(priority, durability, quality);
     }
 
+    /**
+     * **Rationale for `dynamicAllocate`:**
+     *
+     * The `dynamicAllocate` function is designed to reflect the system's priorities based on the origin and nature of a task, in accordance with AIKR. The constants and weights are heuristics chosen to produce specific behaviors:
+     *
+     * -   **Input Tasks**: These are considered highly important and urgent as they represent new information from the external world. They receive a high `priority` (weighted towards `urgency`) to ensure they are processed quickly, but a moderate `durability` as their long-term importance is not yet known.
+     * -   **Goal Tasks**: These are the system's objectives and are given the highest `priority` and `durability` to ensure persistent focus on achieving them.
+     * -   **Derived Tasks**: The budget for these tasks is a function of the `parentQuality` (the confidence of the belief that generated them) and the historical `ruleUtility`. This crucial link ensures that the system allocates more resources to lines of reasoning that are well-founded and have proven effective in the past, while reducing focus on speculative or low-confidence derivations. The `novelty` factor provides a small boost to encourage exploration.
+     */
+
     // Merges budgets from parent tasks.
     static merge(b1: Budget, b2: Budget): Budget {
         // A simple averaging strategy. More sophisticated strategies could be used.
@@ -283,7 +314,30 @@ interface Task {
     readonly statement: Statement;
     readonly budget: Budget;
     readonly parentBeliefs: Belief[]; // Provenance/derivation history.
+    readonly stamp: Stamp; // Derivational stamp to prevent infinite loops.
 }
+
+### 2.1. The Derivational Stamp
+
+To prevent infinite reasoning loops (e.g., A -> B, B -> A) and redundant derivations, each `Task` carries a `Stamp`. The stamp records the IDs of the parent beliefs and tasks that contributed to its creation. Before an inference rule is applied, the system checks if the stamps of the two premises (the task and the belief) overlap. If they do, the inference is blocked, as it would mean re-deriving information from its own lineage.
+
+Two primary implementations of the `Stamp` can be considered:
+
+1.  **Evidential Base (OpenNARS-style):**
+    -   **Representation**: The stamp is an array of unique integer IDs, where each ID corresponds to an input belief or a specific derivation step.
+    -   **Merge Operation**: When two tasks/beliefs are merged, their stamp arrays are concatenated, and the resulting list is sorted and deduplicated.
+    -   **Overlap Check**: Overlap is detected by performing a linear scan or a more optimized intersection check on the two sorted arrays.
+    -   **Pros**: Guarantees perfect loop detection. The full derivation path is preserved.
+    -   **Cons**: Can become very large for long derivation chains, consuming significant memory and making the overlap check computationally expensive.
+
+2.  **Bloom Filter / Bitwise Representation:**
+    -   **Representation**: The stamp is a bitmask or a Bloom filter, a fixed-size probabilistic data structure. Each belief ID is hashed to one or more bit positions in the filter, which are then set to `1`.
+    -   **Merge Operation**: Merging two stamps is a simple, fast bitwise `OR` operation on their filters. `new_filter = filter1 | filter2`.
+    -   **Overlap Check**: Overlap is checked with a bitwise `AND` operation. If `(filter1 & filter2) !== 0`, there is a potential overlap.
+    -   **Pros**: Extremely fast and memory-efficient due to its fixed size.
+    -   **Cons**: Probabilistic. It can produce false positives (reporting an overlap where none exists), which would incorrectly block a valid inference path. The rate of false positives can be tuned by adjusting the size of the filter and the number of hash functions, but it can never be zero. It does not preserve the full derivation path.
+
+The choice between these two represents a classic trade-off between logical perfection and resource efficiency, a core theme in NARS. The system could even be configured to use one or the other based on the desired operational profile.
 
 // A node in the memory graph, representing a single Term.
 class Concept {
@@ -793,6 +847,39 @@ The Memory System is the core of the system's knowledge base, structured as a dy
         -   A conjunction statement like `<(&&, A, B, C) ==> D>` is a directed hyperedge connecting four vertices to one. This is where the hypergraph model becomes essential.
     -   This structure is "implicit" because the hyperedges (statements/beliefs) are stored within the `Concept` objects they are connected to, rather than in a separate, global edge list. This maintains the principle of locality. Concepts are stored in a central hash map, indexed by their `Term` for O(1) average-time lookup.
 
+    **Hypergraph Visualization:**
+    The following diagram illustrates this concept. The hyperedges are represented by the small, colored squares, connecting multiple concept nodes together.
+
+    ```mermaid
+    graph TD
+        subgraph "Concept Hypergraph Example"
+            A("Concept: bird")
+            B("Concept: animal")
+            C("Concept: flyer")
+            D("Concept: penguin")
+            E("Concept: not_a_flyer")
+
+            H1( )
+            H2( )
+
+            A -- "subject" --> H1 -- "predicate" --> B
+            A -- "term" --> H2
+            D -- "negated term" --> H2
+            H2 -- "predicate" --> C
+
+            subgraph "Legend"
+                direction LR
+                L1("Concept")
+                L2( )
+                L1 --- L2("Hyperedge")
+            end
+        end
+
+        style H1 fill:#f9f,stroke:#333,stroke-width:2px,rx:5px,ry:5px
+        style H2 fill:#ccf,stroke:#333,stroke-width:2px,rx:5px,ry:5px
+        style L2 fill:#f9f,stroke:#333,stroke-width:2px,rx:5px,ry:5px
+    ```
+
 -   **Activation Spreading**: This is the mechanism for managing the system's focus of attention. When a concept is accessed, a portion of its activation energy is spread to related concepts.
     -   `Activation_new(C) = Activation_old(C) * (1 - decay_rate) + Sum(Activation_in(S, C))`
     -   `Activation_in(S, C)` is the activation transferred from a source concept `S` to target `C`. This is calculated as: `Activation_in = task.budget.priority * belief.truth.confidence * relevance_factor`, where `relevance_factor` can be a constant or a function of the type of connection. The activation is then distributed among all connected concepts.
@@ -1112,7 +1199,38 @@ interface SystemConfig {
 
 While the core reasoning cycle is conceptually serial, the proposed architecture offers several opportunities for concurrent and parallel execution, which is crucial for scalability.
 
--   **Concept-Level Parallelism**: The primary unit of concurrency is the `Concept`. Since a single inference step only involves a task and a belief within one concept, operations on two different concepts are independent and can be parallelized. A potential implementation could use an **Actor Model**, where each `Concept` is an actor processing tasks from its own mailbox.
+-   **Concept-Level Parallelism**: The primary unit of concurrency is the `Concept`. Since a single inference step only involves a task and a belief within one concept, operations on two different concepts are independent and can be parallelized. A potential implementation could use an **Actor Model**, where each `Concept` is an actor. In this model, each actor encapsulates its own state (beliefs, task queue) and communicates with other actors via asynchronous messages. This naturally prevents race conditions and simplifies concurrent logic.
+
+    **Execution Flow with Actors:**
+    1.  The `ControlUnit` selects a `Concept` actor to process, based on its activation level.
+    2.  It sends a `ProcessTask` message to the chosen `Concept` actor.
+    3.  The `Concept` actor processes one task from its internal queue. This involves selecting a belief and applying inference rules.
+    4.  The inference process may generate new tasks destined for other concepts. For each new task, the `Concept` actor sends an `AddTask` message to the target `Concept` actor's mailbox.
+    5.  This allows multiple concepts to be processing tasks concurrently, with the `ControlUnit` orchestrating the overall flow of attention.
+
+    The following sequence diagram illustrates this concurrent interaction:
+
+    ```mermaid
+    sequenceDiagram
+        participant CU as ControlUnit
+        participant CA as Concept Actor A
+        participant CB as Concept Actor B
+        participant IC as InferenceCore
+
+        CU->>CA: ProcessTask message
+        activate CA
+        CA->>CA: Select task T1 & belief B1
+        CA->>IC: ApplyRules(T1, B1)
+        activate IC
+        IC-->>CA: Return derived tasks [T2, T3]
+        deactivate IC
+        CA-->>CB: AddTask message (Task T2)
+        Note right of CB: Task for Concept B is added to its mailbox
+        CA-->>CA: AddTask message (Task T3)
+        Note left of CA: Task for Concept A is added to its own mailbox
+        deactivate CA
+    ```
+
 -   **Event-Driven Asynchrony**: The event bus allows for asynchronous processing. For example, a `contradiction-detected` event can be handled by the `ContradictionManager` in a separate thread without blocking the main reasoning cycle, which can continue to process other, unrelated tasks.
 -   **Parallel Rule Application**: Within a single inference step, the matching of all possible inference rules against the selected task and belief can be done in parallel. A `Promise.all()` or similar parallel mapping approach can be used to apply all candidate rules concurrently.
 -   **I/O and Grounding**: All I/O operations, especially symbol grounding that may involve network requests or slow device access, must be fully asynchronous to prevent blocking the reasoning loop.
@@ -1191,6 +1309,46 @@ The `memory` object will contain a list of all concepts. Since the concept graph
 4.  **Reconstruct Beliefs and Tasks:** For each concept, the system iterates through its `beliefs` and `taskQueue` arrays, reconstructing each `Belief` and `Task` object from the serialized data.
 5.  **Re-link Provenance:** The `parentBeliefs` for tasks, which were stored as statement keys, are resolved to references to the newly reconstructed `Belief` objects. This re-establishes the derivation history.
 6.  **Ready State:** Once all concepts and their contents are loaded, the system is in the same state as when it was saved and is ready to resume operation.
+
+### Schema Versioning and Migration
+
+As the system evolves, its core data structures (`Statement`, `TruthValue`, `Budget`, etc.) may change. To ensure backward compatibility and allow the system to load state saved from older versions, a versioning and migration strategy is essential.
+
+1.  **Version Stamping:** The root of the serialized JSON state object will include a `version` field, corresponding to a semantic version number of the schema (e.g., `"version": "2.1.0"`).
+
+    ```json
+    {
+      "version": "2.1.0",
+      "timestamp": "...",
+      "config": { ... },
+      "memory": { ... }
+    }
+    ```
+
+2.  **Migration Logic:** During deserialization, the system will compare the `version` from the saved state with its own current schema version.
+    - If the versions match, deserialization proceeds as normal.
+    - If the saved state's version is older, the system will apply a series of migration functions in order. Each function will transform the state from one version to the next (e.g., `migrate_2_0_0_to_2_1_0(state)`).
+
+3.  **Migration Functions:** A migration function is a pure function that takes a state object of version `X` and returns a state object of version `Y`. For example, if a `doubt` property was added to `TruthValue` in version 2.1.0, the migrator would iterate through all beliefs and add the new property with a default value.
+
+    ```typescript
+    function migrate_2_0_0_to_2_1_0(oldState: StateV2_0_0): StateV2_1_0 {
+        // Deep clone the old state to avoid mutation
+        const newState = deepClone(oldState);
+        // Apply transformations
+        for (const concept of newState.memory.concepts) {
+            for (const belief of concept.beliefs) {
+                if (belief.truth.doubt === undefined) {
+                    belief.truth.doubt = 0; // Add new field with default
+                }
+            }
+        }
+        newState.version = "2.1.0";
+        return newState;
+    }
+    ```
+
+This approach ensures that the system can gracefully handle its own evolution, preserving learned knowledge across software updates.
 
 ## 11. Error Handling and System Resilience
 

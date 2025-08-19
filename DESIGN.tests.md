@@ -31,7 +31,7 @@ Tests fundamental NARS reasoning capabilities
 
 | Test | File | Description | Functionality Tested | Key Assertions |
 |------|------|-------------|----------------------|---------------|
-| 01 | `basic_inference.js` | Basic NAL parsing and forward-chaining | Inheritance, truth expectation | Tweety inherits flyer property with expectation >0.4 |
+| 01 | `basic_inference.js` | Verifies a simple, one-step forward inference chain (deduction). Given `A -> B` and `B -> C`, the system should conclude `A -> C`. | Inheritance, truth expectation | Tweety inherits flyer property with expectation >0.4 |
 | 06 | `advanced_derivations.js` | Property and induction inheritance | Concept property inheritance | Dog inherits fur property; Cat-Dog similarity derived |
 | 11 | `comprehensive_reasoning.js` | Complex scenario combining analogy, belief revision, and QA | Cross-functional reasoning | Confidence decreases after contradiction; Correct negative answer to query |
 | 25 | `advanced_concept_formation.js` | Abstract concept formation | Pattern generalization | Creates general rules from specific instances |
@@ -48,7 +48,7 @@ Tests evidence-based contradiction resolution
 
 | Test | File | Description | Functionality Tested | Key Assertions |
 |------|------|-------------|----------------------|---------------|
-| 02 | `contradiction.js` | Direct contradiction resolution | Belief revision | Expectation decreases after contradiction |
+| 02 | `contradiction.js` | Tests the system's ability to handle a direct contradiction. When a belief `A` is followed by `!A` (with similar, high confidence), the system should revise its belief in `A`, lowering its confidence and expectation. | Belief revision | Expectation decreases after contradiction |
 | 07 | `contradiction_handling.js` | Various contradiction scenarios | Contradiction detection | Strong contradictions resolved, weak ignored |
 | 20 | `advanced_contradiction.js` | Evidence-based belief revision | Confidence adjustment | Confidence decreases with contradictory evidence |
 | 29 | `inter_edge_contradiction.test.js` | Inter-edge contradictions | Conflict resolution | Resolves contradictions between different edges |
@@ -61,7 +61,7 @@ Tests time-based event handling
 
 | Test | File | Description | Functionality Tested | Key Assertions |
 |------|------|-------------|----------------------|---------------|
-| 03 | `temporal_reasoning.js` | Basic interval management | Temporal constraints | Correct 'during' relationship inferred |
+| 03 | `temporal_reasoning.js` | Validates reasoning over temporal intervals using Allen's Interval Algebra. Given two events with specific start and end times, the system should infer the correct qualitative relationship (e.g., 'during', 'meets', 'overlaps'). | Temporal constraints | Correct 'during' relationship inferred |
 | 09 | `temporal_reasoning_advanced.js` | Constraint propagation | Temporal chaining | Infers 'before' relation through event chain |
 | 18 | `temporal_paradox.js` | Temporal loop detection | Paradox identification | Detects contradictions in event sequences |
 | 27 | `temporal_paradoxes.js` | Advanced paradox handling | System stability | Prevents creation of contradictory constraints |
@@ -74,7 +74,7 @@ Tests knowledge acquisition and retention
 
 | Test | File | Description | Functionality Tested | Key Assertions |
 |------|------|-------------|----------------------|---------------|
-| 10 | `memory_management.js` | Capacity-based pruning | Memory decay | Low-priority beliefs pruned when over capacity |
+| 10 | `memory_management.js` | Tests the forgetting mechanism. When a concept's belief capacity is exceeded, the system must correctly identify and prune the belief with the lowest relevance (a function of confidence and activation). | Memory decay | Low-priority beliefs pruned when over capacity |
 | 17 | `learning_and_forgetting.js` | Long-term retention | Knowledge decay | Knowledge forgotten over time and re-learned |
 | 21.1 | `cross_functional.js` | Learning/forgetting interaction | Memory-engine integration | Belief budget decays and recovers appropriately |
 | 24 | `learning_with_contradictions.js` | Learning from failure | Belief revision | Rule confidence decreases after failed actions |
@@ -102,7 +102,7 @@ Tests higher-order cognitive functions
 
 | Test | File | Description | Functionality Tested | Key Assertions |
 |------|------|-------------|----------------------|---------------|
-| 05 | `explanation.js` | Explanation generation | Human-readable output | Produces non-empty explanation for belief |
+| 05 | `explanation.js` | Verifies that the system can generate a valid derivation path for a belief. The explanation should correctly trace the belief back to its parent premises and the inference rule used. | Human-readable output | Produces non-empty explanation for belief |
 | 33 | `analogy_and_metaphor.test.js` | Cross-domain mapping | Property transfer | Infers nucleus as gravitational center via analogy |
 | 40 | `analogical_reasoning.js` | Knowledge transfer | Structural similarity | Transfers properties between similar domains |
 | 47 | `paradox_handling.js` | Logical paradox resolution | System stability | Maintains stability with liar paradox |
@@ -149,6 +149,33 @@ Tests hypergraph consistency and operations
 | 65 | `concurrent_operations.test.js` | Concurrent modifications | Thread safety | Handles concurrent operations without corruption |
 
 ---
+
+## 3. Test Framework and Execution
+
+To ensure consistency and ease of use, the HyperNARS test suite will be built upon a standardized, modern JavaScript testing framework.
+
+-   **Test Runner**: **Jest** is the recommended test runner. Its features, including a built-in assertion library, mocking support, and parallel test execution, make it well-suited for this project's needs.
+-   **Test Location**: All test files will be co-located with the source files they are testing, using the `*.test.js` naming convention (e.g., `MemoryManager.js` and `MemoryManager.test.js`). The E2E scenario tests, located in the `src/tests/` directory, are an exception to this, as they test the behavior of the entire system.
+
+### Running Tests
+
+The following `npm` scripts should be configured in `package.json` to execute different parts of the test suite:
+
+-   `npm test`: Runs all unit and integration tests (files ending in `.test.js`). This is the primary command for developers to run during implementation.
+    ```bash
+    # Example command for package.json
+    "test": "jest"
+    ```
+-   `npm run test:e2e`: Runs the high-level end-to-end scenario tests from the `src/tests/` directory. These are longer-running tests and are typically run before a new release to ensure system-level correctness.
+    ```bash
+    # Example command for package.json
+    "test:e2e": "jest src/tests/"
+    ```
+-   `npm run test:coverage`: Runs all tests and generates a code coverage report, helping to identify untested parts of the codebase.
+    ```bash
+    # Example command for package.json
+    "test:coverage": "jest --coverage"
+    ```
 
 ## Special Notes
 
@@ -293,3 +320,25 @@ Feature: HyperNARS Core Reasoning Capabilities
     And the new rule "CUSTOM_TRANSITIVE_LOCATION_WEST_OF" is applied
     Then a new task for "<(new_york) --> (location, west_of, (beijing))>" should be derived
     And after the resulting belief is positively reinforced, the utility of the "CUSTOM_TRANSITIVE_LOCATION_WEST_OF" rule should increase
+
+  Scenario: Cross-Modal Reasoning via Symbol Grounding (CM-01)
+    Given the system has a symbol "image_sensor_output" grounded to a mock image recognition API
+    And the system knows that "<cat --> mammal>" with high confidence
+    And the mock API is configured to return the string "cat" when it receives the input "image_123.jpg"
+    When the system is given the procedural task "<(process_image, 'image_123.jpg') ==> <report_content>>"
+    And the symbol "process_image" is grounded to a handler that calls the mock API and injects the result as a new belief
+      # The handler will inject a belief like "<'image_123.jpg' --> cat>."
+    And the system runs for 100 steps
+    Then the system should derive a new belief "<'image_123.jpg' --> mammal>"
+    And when asked the question `nalq("<'image_123.jpg' --> ?what>.")`, the answer set should include "mammal"
+
+  Scenario: Resource Allocation Boundaries (RA-01)
+    Given the system's memory contains 100 beliefs with varying budget levels
+    And the system is given a new input task "T1" with a budget priority of 0.0
+    And the system is given another new input task "T2" with a budget priority of 0.99
+    When the system runs for 10 steps
+    Then task "T2" should be selected for processing before task "T1"
+    And the concept associated with task "T2" should have a higher activation level than the one for "T1"
+    And when the system's memory is at full capacity
+    And a new high-priority belief is added
+    Then the system should forget a belief that has a very low relevance score (a combination of low activation and low confidence)
