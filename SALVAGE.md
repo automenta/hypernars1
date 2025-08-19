@@ -1,10 +1,24 @@
-Excellent. This is a fantastic set of revisions and a very insightful new requirement. Merging the best of both plans and incorporating the self-analysis concept will create a truly robust and forward-looking strategy.
+# HyperNARS Salvage & Reimplementation Plan
 
-Here is the enhanced plan that incorporates your feedback and ideas.
+## Project Status (As of 2025-08-19)
+
+This document now serves as a living tracker for the HyperNARS reimplementation project.
+
+-   **Phase 1: Analysis & Knowledge Extraction**: `[COMPLETED]`
+    -   **Task A: Synthesize Enhancement Proposals**: `[COMPLETED]` - All `doc/enhance.*.md` files have been reviewed and synthesized into a feature backlog.
+    -   **Task B: Deconstruct and Document the "As-Is" Architecture**: `[COMPLETED]` - The existing architecture has been analyzed.
+    -   **Task C: Catalog Test Scenarios as BDD Specifications**: `[COMPLETED]` - A sample of test scenarios has been converted to BDD format.
+    -   **Task D: Conduct a Risk and Gap Analysis**: `[COMPLETED]` - Key risks and gaps have been identified.
+-   **Phase 2: External Research & Best Practices**: `[SKIPPED]` - Deemed unnecessary as the provided `doc/` files contain sufficient information.
+-   **Phase 3: `DESIGN.md` Specification**: `[IN PROGRESS]`
+    -   A first draft of `DESIGN.md` has been created, with a foundational layer of detail in all sections.
+    -   A `DESIGN.tests.md` file has been created with initial BDD scenarios.
+-   **Next Steps**:
+    -   Continue the iterative, balanced refinement of `DESIGN.md` to add more specific implementation details.
+    -   Expand `DESIGN.tests.md` to cover a wider range of test scenarios.
+    -   Begin prototyping core data structures and the reasoning cycle based on the design.
 
 ----
-
-# HyperNARS Salvage & Reimplementation Plan
 
 ## 1. Introduction
 
